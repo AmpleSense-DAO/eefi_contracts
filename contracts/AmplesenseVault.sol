@@ -42,10 +42,30 @@ contract EEFIToken is ERC20Burnable, Ownable {
     }
 }
 
+contract StakingERC20Ownable is StakingERC20, Ownable {
+    constructor(IERC20 _staking_token, uint256 decimals, IERC20 _reward_token)
+    Ownable()
+    StakingERC20(_staking_token, decimals, _reward_token) {}
+
+    function unstakeFrom(address account, uint256 amount) external onlyOwner {
+        _unstakeFrom(account, amount, "");
+    }
+}
+
+contract StakingOwnable is Staking, Ownable {
+    constructor(IERC20 token, uint256 decimals)
+    Ownable()
+    Staking(token, decimals) {}
+
+    function unstakeFrom(address payable account, uint256 amount) external onlyOwner {
+        _unstakeFrom(account, amount, "");
+    }
+}
+
 contract VaultRewards is Ownable {
 
-    StakingERC20 eefi_stake;
-    Staking eth_stake;
+    StakingERC20Ownable eefi_stake;
+    StakingOwnable eth_stake;
     EEFIStakingToken staking_token;
     EEFIStakingToken staking_token2;
     EEFIToken public eefi_token;
@@ -54,8 +74,17 @@ contract VaultRewards is Ownable {
         staking_token = new EEFIStakingToken();
         staking_token2 = new EEFIStakingToken();
         eefi_token = new EEFIToken();
-        eefi_stake = new StakingERC20(staking_token, 18, eefi_token);
-        eth_stake = new Staking(staking_token2, 18);
+        eefi_stake = new StakingERC20Ownable(staking_token, 18, eefi_token);
+        eth_stake = new StakingOwnable(staking_token2, 18);
+    }
+
+    function stakeFor(address account, uint256 amount) public onlyOwner {
+        eefi_stake.stakeFor(account, amount, "");
+        eth_stake.stakeFor(account, amount, "");
+    }
+
+    function unstake(address account, uint256 amount) public onlyOwner {
+        eefi_stake.unstakeFrom(account, amount);
     }
 
     function mintTo(address to, uint256 amount) public onlyOwner {
@@ -172,7 +201,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         return ampl_token.balanceOf(address(this)).mul(_shares[account]).div(total_shares);
     }
 
-    function do_deposit(uint256 amount) external {
+    function makeDeposit(uint256 amount) external {
         depositFor(msg.sender, amount);
     }
 
@@ -188,6 +217,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         
         _shares[account] = _shares[account].add(shares);
         total_shares = total_shares.add(shares);
+        // stake the shares also in the rewards pool
+        rewards.stakeFor(account, shares);
         emit Deposit(account, shares, _deposits[account].length);
     }
 
@@ -214,7 +245,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         }
 
         ampl_token.safeTransfer(msg.sender, to_withdraw);
-        //eefi_token.safeTransferFrom(address(this), msg.sender, to_withdraw_eefi);
+        // unstake the shares also from the rewards pool
+        rewards.unstake(msg.sender, shares);
     }
 
     function rebase() external {

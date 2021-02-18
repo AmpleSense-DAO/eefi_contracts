@@ -63,7 +63,7 @@ contract Staking is IERC900 {
         @param data Additional data as per the EIP900
     */
     function unstake(uint256 amount, bytes calldata data) external override {
-        _unstake(amount, data);
+        _unstakeFrom(msg.sender, amount, data);
         //make the transfer
         require(_token.transfer(msg.sender, amount),"ERC20 token transfer failed");
     }
@@ -73,7 +73,7 @@ contract Staking is IERC900 {
         @param amount Amount of ERC20 token to remove from the stake
     */
     function withdraw(uint256 amount) external {
-        _unstake(amount, "0x");
+        _unstakeFrom(msg.sender, amount, "0x");
         _stakeFor(msg.sender, amount, "0x");
     }
 
@@ -153,48 +153,43 @@ contract Staking is IERC900 {
 
     /**
         @dev Internally unstakes a certain amount of tokens, this SHOULD return the given amount of tokens to the addr, if unstaking is currently not possible the function MUST revert
+        @param account From whom
         @param amount Amount of ERC20 token to remove from the stake
         @param data Additional data as per the EIP900
     */
-    function _unstake(uint256 amount, bytes memory data) internal {
+    function _unstakeFrom(address payable account, uint256 amount, bytes memory data) internal {
+        require(account != address(0), "Invalid account");
         require(amount > 0, "Amount must be greater than zero");
-        require(amount <= _stakes[msg.sender], "You dont have enough staked");
-        uint256 to_reward = _getReward(msg.sender, amount);
+        require(amount <= _stakes[account], "You dont have enough staked");
+        uint256 to_reward = _getReward(account, amount);
         _total_staked = _total_staked.sub(amount);
-        _stakes[msg.sender] = _stakes[msg.sender].sub(amount);
-        if(_stakes[msg.sender] == 0) {
+        _stakes[account] = _stakes[account].sub(amount);
+        if(_stakes[account] == 0) {
             investor_count--;
         }
-        //take into account dust error during payment too
-        if(address(this).balance >= to_reward) {
-            msg.sender.transfer(to_reward);
-        } else {
-            //we cant pay the dust error, just void the balance
-            msg.sender.transfer(address(this).balance);
-        }
-        
-        emit Unstaked(msg.sender, amount, _total_staked, data);
+        account.transfer(to_reward);
+        emit Unstaked(account, amount, _total_staked, data);
     }
 
     /**
         @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the caller
-        @param addr Address who will own the stake afterwards
+        @param account Address who will own the stake afterwards
         @param amount Amount of ERC20 token to stake
         @param data Additional data as per the EIP900
     */
-    function _stakeFor(address addr, uint256 amount, bytes memory data) internal {
+    function _stakeFor(address account, uint256 amount, bytes memory data) internal {
+        require(account != address(0), "Invalid account");
         require(amount > 0, "Amount must be greater than zero");
-        require(addr != address(0));
         _total_staked = _total_staked.add(amount);
-        if(_stakes[addr] == 0) {
+        if(_stakes[account] == 0) {
             investor_count++;
         }
 
-        uint256 accumulated_reward = getReward(addr);
-        _stakes[addr] = _stakes[addr].add(amount);
+        uint256 accumulated_reward = getReward(account);
+        _stakes[account] = _stakes[account].add(amount);
         
-        uint256 new_bond_value = accumulated_reward.div(_stakes[addr].div(PRECISION));
-        _bond_value_addr[addr] = bond_value.sub(new_bond_value);
-        emit Staked(msg.sender, amount, _total_staked, data);
+        uint256 new_bond_value = accumulated_reward.div(_stakes[account].div(PRECISION));
+        _bond_value_addr[account] = bond_value.sub(new_bond_value);
+        emit Staked(account, amount, _total_staked, data);
     }
 }
