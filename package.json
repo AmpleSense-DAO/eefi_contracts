@@ -24,6 +24,7 @@
   "scripts": {
     "test": "npx hardhat test",
     "build": "npx hardhat compile",
-    "coverage": "truffle run coverage"
+    "deploy": "npx hardhat run scripts/deploy_test.js --network localhost",
+    "start" : "npx hardhat node"
   }
 }
