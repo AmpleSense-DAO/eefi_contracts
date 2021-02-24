@@ -12,6 +12,7 @@ async function main() {
     const vault = await vaultFactory.deploy(router.address, ampl.address, accounts[1].address, accounts[2].address, accounts[3].address);
 
     console.log("Vault deployed to:", vault.address);
+    console.log("AMPL deployed to:", ampl.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
