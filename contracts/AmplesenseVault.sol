@@ -118,6 +118,14 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         rewards.unstake(msg.sender, shares);
     }
 
+    /**
+     * @param account User address
+     * @return amount of shares owned by account
+     */
+    function totalStakedFor(address account) external view returns (uint256) {
+        return _shares[account];
+    }
+
     function rebase() external {
         //make sure this is not manipulable by sending ampl!
         require(block.timestamp - 24 hours > last_rebase_call, "rebase can only be called once every 24 hours");
