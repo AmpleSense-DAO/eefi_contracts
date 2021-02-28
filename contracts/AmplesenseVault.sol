@@ -66,7 +66,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         rewards = new VaultRewards();
     }
 
-    function balanceOf(address account) public returns(uint256 ampl) {
+    function balanceOf(address account) public view returns(uint256 ampl) {
+        if(total_shares == 0) return 0;
         return ampl_token.balanceOf(address(this)).mul(_shares[account]).div(total_shares);
     }
 
