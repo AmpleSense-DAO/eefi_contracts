@@ -121,9 +121,10 @@ contract VaultRewards is Ownable {
     /**
         @dev Returns how much ETH the user can withdraw currently
         @param account Address of the user to check reward for
-        @return the amount of ETH addr will perceive if he unstakes now
+        @return eth the amount of ETH the account will perceive if he unstakes now
+        @return token the amount of tokens the account will perceive if he unstakes now
     */
-    function getReward(address account) public view returns (uint256, uint256) {
+    function getReward(address account) public view returns (uint256 eth, uint256 token) {
         return _getReward(account,_stakes[account]);
     }
 
