@@ -13,6 +13,7 @@ async function main() {
 
     console.log("Vault deployed to:", vault.address);
     console.log("AMPL deployed to:", ampl.address);
+    console.log("Rewards contract deployed to:", await vault.rewards());
 }
 
 // We recommend this pattern to be able to use async/await everywhere
