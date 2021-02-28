@@ -100,7 +100,6 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         _shares[msg.sender] -= shares;
         total_shares -= shares;
 
-        uint256 deposits = _deposits[msg.sender].length;
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
