@@ -1,5 +1,9 @@
 const hre = require("hardhat");
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function main() {
     const accounts = await hre.ethers.getSigners();
     const erc20Factory = await hre.ethers.getContractFactory("FakeERC20");
@@ -14,6 +18,14 @@ async function main() {
     console.log("Vault deployed to:", vault.address);
     console.log("AMPL deployed to:", ampl.address);
     console.log("Rewards contract deployed to:", await vault.rewards());
+
+    // console.log("starting rebasing");
+    // while(true) {
+    //   await ampl.rebase(300);
+    //   await vault.rebase();
+    //   console.log("rebase done");
+    //   await sleep(2000);
+    // }
 }
 
 // We recommend this pattern to be able to use async/await everywhere

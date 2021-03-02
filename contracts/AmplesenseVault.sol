@@ -53,7 +53,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     mapping(address => DepositChunk[]) private _deposits;
     uint256 public total_shares = 0;
 
-    event Deposit(address indexed account, uint256 shares, uint256 length);
+    event Deposit(address indexed account, uint256 amount, uint256 length);
+    event Withdrawal(address indexed account, uint256 amount, uint256 length);
     
     constructor(IUniswapV2Router02 router, IERC20 ampl_token, address payable _pioneer_vault1, address payable _pioneer_vault2, address payable _staking_pool) UniswapTrader(router, ampl_token) Ownable() {
         pioneer_vault1 = _pioneer_vault1;
@@ -89,7 +90,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         total_shares = total_shares.add(shares);
         // stake the shares also in the rewards pool
         rewards.stakeFor(account, shares);
-        emit Deposit(account, shares, _deposits[account].length);
+        emit Deposit(account, amount, _deposits[account].length);
     }
 
     function withdraw(uint256 shares) external {
@@ -116,6 +117,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         ampl_token.safeTransfer(msg.sender, to_withdraw);
         // unstake the shares also from the rewards pool
         rewards.unstake(msg.sender, shares);
+        emit Withdrawal(msg.sender, to_withdraw,_deposits[msg.sender].length);
     }
 
     /**
@@ -127,6 +129,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     }
 
     function rebase() external {
+        if(total_shares == 0) return;
         //make sure this is not manipulable by sending ampl!
         require(block.timestamp - 24 hours > last_rebase_call, "rebase can only be called once every 24 hours");
         uint256 new_supply = ampl_token.totalSupply();
@@ -172,7 +175,6 @@ contract AmplesenseVault is UniswapTrader, Ownable {
 
     function _updateShares() internal {
         share_value = ampl_token.balanceOf(address(this)).mul(INITIAL_SHARE_VALUE).div(total_shares);
-        console.log("new share value", share_value);
     }
 
     function _popDeposit() internal {

@@ -40,7 +40,6 @@ contract VaultRewards is Ownable {
     }
 
     function stakeFor(address account, uint256 amount) public onlyOwner {
-        //create the stake for this amount
         _stakeFor(account, amount);
     }
 

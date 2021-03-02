@@ -39,9 +39,7 @@ contract Staking is IERC900 {
         @param data Additional data as per the EIP900
     */
     function stake(uint256 amount, bytes calldata data) external override {
-        //transfer the ERC20 token from the addr, he must have set an allowance of {amount} tokens
-        require(_token.transferFrom(msg.sender, address(this), amount), "ERC20 token transfer failed, did you forget to create an allowance?");
-        _stakeFor(msg.sender, amount, data);
+        stakeFor(msg.sender, amount, data);
     }
 
     /**
@@ -50,7 +48,7 @@ contract Staking is IERC900 {
         @param amount Amount of ERC20 token to stake
         @param data Additional data as per the EIP900
     */
-    function stakeFor(address addr, uint256 amount, bytes calldata data) external override {
+    function stakeFor(address addr, uint256 amount, bytes calldata data) public override {
         //transfer the ERC20 token from the addr, he must have set an allowance of {amount} tokens
         require(_token.transferFrom(msg.sender, address(this), amount), "ERC20 token transfer failed, did you forget to create an allowance?");
         //create the stake for this amount

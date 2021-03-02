@@ -6,4 +6,8 @@ contract FakeERC20 is ERC20 {
     constructor() public ERC20("fake", "fake") {
         _mint(msg.sender, 250000 * 10**18);
     }
+
+    function rebase(uint256 amount) external {
+        _mint(msg.sender, amount);
+    }
 }

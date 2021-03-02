@@ -46,8 +46,7 @@ contract StakingERC20 is IERC900 {
         @param data Additional data as per the EIP900
     */
     function stake(uint256 amount, bytes calldata data) external override {
-        staking_token.safeTransferFrom(msg.sender, address(this), amount);
-        _stakeFor(msg.sender, amount, data);
+        stakeFor(msg.sender, amount, data);
     }
 
     /**
@@ -56,7 +55,7 @@ contract StakingERC20 is IERC900 {
         @param amount Amount of ERC20 token to stake
         @param data Additional data as per the EIP900
     */
-    function stakeFor(address addr, uint256 amount, bytes calldata data) external override {
+    function stakeFor(address addr, uint256 amount, bytes calldata data) public override {
         staking_token.safeTransferFrom(msg.sender, address(this), amount);
         //create the stake for this amount
         _stakeFor(addr, amount, data);
