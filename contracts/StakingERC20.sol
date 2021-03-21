@@ -1,47 +1,41 @@
 pragma solidity ^0.7.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
-import "./IERC900.sol";
+import "./Distribute.sol";
+import "./interfaces/IERC900.sol";
 
 /**
- * An IERC900 staking contract for ERC20 tokens
+ * An IERC900 staking contract
  */
-contract StakingERC20 is IERC900 {
-    using SafeMath for uint256;
+contract StakingERC20 is IERC900  {
     using SafeERC20 for IERC20;
 
-    uint256 PRECISION;
+    /// @dev handle to access ERC20 token token contract to make transfers
+    IERC20 private _token;
+    Distribute public staking_contract_eth;
+    Distribute public staking_contract_token;
 
-    event Profit(uint256 amount);
+    event ProfitToken(uint256 amount);
+    event ProfitEth(uint256 amount);
 
-    uint256 public bond_value;
-    //just for info
-    uint256 public investor_count;
+    constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
+        _token = stake_token;
+        staking_contract_eth = new Distribute(decimals, IERC20(address(0)));
+        staking_contract_token = new Distribute(decimals, reward_token);
+    }
 
-    uint256 private _total_staked;
-    // the amount of dust left to distribute after the bond value has been updated
-    uint256 public to_distribute;
-    mapping(address => uint256) private _bond_value_addr;
-    mapping(address => uint256) private _stakes;
+    function distribute_eth() payable external {
+        staking_contract_eth.distribute{value : msg.value}(0, msg.sender);
+        emit ProfitEth(msg.value);
+    }
 
-    /// @dev token used for staking
-    IERC20 public staking_token;
-
-    /// @dev token to distribute
-    IERC20 public reward_token;
-
-    constructor(IERC20 _staking_token, uint256 decimals, IERC20 _reward_token) {
-        require(address(_staking_token) != address(0), "staking token is the zero address");
-        require(address(_reward_token) != address(0), "reward token is the zero address");
-        staking_token = _staking_token;
-        reward_token = _reward_token;
-        PRECISION = 10**decimals;
+    function distribute(uint256 amount) external {
+        staking_contract_token.distribute(amount, msg.sender);
+        emit ProfitToken(amount);
     }
     
     /**
-        @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the addr
+        @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the account
         @param amount Amount of ERC20 token to stake
         @param data Additional data as per the EIP900
     */
@@ -51,25 +45,28 @@ contract StakingERC20 is IERC900 {
 
     /**
         @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the caller
-        @param addr Address who will own the stake afterwards
+        @param account Address who will own the stake afterwards
         @param amount Amount of ERC20 token to stake
         @param data Additional data as per the EIP900
     */
-    function stakeFor(address addr, uint256 amount, bytes calldata data) public override {
-        staking_token.safeTransferFrom(msg.sender, address(this), amount);
-        //create the stake for this amount
-        _stakeFor(addr, amount, data);
+    function stakeFor(address account, uint256 amount, bytes calldata data) public override {
+        //transfer the ERC20 token from the account, he must have set an allowance of {amount} tokens
+        _token.safeTransferFrom(msg.sender, address(this), amount);
+        staking_contract_eth.stakeFor(account, amount);
+        staking_contract_token.stakeFor(account, amount);
+        emit Staked(account, amount, totalStakedFor(account), "");
     }
 
     /**
-        @dev Unstakes a certain amount of tokens, this SHOULD return the given amount of tokens to the addr, if unstaking is currently not possible the function MUST revert
+        @dev Unstakes a certain amount of tokens, this SHOULD return the given amount of tokens to the account, if unstaking is currently not possible the function MUST revert
         @param amount Amount of ERC20 token to remove from the stake
         @param data Additional data as per the EIP900
     */
     function unstake(uint256 amount, bytes calldata data) external override {
-        _unstakeFrom(msg.sender, amount, data);
-        //make the transfer
-        staking_token.safeTransfer(msg.sender, amount);
+        staking_contract_eth.unstakeFrom(msg.sender, amount);
+        staking_contract_token.unstakeFrom(msg.sender, amount);
+        _token.safeTransferFrom(address(this), msg.sender, amount);
+        emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), "");
     }
 
      /**
@@ -77,39 +74,17 @@ contract StakingERC20 is IERC900 {
         @param amount Amount of ERC20 token to remove from the stake
     */
     function withdraw(uint256 amount) external {
-        _unstakeFrom(msg.sender, amount, "0x");
-        _stakeFor(msg.sender, amount, "0x");
-    }
-
-    /**
-        @dev Called contracts to distribute dividends
-        Updates the bond value
-        * @param amount Amount of token to distribute
-    */
-    function distribute(uint256 amount) external {
-        //cant distribute when no stakers
-        require(_total_staked > 0, "no stakers yet");
-        require(amount > 0, "nothing to distribute");
-        //check our new erc20 balance and remove what we already have to distribute from it
-        reward_token.safeTransferFrom(msg.sender, address(this), amount);
-        //take into account the dust
-        uint256 temp_to_distribute = to_distribute.add(amount);
-        uint256 total_bonds = _total_staked.div(PRECISION);
-        uint256 bond_increase = temp_to_distribute.div(total_bonds);
-        uint256 distributed_total = total_bonds.mul(bond_increase);
-        bond_value = bond_value.add(bond_increase);
-        //collect the dust
-        to_distribute = temp_to_distribute.sub(distributed_total);
-        emit Profit(amount);
+        staking_contract_eth.withdraw(amount);
+        staking_contract_token.withdraw(amount);
     }
 
     /**
         @dev Returns the current total of tokens staked for an address
-        @param addr address owning the stake
+        @param account address owning the stake
         @return the total of staked tokens of this address
     */
-    function totalStakedFor(address addr) external view override returns (uint256) {
-        return _stakes[addr];
+    function totalStakedFor(address account) public view override returns (uint256) {
+        return staking_contract_eth.totalStakedFor(account);
     }
     
     /**
@@ -117,7 +92,7 @@ contract StakingERC20 is IERC900 {
         @return the total of staked tokens
     */
     function totalStaked() external view override returns (uint256) {
-        return _total_staked;
+        return staking_contract_eth.totalStaked();
     }
 
     /**
@@ -125,7 +100,7 @@ contract StakingERC20 is IERC900 {
         @return ERC20 token token address
     */
     function token() external view override returns (address) {
-        return address(staking_token);
+        return address(_token);
     }
 
     /**
@@ -138,68 +113,12 @@ contract StakingERC20 is IERC900 {
 
     /**
         @dev Returns how much ETH the user can withdraw currently
-        @param addr Address of the user to check reward for
-        @return the amount of ETH addr will perceive if he unstakes now
+        @param account Address of the user to check reward for
+        @return eth the amount of ETH the account will perceive if he unstakes now
+        @return token the amount of tokens the account will perceive if he unstakes now
     */
-    function getReward(address addr) public view returns (uint256) {
-        return _getReward(addr,_stakes[addr]);
-    }
-
-    /**
-        @dev Returns how much ETH the user can withdraw currently
-        @param addr Address of the user to check reward for
-        @param amount Number of stakes
-        @return the amount of ETH addr will perceive if he unstakes now
-    */
-    function _getReward(address addr, uint256 amount) internal view returns (uint256) {
-        return amount.mul(bond_value.sub(_bond_value_addr[addr])).div(PRECISION);
-    }
-
-    /**
-        @dev Internally unstakes a certain amount of tokens, this SHOULD return the given amount of tokens to the addr, if unstaking is currently not possible the function MUST revert
-        @param account From whom
-        @param amount Amount of ERC20 token to remove from the stake
-        @param data Additional data as per the EIP900
-    */
-    function _unstakeFrom(address account, uint256 amount, bytes memory data) internal virtual {
-        require(account != address(0), "Invalid account");
-        require(amount > 0, "Amount must be greater than zero");
-        require(amount <= _stakes[account], "Dont have enough staked");
-        uint256 to_reward = _getReward(account, amount);
-        _total_staked = _total_staked.sub(amount);
-        _stakes[account] = _stakes[account].sub(amount);
-        if(_stakes[account] == 0) {
-            investor_count--;
-        }
-        //take into account dust error during payment too
-        if(address(this).balance >= to_reward) {
-            reward_token.safeTransfer(account, to_reward);
-        } else {
-            //we cant pay the dust error, just void the balance
-            reward_token.safeTransfer(account, reward_token.balanceOf(address(this)));
-        }
-        emit Unstaked(account, amount, _total_staked, data);
-    }
-
-    /**
-        @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the caller
-        @param account Address who will own the stake afterwards
-        @param amount Amount of ERC20 token to stake
-        @param data Additional data as per the EIP900
-    */
-    function _stakeFor(address account, uint256 amount, bytes memory data) internal {
-        require(account != address(0), "Invalid account");
-        require(amount > 0, "Amount must be greater than zero");
-        _total_staked = _total_staked.add(amount);
-        if(_stakes[account] == 0) {
-            investor_count++;
-        }
-
-        uint256 accumulated_reward = getReward(account);
-        _stakes[account] = _stakes[account].add(amount);
-        
-        uint256 new_bond_value = accumulated_reward.div(_stakes[account].div(PRECISION));
-        _bond_value_addr[account] = bond_value.sub(new_bond_value);
-        emit Staked(account, amount, _total_staked, data);
+    function getReward(address account) public view returns (uint256 eth, uint256 token) {
+        eth = staking_contract_eth.getReward(account);
+        token = staking_contract_token.getReward(account);
     }
 }

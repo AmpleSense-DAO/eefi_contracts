@@ -1,0 +1,84 @@
+pragma solidity ^0.7.0;
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
+
+import './EEFIToken.sol';
+import './StakingERC20.sol';
+
+/**
+ * An IERC900 staking contract
+ */
+contract VaultRewards is Ownable, Staking {
+    using SafeMath for uint256;
+
+    EEFIToken public eefi_token;
+
+    constructor() Ownable() Staking() {
+        eefi_token = new EEFIToken();
+    }
+
+    function stakeFor(address account, uint256 amount) public onlyOwner {
+        distribute_token.stakeFor(account, amount);
+        distribute_eth.stakeFor(account, amount);
+    }
+
+    function unstakeFrom(address payable account, uint256 amount) public onlyOwner {
+        distribute_token.unstakeFrom(account, amount);
+        distribute_eth.unstakeFrom(account, amount);
+    }
+
+    function mintTo(address to, uint256 amount) public onlyOwner {
+        eefi_token.mint(to, amount);
+    }
+
+    function mint(uint256 amount) public onlyOwner {
+        mintTo(address(this), amount);
+        distribute_token.distribute(amount, msg.sender);
+        emit ProfitToken(amount);
+    }
+
+    function burn(uint256 amount) public onlyOwner {
+        eefi_token.burn(address(this), amount);
+    }
+
+    receive() payable external {
+        distribute_eth.distribute{value : msg.value}(0, msg.sender);
+        emit ProfitEth(msg.value);
+    }
+
+    function withdraw(uint256 amount) external {
+        distribute_token.withdraw(amount);
+        distribute_eth.withdraw(amount);
+    }
+
+    /**
+        @dev Returns the current total of tokens staked for an address
+        @param account address owning the stake
+        @return the total of staked tokens of this address
+    */
+    function totalStakedFor(address account) external view returns (uint256) {
+        return distribute_token.totalStakedFor(account);
+    }
+    
+    /**
+        @dev Returns the current total of tokens staked
+        @return the total of staked tokens
+    */
+    function totalStaked() external view returns (uint256) {
+        return distribute_token.totalStaked();
+    }
+
+    /**
+        @dev Returns how much ETH the user can withdraw currently
+        @param account Address of the user to check reward for
+        @return eth the amount of ETH the account will perceive if he unstakes now
+        @return token the amount of tokens the account will perceive if he unstakes now
+    */
+    function getReward(address account) public view returns (uint256 eth, uint256 token) {
+        eth = distribute_eth.getReward(account);
+        token = distribute_token.getReward(account);
+    }
+}

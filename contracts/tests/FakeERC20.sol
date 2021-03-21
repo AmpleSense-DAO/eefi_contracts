@@ -3,11 +3,16 @@ pragma solidity 0.7.6;
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
 contract FakeERC20 is ERC20 {
-    constructor() public ERC20("fake", "fake") {
-        _mint(msg.sender, 250000 * 10**18);
+    constructor(uint8 decimals_) public ERC20("fake", "fake") {
+        _setupDecimals(decimals_);
+        _mint(msg.sender, 250000 * 10**(decimals()));
     }
 
-    function rebase(uint256 amount) external {
-        _mint(msg.sender, amount);
+    function rebase(int256 amount) external {
+        if(amount > 0)
+            _mint(msg.sender, uint256(amount));
+        else {
+            _burn(msg.sender, uint256(-amount));
+        }
     }
 }
