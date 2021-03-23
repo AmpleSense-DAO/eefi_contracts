@@ -76,6 +76,8 @@ contract Distribute is Ownable {
         if(_stakes[account] == 0) {
             investor_count--;
         }
+
+        if(to_reward == 0) return;
         //take into account dust error during payment too
         if(address(reward_token) != address(0)) {
             reward_token.safeTransfer(account, to_reward);
