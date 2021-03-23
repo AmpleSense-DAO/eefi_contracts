@@ -86,6 +86,8 @@ contract StakingERC721 is IERC900  {
         @param amount Amount of ERC20 token to remove from the stake
     */
     function withdraw(uint256 amount) external {
+        if(amount == 0)
+            amount = totalStakedFor(msg.sender);
         staking_contract_eth.withdraw(amount);
         staking_contract_token.withdraw(amount);
     }
