@@ -1,27 +1,28 @@
 pragma solidity ^0.7.0;
 
-import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Enumerable.sol';
 import "./Distribute.sol";
 import "./interfaces/IERC900.sol";
 
 /**
  * An IERC900 staking contract
  */
-contract StakingERC20 is IERC900  {
+contract StakingERC721 is IERC900  {
     using SafeERC20 for IERC20;
 
-    /// @dev handle to access ERC20 token token contract to make transfers
-    IERC20 private _token;
+    /// @dev handle to access ERC721 token token contract to make transfers
+    IERC721 private _token;
     Distribute public staking_contract_eth;
     Distribute public staking_contract_token;
 
     event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);
 
-    constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
+    constructor(IERC721 stake_token, IERC20 reward_token) {
         _token = stake_token;
-        staking_contract_eth = new Distribute(decimals, IERC20(address(0)));
-        staking_contract_token = new Distribute(decimals, reward_token);
+        staking_contract_eth = new Distribute(0, IERC20(address(0)));
+        staking_contract_token = new Distribute(0, reward_token);
     }
 
     function distribute_eth() payable external {
@@ -51,7 +52,12 @@ contract StakingERC20 is IERC900  {
     */
     function stakeFor(address account, uint256 amount, bytes calldata data) public override {
         //transfer the ERC20 token from the account, he must have set an allowance of {amount} tokens
-        _token.safeTransferFrom(msg.sender, address(this), amount);
+        require(amount <= _token.balanceOf(account), "Unsufficient funds");
+        for(uint i = 0; i < amount; i++) {
+            uint256 id = IERC721Enumerable(address(_token)).tokenOfOwnerByIndex(account, i);
+            _token.transferFrom(account, address(this), id);
+        }
+        
         staking_contract_eth.stakeFor(account, amount);
         staking_contract_token.stakeFor(account, amount);
         emit Staked(account, amount, totalStakedFor(account), data);
@@ -65,7 +71,13 @@ contract StakingERC20 is IERC900  {
     function unstake(uint256 amount, bytes calldata data) external override {
         staking_contract_eth.unstakeFrom(msg.sender, amount);
         staking_contract_token.unstakeFrom(msg.sender, amount);
-        _token.safeTransferFrom(address(this), msg.sender, amount);
+
+        require(amount <= _token.balanceOf(address(this)), "Unsufficient funds");
+        for(uint i = 0; i < amount; i++) {
+            uint256 id = IERC721Enumerable(address(_token)).tokenOfOwnerByIndex(address(this), i);
+            _token.transferFrom(address(this), msg.sender, id);
+        }
+
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), data);
     }
 

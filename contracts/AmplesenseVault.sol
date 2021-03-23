@@ -37,6 +37,10 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 30;
 
     event Burn(uint256 amount);
+    event Claimed(address indexed account, uint256 eth, uint256 token);
+    event Deposit(address indexed account, uint256 amount, uint256 length);
+    event Withdrawal(address indexed account, uint256 amount, uint256 length);
+    event Rebase(uint256 last_ampl_supply, uint256 new_supply);
 
     //
     // Last AMPL total supply
@@ -52,8 +56,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
 
     mapping(address => DepositChunk[]) private _deposits;
 
-    event Deposit(address indexed account, uint256 amount, uint256 length);
-    event Withdrawal(address indexed account, uint256 amount, uint256 length);
+    
     
     constructor(IUniswapV2Router02 router, IERC20 ampl_token) UniswapTrader(router, ampl_token) Ownable() {
         last_ampl_supply = ampl_token.totalSupply();
@@ -68,10 +71,18 @@ contract AmplesenseVault is UniswapTrader, Ownable {
      * @return total amount of shares owned by account
      */
     function totalStakedFor(address account) public view returns (uint256 total) {
-        for(uint i = 0; i < _deposits[msg.sender].length; i++) {
-            total += _deposits[msg.sender][0].amount;
+        for(uint i = 0; i < _deposits[account].length; i++) {
+            total += _deposits[account][i].amount;
         }
         return total;
+    }
+
+    function totalClaimableBy(address account) public view returns (uint256 total) {
+        for(uint i = 0; i < _deposits[account].length; i++) {
+            if(_deposits[account][i].timestamp < block.timestamp.sub(LOCK_TIME)) {
+                total += _deposits[account][i].amount;
+            } else return total;
+        }
     }
 
     function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _staking_pool) external {
@@ -138,6 +149,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         require(rewards_eefi.totalStaked() > 0, "AmplesenseVault: rebase failed because no stakers");
         //make sure this is not manipulable by sending ampl!
         require(block.timestamp - 24 hours > last_rebase_call, "AmplesenseVault: rebase can only be called once every 24 hours");
+        last_rebase_call = block.timestamp;
         uint256 new_supply = ampl_token.totalSupply();
         if(new_supply > last_ampl_supply) {
             // positive rebase
@@ -172,8 +184,15 @@ contract AmplesenseVault is UniswapTrader, Ownable {
             eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
             rewards_eefi.distribute(to_mint, address(this));
         }
-
+        emit Rebase(last_ampl_supply, new_supply);
         last_ampl_supply = new_supply;
+    }
+
+    function claim() external {
+        (uint256 eth, uint256 token) = getReward(msg.sender);
+        rewards_eth.withdraw(eth);
+        rewards_eefi.withdraw(token);
+        emit Claimed(msg.sender, eth, token);
     }
 
         /**
