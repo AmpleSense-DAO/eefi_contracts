@@ -206,6 +206,13 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         token = rewards_eefi.getReward(account);
     }
 
+    /**
+        @return current staked
+    */
+    function totalStaked() external view returns (uint256) {
+        return rewards_eth.totalStaked();
+    }
+
     function _popDeposit() internal {
         for (uint i = 0; i < _deposits[msg.sender].length - 1; i++) {
             _deposits[msg.sender][0] = _deposits[msg.sender][i + 1];
