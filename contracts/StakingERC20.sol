@@ -65,7 +65,7 @@ contract StakingERC20 is IERC900  {
     function unstake(uint256 amount, bytes calldata data) external override {
         staking_contract_eth.unstakeFrom(msg.sender, amount);
         staking_contract_token.unstakeFrom(msg.sender, amount);
-        _token.safeTransferFrom(address(this), msg.sender, amount);
+        _token.safeTransfer(msg.sender, amount);
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), data);
     }
 
@@ -74,8 +74,8 @@ contract StakingERC20 is IERC900  {
         @param amount Amount of ERC20 token to remove from the stake
     */
     function withdraw(uint256 amount) external {
-        staking_contract_eth.withdraw(amount);
-        staking_contract_token.withdraw(amount);
+        staking_contract_eth.withdrawFrom(msg.sender, amount);
+        staking_contract_token.withdrawFrom(msg.sender,amount);
     }
 
     /**

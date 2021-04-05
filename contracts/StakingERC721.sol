@@ -1,95 +1,116 @@
 pragma solidity ^0.7.0;
 
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import '@openzeppelin/contracts/token/ERC721/IERC721Enumerable.sol';
 import "./Distribute.sol";
-import "./interfaces/IERC900.sol";
 
-/**
- * An IERC900 staking contract
- */
-contract StakingERC721 is IERC900  {
+contract StakingERC721  {
     using SafeERC20 for IERC20;
 
-    /// @dev handle to access ERC721 token token contract to make transfers
-    IERC721 private _token;
-    Distribute public staking_contract_eth;
-    Distribute public staking_contract_token;
+    /// @dev handle to access ERC721 token contract to make transfers
+    IERC721 public tokenA;
+    IERC721 public tokenB;
+    IERC20 public ampl;
+    Distribute public stakingContractEth;
+    mapping(address => uint256[]) public tokenOwnershipA;
+    mapping(address => uint256[]) public tokenOwnershipB;
 
-    event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);
+    event ReceivedAMPL(uint256 amount);
+    event Staked(address indexed account, uint256 amount, uint256 total);
+    event Unstaked(address indexed account, uint256 amount, uint256 total);
 
-    constructor(IERC721 stake_token, IERC20 reward_token) {
-        _token = stake_token;
-        staking_contract_eth = new Distribute(0, IERC20(address(0)));
-        staking_contract_token = new Distribute(0, reward_token);
+    constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _ampl) {
+        tokenA = _tokenA;
+        tokenB = _tokenB;
+        ampl = _ampl;
+        stakingContractEth = new Distribute(0, IERC20(address(0)));
     }
 
-    function distribute_eth() payable external {
-        staking_contract_eth.distribute{value : msg.value}(0, msg.sender);
+    function distribute_eth() payable public {
+        stakingContractEth.distribute{value : msg.value}(0, msg.sender);
         emit ProfitEth(msg.value);
     }
 
     function distribute(uint256 amount) external {
-        staking_contract_token.distribute(amount, msg.sender);
-        emit ProfitToken(amount);
+        ampl.safeTransferFrom(msg.sender, address(this), amount);
+        emit ReceivedAMPL(amount);
     }
     
     /**
         @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the account
-        @param amount Amount of ERC20 token to stake
-        @param data Additional data as per the EIP900
+        @param ids token ids to stake
+        @param isTokenA true if staking tokenA
     */
-    function stake(uint256 amount, bytes calldata data) external override {
-        stakeFor(msg.sender, amount, data);
+    function stake(uint256[] memory ids, bool isTokenA) external {
+        stakeFor(msg.sender, ids, isTokenA);
     }
 
     /**
         @dev Stakes a certain amount of tokens, this MUST transfer the given amount from the caller
         @param account Address who will own the stake afterwards
-        @param amount Amount of ERC20 token to stake
-        @param data Additional data as per the EIP900
+        @param ids token ids to stake
+        @param isTokenA true if staking tokenA
     */
-    function stakeFor(address account, uint256 amount, bytes calldata data) public override {
-        //transfer the ERC20 token from the account, he must have set an allowance of {amount} tokens
-        require(amount <= _token.balanceOf(account), "Unsufficient funds");
-        for(uint i = 0; i < amount; i++) {
-            uint256 id = IERC721Enumerable(address(_token)).tokenOfOwnerByIndex(account, i);
-            _token.transferFrom(account, address(this), id);
+    function stakeFor(address account, uint256[] memory ids, bool isTokenA) public {
+        //transfer tokens from the sender to the contract, allowance must be set in terms of isApprovedForAll
+        for(uint i = 0; i < ids.length; i++) {
+            
+            if(isTokenA) {
+                tokenOwnershipA[account].push(ids[i]);
+                tokenA.transferFrom(msg.sender, address(this), ids[i]);
+            }
+            else {
+                tokenOwnershipB[account].push(ids[i]);
+                tokenB.transferFrom(msg.sender, address(this), ids[i]);
+            }
         }
         
-        staking_contract_eth.stakeFor(account, amount);
-        staking_contract_token.stakeFor(account, amount);
-        emit Staked(account, amount, totalStakedFor(account), data);
+        stakingContractEth.stakeFor(account, ids.length);
+        
+        emit Staked(account, ids.length, totalStakedFor(account));
     }
 
     /**
         @dev Unstakes a certain amount of tokens, this SHOULD return the given amount of tokens to the account, if unstaking is currently not possible the function MUST revert
-        @param amount Amount of ERC20 token to remove from the stake
-        @param data Additional data as per the EIP900
+        @param amount Amount of tokens to remove from the stake
+        @param isTokenA true if unstaking tokenA
     */
-    function unstake(uint256 amount, bytes calldata data) external override {
-        staking_contract_eth.unstakeFrom(msg.sender, amount);
-        staking_contract_token.unstakeFrom(msg.sender, amount);
+    function unstake(uint256 amount, bool isTokenA) external {
+        stakingContractEth.unstakeFrom(msg.sender, amount);
 
-        require(amount <= _token.balanceOf(address(this)), "Unsufficient funds");
-        for(uint i = 0; i < amount; i++) {
-            uint256 id = IERC721Enumerable(address(_token)).tokenOfOwnerByIndex(address(this), i);
-            _token.transferFrom(address(this), msg.sender, id);
+        uint256[] storage tokens;
+        if(isTokenA)
+            tokens = tokenOwnershipA[msg.sender];
+        else
+            tokens = tokenOwnershipB[msg.sender];
+
+        for(uint i = tokens.length - 1; i >= 0; i--) {
+            uint256 id = tokens[i];
+            tokens.pop();
+            if(isTokenA)
+                tokenA.transferFrom(address(this), msg.sender, id);
+            else
+                tokenB.transferFrom(address(this), msg.sender, id);
         }
 
-        emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), data);
+        emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
     }
 
      /**
         @dev Withdraws rewards (basically unstake then restake)
-        @param amount Amount of ERC20 token to remove from the stake
+        @param amount Amount of token to remove from the stake
     */
     function withdraw(uint256 amount) external {
-        if(amount == 0)
-            amount = totalStakedFor(msg.sender);
-        staking_contract_eth.withdraw(amount);
-        staking_contract_token.withdraw(amount);
+        stakingContractEth.withdrawFrom(msg.sender, amount);
+    }
+
+    function rebase() external {
+        if(ampl.balanceOf(address(this)) > 40000 * 10**9) {
+            //sell for eth
+            uint256 ethAmount = 0;
+            stakingContractEth.distribute{value : ethAmount}(0, address(this));
+            emit ProfitEth(ethAmount);
+        }
     }
 
     /**
@@ -97,42 +118,24 @@ contract StakingERC721 is IERC900  {
         @param account address owning the stake
         @return the total of staked tokens of this address
     */
-    function totalStakedFor(address account) public view override returns (uint256) {
-        return staking_contract_eth.totalStakedFor(account);
+    function totalStakedFor(address account) public view returns (uint256) {
+        return stakingContractEth.totalStakedFor(account);
     }
     
     /**
         @dev Returns the current total of tokens staked
         @return the total of staked tokens
     */
-    function totalStaked() external view override returns (uint256) {
-        return staking_contract_eth.totalStaked();
-    }
-
-    /**
-        @dev Address of the token being used by the staking interface
-        @return ERC20 token token address
-    */
-    function token() external view override returns (address) {
-        return address(_token);
-    }
-
-    /**
-        @dev MUST return true if the optional history functions are implemented, otherwise false
-        We dont want this
-    */
-    function supportsHistory() external pure override returns (bool) {
-        return false;
+    function totalStaked() external view returns (uint256) {
+        return stakingContractEth.totalStaked();
     }
 
     /**
         @dev Returns how much ETH the user can withdraw currently
         @param account Address of the user to check reward for
         @return eth the amount of ETH the account will perceive if he unstakes now
-        @return token the amount of tokens the account will perceive if he unstakes now
     */
-    function getReward(address account) public view returns (uint256 eth, uint256 token) {
-        eth = staking_contract_eth.getReward(account);
-        token = staking_contract_token.getReward(account);
+    function getReward(address account) public view returns (uint256 eth) {
+        eth = stakingContractEth.getReward(account);
     }
 }

@@ -146,7 +146,6 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     }
 
     function rebase() external {
-        require(rewards_eefi.totalStaked() > 0, "AmplesenseVault: rebase failed because no stakers");
         //make sure this is not manipulable by sending ampl!
         require(block.timestamp - 24 hours > last_rebase_call, "AmplesenseVault: rebase can only be called once every 24 hours");
         last_rebase_call = block.timestamp;
@@ -175,7 +174,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
             staking_pool.distribute_eth{value: to_lp_staking}();
 
             // distribute ampl to pioneer 1
-            ampl_token.safeIncreaseAllowance(pioneer_vault1.staking_contract_token(), for_pioneer1);
+            ampl_token.approve(address(pioneer_vault1), for_pioneer1);
             pioneer_vault1.distribute(for_pioneer1);
         } else {
             // equal
@@ -190,8 +189,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
 
     function claim() external {
         (uint256 eth, uint256 token) = getReward(msg.sender);
-        rewards_eth.withdraw(eth);
-        rewards_eefi.withdraw(token);
+        rewards_eth.withdrawFrom(msg.sender, eth);
+        rewards_eefi.withdrawFrom(msg.sender, token);
         emit Claimed(msg.sender, eth, token);
     }
 

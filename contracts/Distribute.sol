@@ -23,6 +23,7 @@ contract Distribute is Ownable {
     uint256 public investor_count;
 
     uint256 private _total_staked;
+    uint256 private _temp_pool;
     // the amount of dust left to distribute after the bond value has been updated
     uint256 public to_distribute;
     mapping(address => uint256) private _bond_value_addr;
@@ -89,11 +90,12 @@ contract Distribute is Ownable {
 
      /**
         @dev Withdraws rewards (basically unstake then restake)
+        @param account From whom
         @param amount Amount to remove from the stake
     */
-    function withdraw(uint256 amount) external onlyOwner {
-        unstakeFrom(msg.sender, amount);
-        stakeFor(msg.sender, amount);
+    function withdrawFrom(address payable account, uint256 amount) external onlyOwner {
+        unstakeFrom(account, amount);
+        stakeFor(account, amount);
     }
 
     /**
@@ -103,13 +105,23 @@ contract Distribute is Ownable {
         @param from Address from which to take the token
     */
     function distribute(uint256 amount, address from) external payable onlyOwner {
-        //cant distribute when no stakers
-        require(_total_staked > 0, "Distribute: no stakers yet");
         if(address(reward_token) != address(0)) {
-            require(amount > 0, "Distribute: nothing to distribute");
+            if(amount == 0) return;
             reward_token.safeTransferFrom(from, address(this), amount);
         } else {
             amount = msg.value;
+        }
+
+        if(_total_staked == 0) {
+            //no stakes yet, put into temp pool
+            _temp_pool = _temp_pool.add(amount);
+            return;
+        }
+
+        // if a temp pool existed, add it to the current distribution
+        if(_temp_pool > 0) {
+            amount = amount.add(_temp_pool);
+            _temp_pool = 0;
         }
         
         uint256 temp_to_distribute = to_distribute.add(amount);

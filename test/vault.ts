@@ -3,8 +3,9 @@ import chai from "chai";
 import { solidity } from "ethereum-waffle";
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
 import { FakeERC20 } from "../typechain/FakeERC20";
+import { FakeERC721 } from "../typechain/FakeERC721";
 import { StakingERC20 } from "../typechain/StakingERC20";
-import { Distribute } from "../typechain/Distribute";
+import { StakingERC721 } from "../typechain/StakingERC721";
 import { BigNumber } from "ethers";
 
 chai.use(solidity);
@@ -20,30 +21,43 @@ describe("Vault", () => {
   let amplToken : FakeERC20;
   let kmplToken: FakeERC20;
   let eefiToken: FakeERC20;
-  let pioneer1 : StakingERC20;
+  let pioneer1 : StakingERC721;
   let pioneer2 : StakingERC20;
+  let pioneer3 : StakingERC20;
+  let nft1 : FakeERC721;
+  let nft2 : FakeERC721;
   let staking_pool : StakingERC20;
 
   beforeEach(async () => {
+    const erc20Factory = await ethers.getContractFactory("FakeERC20");
+    const erc721Factory = await ethers.getContractFactory("FakeERC721");
+    const uniswapRouterFactory = await ethers.getContractFactory("FakeUniswapV2Router02");
+    const vaultFactory = await ethers.getContractFactory("AmplesenseVault");
+    const stakingerc20Factory = await ethers.getContractFactory("StakingERC20");
+    const stakingerc721Factory = await ethers.getContractFactory("StakingERC721");
+
     const accounts = await ethers.getSigners();
     owner = await accounts[0].getAddress();
     other = await accounts[1].getAddress();
-    const erc20Factory = await ethers.getContractFactory("FakeERC20");
+    
     amplToken = await erc20Factory.deploy("9") as FakeERC20;
     kmplToken = await erc20Factory.deploy("9") as FakeERC20;
+    nft1 = await erc721Factory.deploy() as FakeERC721;
+    nft2 = await erc721Factory.deploy() as FakeERC721;
 
-    const uniswapRouterFactory = await ethers.getContractFactory("FakeUniswapV2Router02");
+    
     const router = await uniswapRouterFactory.deploy();
 
-    const vaultFactory = await ethers.getContractFactory("AmplesenseVault");
+    
     vault = await vaultFactory.deploy(router.address, amplToken.address) as AmplesenseVault;
 
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt("FakeERC20", eefiTokenAddress) as FakeERC20;
     
-    const stakingerc20Factory = await ethers.getContractFactory("StakingERC20");
-    pioneer1 = await stakingerc20Factory.deploy(amplToken.address, amplToken.address, 9) as StakingERC20;
+    
+    pioneer1 = await stakingerc721Factory.deploy(nft1.address, nft2.address, amplToken.address) as StakingERC721;
     pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
+    pioneer3 = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
     staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
     await vault.initialize(pioneer1.address, pioneer2.address, staking_pool.address);
   });
@@ -58,17 +72,6 @@ describe("Vault", () => {
   
       it("deposit shall fail if staking without creating ampl allowance first", async () => {
         await expect(vault.makeDeposit(10**9)).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
-      });
-  
-      it("deposit shall fail if pioneer2 has no stakers yet", async () => {
-        await amplToken.increaseAllowance(vault.address, 10**9);
-        await expect(vault.makeDeposit(10**9)).to.be.revertedWith("Distribute: no stakers yet");
-        //no allowance
-        await expect(pioneer2.stake(10**9, "0x")).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
-        //now stake
-        await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-        await pioneer2.stake(10**9, "0x");
-        await expect(vault.makeDeposit(10**9)).to.emit(vault, "Deposit").withArgs(owner,10**9,1);
       });
   
       it("deposit shall set the correct shares in the contracts", async () => {
@@ -101,24 +104,23 @@ describe("Vault", () => {
         await expect((await pioneer2.getReward(owner)).token).to.be.equal(fee);
         await expect((await eefiToken.balanceOf(owner))).to.be.equal(BigNumber.from(10**9 / 10**4).sub(fee));
       });
-  
-      it("rebasing shall revert because no stakers", async () => {
-        await expect(vault.rebase()).to.be.revertedWith("AmplesenseVault: rebase failed because no stakers");
-      });
     });
     
 
     describe("AmplesenseVault - rebasing", async() => {
 
       beforeEach(async () => {
-        //stake in all distribution contracts
+        //no longer needed to stake here
         await amplToken.increaseAllowance(vault.address, 10**9);
         await kmplToken.increaseAllowance(pioneer2.address, 10**9);
         await pioneer2.stake(10**9, "0x");
         await amplToken.increaseAllowance(staking_pool.address, 10**9);
         await staking_pool.stake(10**9, "0x");
         await amplToken.increaseAllowance(pioneer1.address, 10**9);
-        await pioneer1.stake(10**9, "0x");
+        await nft1.setApprovalForAll(pioneer1.address, true);
+        await nft2.setApprovalForAll(pioneer1.address, true);
+        await pioneer1.stake([0, 1], true);
+        await pioneer1.stake([0, 1], false);
 
         await vault.makeDeposit(10**9);
       });
@@ -156,7 +158,7 @@ describe("Vault", () => {
         await expect(receipt).to.emit(vault, "Sale_EEFI");
         await expect(receipt).to.emit(vault, "Sale_ETH");
         await expect(receipt).to.emit(vault, "Burn").withArgs(0);
-        await expect(receipt).to.emit(pioneer1, "ProfitToken").withArgs(BigNumber.from(500/100).mul(await vault.TRADE_POSITIVE_PIONEER1_100()));
+        await expect(receipt).to.emit(pioneer1, "ReceivedAMPL").withArgs(BigNumber.from(500/100).mul(await vault.TRADE_POSITIVE_PIONEER1_100()));
         await expect(receipt).to.emit(pioneer2, "ProfitEth").withArgs(0);
         await expect(receipt).to.emit(staking_pool, "ProfitEth").withArgs(0);
 
@@ -178,8 +180,12 @@ describe("Vault", () => {
         await pioneer2.stake(10**9, "0x");
         await amplToken.increaseAllowance(staking_pool.address, 10**9);
         await staking_pool.stake(10**9, "0x");
-        await amplToken.increaseAllowance(pioneer1.address, 10**9);
-        await pioneer1.stake(10**9, "0x");
+        
+        await nft1.setApprovalForAll(pioneer1.address, true);
+        await nft2.setApprovalForAll(pioneer1.address, true);
+        await pioneer1.stake([0, 1], true);
+        await pioneer1.stake([0, 1], false);
+
         await vault.makeDeposit(10**9);
         // now rebase
         await amplToken.rebase(500);
