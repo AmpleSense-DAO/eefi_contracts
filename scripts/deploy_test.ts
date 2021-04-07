@@ -14,7 +14,8 @@ async function main() {
   const stakingerc721Factory = await hre.ethers.getContractFactory("StakingERC721");
   let amplToken = await erc20Factory.deploy("9") as FakeERC20;
   let kmplToken = await erc20Factory.deploy("9") as FakeERC20;
-  let nft = await erc721Factory.deploy() as FakeERC721;
+  let nft1 = await erc721Factory.deploy() as FakeERC721;
+  let nft2 = await erc721Factory.deploy() as FakeERC721;
 
   let routerAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"; //on all nets
 
@@ -30,7 +31,7 @@ async function main() {
   let eefiTokenAddress = await vault.eefi_token();
   let eefiToken = await hre.ethers.getContractAt("FakeERC20", eefiTokenAddress) as FakeERC20;
 
-  let pioneer1 = await stakingerc721Factory.deploy(nft.address, amplToken.address) as StakingERC721;
+  let pioneer1 = await stakingerc721Factory.deploy(nft1.address, nft2.address, amplToken.address) as StakingERC721;
   let pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
   let staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
   await vault.initialize(pioneer1.address, pioneer2.address, staking_pool.address);
@@ -41,13 +42,16 @@ async function main() {
    await pioneer2.stake(10**9, "0x");
    await amplToken.increaseAllowance(staking_pool.address, 10**9);
    await staking_pool.stake(10**9, "0x");
-   await nft.setApprovalForAll(pioneer1.address, true);
-   await pioneer1.stake(1, "0x");
+
+   await nft1.setApprovalForAll(pioneer1.address, true);
+   await nft2.setApprovalForAll(pioneer1.address, true);
+   await pioneer1.stake([0, 1], true);
+   await pioneer1.stake([0, 1], false);
 
   console.log("Vault deployed to:", vault.address);
   console.log("AMPL deployed to:", amplToken.address);
   console.log("KMPL deployed to:", kmplToken.address);
-  console.log("NFT deployed to:", nft.address);
+  console.log("NFT deployed to:", nft1.address, nft2.address);
   console.log("Pioneer1 deployed to:", pioneer1.address);
   console.log("Pioneer2 deployed to:", pioneer2.address);
   console.log("LPStaking deployed to:", staking_pool.address);
