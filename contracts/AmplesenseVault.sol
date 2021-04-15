@@ -214,9 +214,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
 
     function _popDeposit() internal {
         for (uint i = 0; i < _deposits[msg.sender].length - 1; i++) {
-            _deposits[msg.sender][0] = _deposits[msg.sender][i + 1];
+            _deposits[msg.sender][i] = _deposits[msg.sender][i + 1];
         }
-        delete _deposits[msg.sender][_deposits[msg.sender].length - 1];
         _deposits[msg.sender].pop();
     }
 }
