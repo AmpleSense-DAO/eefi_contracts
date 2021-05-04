@@ -19,10 +19,12 @@ contract AmplesenseVault is UniswapTrader, Ownable {
 
     IStakingERC20 public pioneer_vault1;
     IStakingERC20 public pioneer_vault2;
+    IStakingERC20 public pioneer_vault3;
     IStakingERC20 public staking_pool;
     Distribute public rewards_eefi;
     Distribute public rewards_eth;
     EEFIToken public eefi_token;
+    address payable treasury;
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
@@ -32,9 +34,10 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 48;
     uint256 constant public TRADE_POSITIVE_ETH_100 = 20;
     uint256 constant public TRADE_POSITIVE_PIONEER1_100 = 2;
-    uint256 constant public TRADE_POSITIVE_REWARDS_100 = 60;
+    uint256 constant public TRADE_POSITIVE_REWARDS_100 = 45;
     uint256 constant public TRADE_POSITIVE_PIONEER2_100 = 10;
-    uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 30;
+    uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
+    uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
@@ -85,11 +88,13 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         }
     }
 
-    function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _staking_pool) external {
+    function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external {
         require(address(pioneer_vault1) == address(0), "AmplesenseVault: contract already initialized");
         pioneer_vault1 = _pioneer_vault1;
         pioneer_vault2 = _pioneer_vault2;
+        pioneer_vault3 = _pioneer_vault3;
         staking_pool = _staking_pool;
+        treasury = _treasury;
     }
 
     function balanceOf(address account) public view returns(uint256 ampl) {
@@ -168,14 +173,19 @@ contract AmplesenseVault is UniswapTrader, Ownable {
             percent = address(this).balance.div(100);
             uint256 to_rewards = percent.mul(TRADE_POSITIVE_REWARDS_100);
             uint256 to_pioneer2 = percent.mul(TRADE_POSITIVE_PIONEER2_100);
+            uint256 to_pioneer3 = percent.mul(TRADE_POSITIVE_PIONEER3_100);
             uint256 to_lp_staking = percent.mul(TRADE_POSITIVE_LPSTAKING_100);
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
+            pioneer_vault3.distribute_eth{value: to_pioneer3}();
             staking_pool.distribute_eth{value: to_lp_staking}();
 
             // distribute ampl to pioneer 1
             ampl_token.approve(address(pioneer_vault1), for_pioneer1);
             pioneer_vault1.distribute(for_pioneer1);
+
+            // distribute the remainder (5%) to the treasury
+            treasury.transfer(address(this).balance);
         } else {
             // equal
             uint256 to_mint = ampl_token.balanceOf(address(this)).div(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
