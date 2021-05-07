@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
-import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import "./Distribute.sol";
 import "./interfaces/IERC900.sol";
 

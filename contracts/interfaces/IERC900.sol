@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
 //https://github.com/ethereum/EIPs/blob/master/EIPS/eip-900.md

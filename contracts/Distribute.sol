@@ -1,8 +1,9 @@
+// SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import "@balancer-labs/balancer-core-v2/contracts/lib/math/Math.sol";
+import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/IERC20.sol";
+import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 import "hardhat/console.sol";
@@ -11,7 +12,7 @@ import "hardhat/console.sol";
  * staking contract for ERC20 tokens or ETH
  */
 contract Distribute is Ownable {
-    using SafeMath for uint256;
+    using Math for uint256;
     using SafeERC20 for IERC20;
 
     uint256 PRECISION;
@@ -58,7 +59,7 @@ contract Distribute is Ownable {
         uint256 accumulated_reward = getReward(account);
         _stakes[account] = _stakes[account].add(amount);
 
-        uint256 new_bond_value = accumulated_reward.div(_stakes[account]).div(PRECISION);
+        uint256 new_bond_value = accumulated_reward / _stakes[account] / PRECISION;
         _bond_value_addr[account] = bond_value.sub(new_bond_value);
     }
 
@@ -125,8 +126,8 @@ contract Distribute is Ownable {
         }
         
         uint256 temp_to_distribute = to_distribute.add(amount);
-        uint256 total_bonds = _total_staked.div(PRECISION);
-        uint256 bond_increase = temp_to_distribute.div(total_bonds);
+        uint256 total_bonds = _total_staked / PRECISION;
+        uint256 bond_increase = temp_to_distribute / total_bonds;
         uint256 distributed_total = total_bonds.mul(bond_increase);
         bond_value = bond_value.add(bond_increase);
         //collect the dust
@@ -165,6 +166,6 @@ contract Distribute is Ownable {
         @return the amount account will perceive if he unstakes now
     */
     function _getReward(address account, uint256 amount) internal view returns (uint256) {
-        return amount.mul(bond_value.sub(_bond_value_addr[account])).div(PRECISION);
+        return amount.mul(bond_value.sub(_bond_value_addr[account])) / PRECISION;
     }
 }

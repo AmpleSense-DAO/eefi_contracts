@@ -2,28 +2,27 @@
 pragma solidity ^0.7.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '@openzeppelin/contracts/math/SafeMath.sol';
-import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
+import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
+import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/ERC20Burnable.sol';
 
-import './UniswapTrader.sol';
+import './BalancerTrader.sol';
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 
 import 'hardhat/console.sol';
 
-contract AmplesenseVault is UniswapTrader, Ownable {
+contract AmplesenseVault is BalancerTrader, Ownable {
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
+    using Math for uint256;
 
     IStakingERC20 public pioneer_vault1;
     IStakingERC20 public pioneer_vault2;
     IStakingERC20 public pioneer_vault3;
     IStakingERC20 public staking_pool;
+    EEFIToken public eefi_token;
     Distribute public rewards_eefi;
     Distribute public rewards_eth;
-    EEFIToken public eefi_token;
     address payable treasury;
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
@@ -58,13 +57,11 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     }
 
     mapping(address => DepositChunk[]) private _deposits;
-
     
-    
-    constructor(IUniswapV2Router02 router, IERC20 ampl_token) UniswapTrader(router, ampl_token) Ownable() {
+    constructor(bytes32 ampl_usdc, bytes32 eefi_usdc, bytes32 usdc_weth, IERC20 ampl_token, address usdc_token, address vault)
+    BalancerTrader(ampl_usdc, eefi_usdc, usdc_weth, ampl_token, usdc_token, address(eefi_token = new EEFIToken()), vault) Ownable() {
         last_ampl_supply = ampl_token.totalSupply();
         last_rebase_call = block.timestamp;
-        eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
         rewards_eth = new Distribute(9, IERC20(0));
     }
@@ -100,7 +97,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
     function balanceOf(address account) public view returns(uint256 ampl) {
         if(rewards_eefi.totalStaked() == 0) return 0;
         uint256 ampl_balance = ampl_token.balanceOf(address(this));
-        ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)).div(rewards_eefi.totalStaked());
+        ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)) / rewards_eefi.totalStaked();
     }
 
     function makeDeposit(uint256 amount) external {
@@ -111,8 +108,8 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
-        uint256 to_mint = amount.div(EEFI_DEPOSIT_RATE);
-        uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).div(10000);
+        uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
+        uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000) / 10000;
         //send some eefi to pioneer vault 2
         eefi_token.mint(address(this), deposit_fee);
         eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
@@ -142,7 +139,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
             }
         }
         // compute the current ampl count representing user shares
-        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount).div(rewards_eefi.totalStaked());
+        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount) / rewards_eefi.totalStaked();
         ampl_token.safeTransfer(msg.sender, ampl_amount);
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
@@ -158,19 +155,19 @@ contract AmplesenseVault is UniswapTrader, Ownable {
         if(new_supply > last_ampl_supply) {
             // positive rebase
             uint256 surplus = new_supply.sub(last_ampl_supply);
-            uint256 percent = surplus.div(100);
+            uint256 percent = surplus / 100;
             uint256 for_eefi = percent.mul(TRADE_POSITIVE_EEFI_100);
             uint256 for_eth = percent.mul(TRADE_POSITIVE_ETH_100);
             uint256 for_pioneer1 = percent.mul(TRADE_POSITIVE_PIONEER1_100);
             //30% ampl remains
             // buy and burn eefi
-            _sellForToken(for_eefi, address(eefi_token));
+            _sellForToken(for_eefi);
             uint256 to_burn = eefi_token.balanceOf(address(this));
             eefi_token.burn(address(this), to_burn);
             emit Burn(to_burn);
             // buy eth and distribute
             _sellForEth(for_eth);
-            percent = address(this).balance.div(100);
+            percent = address(this).balance / 100;
             uint256 to_rewards = percent.mul(TRADE_POSITIVE_REWARDS_100);
             uint256 to_pioneer2 = percent.mul(TRADE_POSITIVE_PIONEER2_100);
             uint256 to_pioneer3 = percent.mul(TRADE_POSITIVE_PIONEER3_100);
@@ -188,7 +185,7 @@ contract AmplesenseVault is UniswapTrader, Ownable {
             treasury.transfer(address(this).balance);
         } else {
             // equal
-            uint256 to_mint = ampl_token.balanceOf(address(this)).div(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
+            uint256 to_mint = ampl_token.balanceOf(address(this)) / (new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
             eefi_token.mint(address(this), to_mint);
             eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
             rewards_eefi.distribute(to_mint, address(this));

@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
+import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/ERC20Burnable.sol';
 
 contract EEFIToken is ERC20Burnable, Ownable {
     constructor() 
