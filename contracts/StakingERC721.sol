@@ -105,15 +105,6 @@ contract StakingERC721  {
         stakingContractEth.withdrawFrom(msg.sender, amount);
     }
 
-    function rebase() external {
-        if(ampl.balanceOf(address(this)) > 40000 * 10**9) {
-            //sell for eth
-            uint256 ethAmount = 0;
-            stakingContractEth.distribute{value : ethAmount}(0, address(this));
-            emit ProfitEth(ethAmount);
-        }
-    }
-
     /**
         @dev Returns the current total of tokens staked for an address
         @param account address owning the stake

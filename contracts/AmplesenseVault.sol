@@ -9,10 +9,9 @@ import './BalancerTrader.sol';
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
+import './AMPLRebaser.sol';
 
-import 'hardhat/console.sol';
-
-contract AmplesenseVault is BalancerTrader, Ownable {
+contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -37,19 +36,12 @@ contract AmplesenseVault is BalancerTrader, Ownable {
     uint256 constant public TRADE_POSITIVE_PIONEER2_100 = 10;
     uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
+    uint256 constant public TREASURY_EEFI_100 = 10;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
     event Deposit(address indexed account, uint256 amount, uint256 length);
     event Withdrawal(address indexed account, uint256 amount, uint256 length);
-    event Rebase(uint256 last_ampl_supply, uint256 new_supply);
-
-    //
-    // Last AMPL total supply
-    //
-    uint256 public last_ampl_supply;
-
-    uint256 last_rebase_call;
 
     struct DepositChunk {
         uint256 amount;
@@ -59,9 +51,9 @@ contract AmplesenseVault is BalancerTrader, Ownable {
     mapping(address => DepositChunk[]) private _deposits;
     
     constructor(bytes32 ampl_usdc, bytes32 eefi_usdc, bytes32 usdc_weth, IERC20 ampl_token, address usdc_token, address vault)
-    BalancerTrader(ampl_usdc, eefi_usdc, usdc_weth, ampl_token, usdc_token, address(eefi_token = new EEFIToken()), vault) Ownable() {
-        last_ampl_supply = ampl_token.totalSupply();
-        last_rebase_call = block.timestamp;
+    BalancerTrader(ampl_usdc, eefi_usdc, usdc_weth, ampl_token, usdc_token, address(eefi_token = new EEFIToken()), vault)
+    AMPLRebaser(ampl_token)
+    Ownable() {
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
         rewards_eth = new Distribute(9, IERC20(0));
     }
@@ -97,7 +89,7 @@ contract AmplesenseVault is BalancerTrader, Ownable {
     function balanceOf(address account) public view returns(uint256 ampl) {
         if(rewards_eefi.totalStaked() == 0) return 0;
         uint256 ampl_balance = ampl_token.balanceOf(address(this));
-        ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)) / rewards_eefi.totalStaked();
+        ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)).divDown(rewards_eefi.totalStaked());
     }
 
     function makeDeposit(uint256 amount) external {
@@ -109,7 +101,7 @@ contract AmplesenseVault is BalancerTrader, Ownable {
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
-        uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000) / 10000;
+        uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         //send some eefi to pioneer vault 2
         eefi_token.mint(address(this), deposit_fee);
         eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
@@ -139,35 +131,37 @@ contract AmplesenseVault is BalancerTrader, Ownable {
             }
         }
         // compute the current ampl count representing user shares
-        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount) / rewards_eefi.totalStaked();
+        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount).divDown(rewards_eefi.totalStaked());
         ampl_token.safeTransfer(msg.sender, ampl_amount);
+        
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
         rewards_eth.unstakeFrom(msg.sender, amount);
         emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
     }
 
-    function rebase() external {
-        //make sure this is not manipulable by sending ampl!
-        require(block.timestamp - 24 hours > last_rebase_call, "AmplesenseVault: rebase can only be called once every 24 hours");
-        last_rebase_call = block.timestamp;
-        uint256 new_supply = ampl_token.totalSupply();
-        if(new_supply > last_ampl_supply) {
+    function _rebase(uint256 old_supply, uint256 new_supply) internal override {
+        uint256 new_balance = ampl_token.balanceOf(address(this));
+        
+        if(new_supply > old_supply) {
             // positive rebase
-            uint256 surplus = new_supply.sub(last_ampl_supply);
-            uint256 percent = surplus / 100;
+
+            uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
+            uint256 percent = surplus.divDown(100);
             uint256 for_eefi = percent.mul(TRADE_POSITIVE_EEFI_100);
             uint256 for_eth = percent.mul(TRADE_POSITIVE_ETH_100);
             uint256 for_pioneer1 = percent.mul(TRADE_POSITIVE_PIONEER1_100);
             //30% ampl remains
             // buy and burn eefi
             _sellForToken(for_eefi);
+            uint256 balance = eefi_token.balanceOf(address(this));
+            IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
             eefi_token.burn(address(this), to_burn);
             emit Burn(to_burn);
             // buy eth and distribute
             _sellForEth(for_eth);
-            percent = address(this).balance / 100;
+            percent = address(this).balance.divDown(100);
             uint256 to_rewards = percent.mul(TRADE_POSITIVE_REWARDS_100);
             uint256 to_pioneer2 = percent.mul(TRADE_POSITIVE_PIONEER2_100);
             uint256 to_pioneer3 = percent.mul(TRADE_POSITIVE_PIONEER3_100);
@@ -184,14 +178,12 @@ contract AmplesenseVault is BalancerTrader, Ownable {
             // distribute the remainder (5%) to the treasury
             treasury.transfer(address(this).balance);
         } else {
-            // equal
-            uint256 to_mint = ampl_token.balanceOf(address(this)) / (new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
+            // negative or equal
+            uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
             eefi_token.mint(address(this), to_mint);
             eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
             rewards_eefi.distribute(to_mint, address(this));
         }
-        emit Rebase(last_ampl_supply, new_supply);
-        last_ampl_supply = new_supply;
     }
 
     function claim() external {

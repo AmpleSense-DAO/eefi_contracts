@@ -115,11 +115,11 @@ contract StakingERC20 is IERC900  {
     /**
         @dev Returns how much ETH the user can withdraw currently
         @param account Address of the user to check reward for
-        @return eth the amount of ETH the account will perceive if he unstakes now
-        @return token the amount of tokens the account will perceive if he unstakes now
+        @return _eth the amount of ETH the account will perceive if he unstakes now
+        @return __token the amount of tokens the account will perceive if he unstakes now
     */
-    function getReward(address account) public view returns (uint256 eth, uint256 token) {
-        eth = staking_contract_eth.getReward(account);
-        token = staking_contract_token.getReward(account);
+    function getReward(address account) public view returns (uint256 _eth, uint256 __token) {
+        _eth = staking_contract_eth.getReward(account);
+        __token = staking_contract_token.getReward(account);
     }
 }

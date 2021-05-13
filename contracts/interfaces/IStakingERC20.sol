@@ -13,5 +13,5 @@ interface IStakingERC20  {
     function totalStaked() external view returns (uint256);
     function token() external view returns (address);
     function supportsHistory() external pure returns (bool);
-    function getReward(address account) external view returns (uint256 eth, uint256 token);
+    function getReward(address account) external view returns (uint256 _eth, uint256 _token);
 }
