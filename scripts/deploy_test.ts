@@ -33,13 +33,16 @@ async function main() {
 
   let pioneer1 = await stakingerc721Factory.deploy(nft1.address, nft2.address, amplToken.address) as StakingERC721;
   let pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
+  let pioneer3 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
   let staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
-  await vault.initialize(pioneer1.address, pioneer2.address, staking_pool.address);
+  await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0]);
 
    //stake in all distribution contracts
    await amplToken.increaseAllowance(vault.address, 10**9);
    await kmplToken.increaseAllowance(pioneer2.address, 10**9);
    await pioneer2.stake(10**9, "0x");
+   await kmplToken.increaseAllowance(pioneer3.address, 10**9);
+   await pioneer3.stake(10**9, "0x");
    await amplToken.increaseAllowance(staking_pool.address, 10**9);
    await staking_pool.stake(10**9, "0x");
 
@@ -54,6 +57,7 @@ async function main() {
   console.log("NFT deployed to:", nft1.address, nft2.address);
   console.log("Pioneer1 deployed to:", pioneer1.address);
   console.log("Pioneer2 deployed to:", pioneer2.address);
+  console.log("Pioneer3 deployed to:", pioneer3.address);
   console.log("LPStaking deployed to:", staking_pool.address);
 }
 
