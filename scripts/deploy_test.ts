@@ -4,6 +4,7 @@ import { FakeERC20 } from "../typechain/FakeERC20";
 import { FakeERC721 } from "../typechain/FakeERC721";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { StakingERC721 } from "../typechain/StakingERC721";
+import { BalancerTrader } from "../typechain/BalancerTrader";
 
 async function main() {
   const accounts = await hre.ethers.getSigners();
@@ -12,6 +13,8 @@ async function main() {
   const vaultFactory = await hre.ethers.getContractFactory("AmplesenseVault");
   const stakingerc20Factory = await hre.ethers.getContractFactory("StakingERC20");
   const stakingerc721Factory = await hre.ethers.getContractFactory("StakingERC721");
+  const balancerTraderFactory = await hre.ethers.getContractFactory("BalancerTrader");
+
   let amplToken = await erc20Factory.deploy("9") as FakeERC20;
   let kmplToken = await erc20Factory.deploy("9") as FakeERC20;
   let nft1 = await erc721Factory.deploy() as FakeERC721;
@@ -35,7 +38,10 @@ async function main() {
   let pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
   let pioneer3 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
   let staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
+  let balancer = await balancerTraderFactory.deploy(routerAddress, amplToken.address) as BalancerTrader;
+
   await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0]);
+  await balancer.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0]);
 
    //stake in all distribution contracts
    await amplToken.increaseAllowance(vault.address, 10**9);
@@ -59,6 +65,7 @@ async function main() {
   console.log("Pioneer2 deployed to:", pioneer2.address);
   console.log("Pioneer3 deployed to:", pioneer3.address);
   console.log("LPStaking deployed to:", staking_pool.address);
+  console.log("Balancer deployed to:", balancer.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
