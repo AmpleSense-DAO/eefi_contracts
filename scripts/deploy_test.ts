@@ -2,7 +2,8 @@ const hre = require("hardhat");
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
-import { FakeERC20 } from "../typechain/FakeERC20";
+import { EEFIToken } from "../typechain/EEFIToken";
+import { MockTrader } from "../typechain/MockTrader";
 import { deployTokens } from "./utils/deploy_tokens";
 
 async function main() {
@@ -11,6 +12,7 @@ async function main() {
   const vaultFactory = await hre.ethers.getContractFactory("AmplesenseVault");
   const stakingerc20Factory = await hre.ethers.getContractFactory("StakingERC20");
   const stakingerc721Factory = await hre.ethers.getContractFactory("Pioneer1Vault");
+  const traderFactory = await hre.ethers.getContractFactory("MockTrader");
 
   if(hre.network.name == "localhost") {
 
@@ -21,7 +23,7 @@ async function main() {
   let vault = await vaultFactory.deploy(tokens.ampl.address) as AmplesenseVault;
 
   let eefiTokenAddress = await vault.eefi_token();
-  let eefiToken = await hre.ethers.getContractAt("FakeERC20", eefiTokenAddress) as FakeERC20;
+  let eefiToken = await hre.ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
 
   let pioneer1 = await stakingerc721Factory.deploy(tokens.nft1.address, tokens.nft2.address, tokens.ampl.address) as Pioneer1Vault;
   let pioneer2 = await stakingerc20Factory.deploy(tokens.kmpl.address, eefiTokenAddress, 9) as StakingERC20;
@@ -30,6 +32,15 @@ async function main() {
 
   await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0].address);
 
+  let trader = await traderFactory.deploy(tokens.ampl.address, eefiTokenAddress, hre.ethers.utils.parseUnits("0.001", "ether"), hre.ethers.utils.parseUnits("0.1", "ether")) as MockTrader;
+
+  await vault.TESTMINT(50000 * 10**9, trader.address);
+  await accounts[0].sendTransaction({
+    to: trader.address,
+    value: hre.ethers.utils.parseEther("10.0")
+  });
+  await vault.setTrader(trader.address);
+  await pioneer1.setTrader(trader.address);
    //stake in all distribution contracts
    
    await tokens.nft1.setApprovalForAll(pioneer1.address, true);

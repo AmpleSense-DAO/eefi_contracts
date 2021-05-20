@@ -50,6 +50,10 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     }
 
     mapping(address => DepositChunk[]) private _deposits;
+    // ONLY TEST
+    function TESTMINT(uint256 amount, address who) external onlyOwner() {
+        eefi_token.mint(who, amount);
+    }
     
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
