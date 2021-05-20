@@ -47,7 +47,7 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
 
     function _toSell(uint256 amount) internal view returns (uint256) {
         uint256 percentage = (END_PERCENT - START_PERCENT).mul(Math.min(amount, CAP)).divDown(CAP) + START_PERCENT;
-        return amount.mul(amount).divDown(100);
+        return percentage.mul(amount).divDown(100);
     }
 
 }

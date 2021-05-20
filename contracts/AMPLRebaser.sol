@@ -18,7 +18,7 @@ contract AMPLRebaser {
 
     constructor(IERC20 ampl_token) {
         require(address(ampl_token) != address(0), "AMPLRebaser: Invalid ampl token address");
-        _ampl_token = _ampl_token;
+        _ampl_token = ampl_token;
         last_ampl_supply = _ampl_token.totalSupply();
         last_rebase_call = block.timestamp;
     }
