@@ -5,13 +5,13 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/ERC20Burnable.sol';
 
-import './BalancerTrader.sol';
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
+import "./interfaces/IBalancerTrader.sol";
 
-contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
+contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -19,6 +19,7 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
     IStakingERC20 public pioneer_vault2;
     IStakingERC20 public pioneer_vault3;
     IStakingERC20 public staking_pool;
+    IBalancerTrader public trader;
     EEFIToken public eefi_token;
     Distribute public rewards_eefi;
     Distribute public rewards_eth;
@@ -50,12 +51,12 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
 
     mapping(address => DepositChunk[]) private _deposits;
     
-    constructor(bytes32 ampl_usdc, bytes32 eefi_usdc, bytes32 usdc_weth, IERC20 ampl_token, address usdc_token, address vault)
-    BalancerTrader(ampl_usdc, eefi_usdc, usdc_weth, ampl_token, usdc_token, address(eefi_token = new EEFIToken()), vault)
+    constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Ownable() {
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
         rewards_eth = new Distribute(9, IERC20(0));
+        eefi_token = new EEFIToken();
     }
 
     /**
@@ -77,7 +78,9 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
         }
     }
 
-    function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external {
+    function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external
+    onlyOwner() 
+    {
         require(address(pioneer_vault1) == address(0), "AmplesenseVault: contract already initialized");
         pioneer_vault1 = _pioneer_vault1;
         pioneer_vault2 = _pioneer_vault2;
@@ -86,9 +89,14 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
         treasury = _treasury;
     }
 
+    function setTrader(IBalancerTrader _trader) external onlyOwner() {
+        require(address(_trader) != address(0), "AmplesenseVault: invalid trader");
+        trader = _trader;
+    }
+
     function balanceOf(address account) public view returns(uint256 ampl) {
         if(rewards_eefi.totalStaked() == 0) return 0;
-        uint256 ampl_balance = ampl_token.balanceOf(address(this));
+        uint256 ampl_balance = _ampl_token.balanceOf(address(this));
         ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)).divDown(rewards_eefi.totalStaked());
     }
 
@@ -97,7 +105,7 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
     }
 
     function depositFor(address account, uint256 amount) public {
-        ampl_token.safeTransferFrom(msg.sender, address(this), amount);
+        _ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
@@ -131,8 +139,8 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
             }
         }
         // compute the current ampl count representing user shares
-        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount).divDown(rewards_eefi.totalStaked());
-        ampl_token.safeTransfer(msg.sender, ampl_amount);
+        uint256 ampl_amount = _ampl_token.balanceOf(address(this)).mul(amount).divDown(rewards_eefi.totalStaked());
+        _ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
@@ -141,10 +149,11 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
     }
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
-        uint256 new_balance = ampl_token.balanceOf(address(this));
+        uint256 new_balance = _ampl_token.balanceOf(address(this));
         
         if(new_supply > old_supply) {
             // positive rebase
+            require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
             uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
             uint256 percent = surplus.divDown(100);
@@ -153,14 +162,15 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
             uint256 for_pioneer1 = percent.mul(TRADE_POSITIVE_PIONEER1_100);
             //30% ampl remains
             // buy and burn eefi
-            _sellForToken(for_eefi);
+            _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
+            trader.sellAMPLForEEFI(for_eefi);
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
             eefi_token.burn(address(this), to_burn);
             emit Burn(to_burn);
             // buy eth and distribute
-            _sellForEth(for_eth);
+            trader.sellAMPLForEth(for_eth);
             percent = address(this).balance.divDown(100);
             uint256 to_rewards = percent.mul(TRADE_POSITIVE_REWARDS_100);
             uint256 to_pioneer2 = percent.mul(TRADE_POSITIVE_PIONEER2_100);
@@ -172,7 +182,7 @@ contract AmplesenseVault is BalancerTrader, AMPLRebaser, Ownable {
             staking_pool.distribute_eth{value: to_lp_staking}();
 
             // distribute ampl to pioneer 1
-            ampl_token.approve(address(pioneer_vault1), for_pioneer1);
+            _ampl_token.approve(address(pioneer_vault1), for_pioneer1);
             pioneer_vault1.distribute(for_pioneer1);
 
             // distribute the remainder (5%) to the treasury

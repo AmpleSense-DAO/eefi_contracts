@@ -4,8 +4,9 @@ pragma abicoder v2;
 
 import "@balancer-labs/balancer-core-v2/contracts/vault/interfaces/IVault.sol";
 import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol";
+import "./interfaces/IBalancerTrader.sol";
 
-contract BalancerTrader {
+contract BalancerTrader is IBalancerTrader {
 
     using SafeERC20 for IERC20;
 
@@ -14,30 +15,29 @@ contract BalancerTrader {
     bytes32 usdc_weth;
     IVault vault;
     IERC20 public ampl_token;
+    IERC20 public eefi_token;
 
     IAsset[] assets_ampl_eefi;
     IAsset[] assets_ampl_eth;
 
-    event Sale_EEFI(uint256 ampl_amount, uint256 eefi_amount);
-    event Sale_ETH(uint256 ampl_amount, uint256 eth_amount);
-
-    constructor(bytes32 _ampl_usdc, bytes32 _eefi_usdc, bytes32 _usdc_weth, IERC20 _ampl_token, address usdc_token, address eefi_token, address _vault) {
+    constructor(bytes32 _ampl_usdc, bytes32 _eefi_usdc, bytes32 _usdc_weth, IERC20 _ampl_token, address usdc_token, IERC20 _eefi_token, address _vault) {
         require(address(_ampl_token) != address(0), "BalancerTrader: Invalid ampl token address");
         require(usdc_token != address(0), "BalancerTrader: Invalid usdc token address");
-        require(eefi_token != address(0), "BalancerTrader: Invalid eefi token address");
+        require(address(_eefi_token) != address(0), "BalancerTrader: Invalid eefi token address");
         require(_vault != address(0), "BalancerTrader: Invalid vault address");
         ampl_usdc = _ampl_usdc;
         eefi_usdc = _eefi_usdc;
         usdc_weth = _usdc_weth;
 
         ampl_token = _ampl_token;
+        eefi_token = _eefi_token;
         vault = IVault(_vault);
 
         // cache assets arrays for balancer
         assets_ampl_eefi = new IAsset[](3);
         assets_ampl_eefi[0] = IAsset(address(ampl_token));
         assets_ampl_eefi[1] = IAsset(usdc_token);
-        assets_ampl_eefi[2] = IAsset(eefi_token);
+        assets_ampl_eefi[2] = IAsset(address(_eefi_token));
 
         assets_ampl_eth = new IAsset[](3);
         assets_ampl_eth[0] = IAsset(address(ampl_token));
@@ -45,7 +45,10 @@ contract BalancerTrader {
         //assets_ampl_eth[2] = 0;
     }
 
-    function _sellForEth(uint256 amount) internal {
+    /**
+    * @dev Caller must transfer the right amount of tokens to the trader
+     */
+    function sellAMPLForEth(uint256 amount) external override returns (uint256 ethAmount) {
         require(ampl_token.approve(address(vault), amount), 'BalancerTrader: Approval failed');
         IVault.BatchSwapStep[] memory swaps = new IVault.BatchSwapStep[](2);
         int256[] memory limits = new int256[](3);
@@ -65,11 +68,16 @@ contract BalancerTrader {
         limits,
         block.timestamp
         );
-        
-        emit Sale_ETH(amount, uint256(token_swaps[1]));
+
+        ethAmount = uint256(token_swaps[1]);
+        msg.sender.transfer(ethAmount);
+        emit Sale_ETH(amount, ethAmount);
     }
 
-    function _sellForToken(uint256 amount) internal {
+    /**
+    * @dev Caller must transfer the right amount of tokens to the trader
+     */
+    function sellAMPLForEEFI(uint256 amount) external override returns (uint256 eefiAmount) {
         require(ampl_token.approve(address(vault), amount), 'BalancerTrader: Approval failed');
         IVault.BatchSwapStep[] memory swaps = new IVault.BatchSwapStep[](2);
         int256[] memory limits = new int256[](3);
@@ -89,7 +97,10 @@ contract BalancerTrader {
         limits,
         block.timestamp
         );
-        
-        emit Sale_EEFI(amount, uint256(token_swaps[1]));
+
+        eefiAmount = uint256(token_swaps[1]);
+
+        eefi_token.safeTransfer(msg.sender, eefiAmount);
+        emit Sale_EEFI(amount, eefiAmount);
     }
 }
