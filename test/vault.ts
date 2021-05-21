@@ -17,7 +17,7 @@ const zeroAddress = "0x0000000000000000000000000000000000000000";
 describe("Vault", () => {
   let vault : AmplesenseVault;
   let owner : string;
-  let other : string;
+  let treasury : string;
   let amplToken : FakeERC20;
   let kmplToken: FakeERC20;
   let eefiToken: FakeERC20;
@@ -31,26 +31,21 @@ describe("Vault", () => {
   beforeEach(async () => {
     const erc20Factory = await ethers.getContractFactory("FakeERC20");
     const erc721Factory = await ethers.getContractFactory("FakeERC721");
-    const uniswapRouterFactory = await ethers.getContractFactory("FakeUniswapV2Router02");
     const vaultFactory = await ethers.getContractFactory("AmplesenseVault");
     const stakingerc20Factory = await ethers.getContractFactory("StakingERC20");
     const stakingerc721Factory = await ethers.getContractFactory("StakingERC721");
 
     const accounts = await ethers.getSigners();
     owner = await accounts[0].getAddress();
-    other = await accounts[1].getAddress();
+    treasury = await accounts[1].getAddress();
     
     amplToken = await erc20Factory.deploy("9") as FakeERC20;
     kmplToken = await erc20Factory.deploy("9") as FakeERC20;
     nft1 = await erc721Factory.deploy() as FakeERC721;
     nft2 = await erc721Factory.deploy() as FakeERC721;
-
     
-    const router = await uniswapRouterFactory.deploy();
-
+    vault = await vaultFactory.deploy(amplToken.address) as AmplesenseVault;
     
-    vault = await vaultFactory.deploy(router.address, amplToken.address) as AmplesenseVault;
-
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt("FakeERC20", eefiTokenAddress) as FakeERC20;
     
@@ -59,7 +54,9 @@ describe("Vault", () => {
     pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
     pioneer3 = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
     staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
-    await vault.initialize(pioneer1.address, pioneer2.address, staking_pool.address);
+
+    await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury);
+    // await vault.setTrader(balancerTrader.address); // TODO
   });
 
   describe("AmplesenseVault", async() => {
@@ -67,7 +64,7 @@ describe("Vault", () => {
     describe("AmplesenseVault - initialization and first stake", async() => {
 
       it("should be initialized only once", async () => {
-        await expect(vault.initialize(pioneer1.address, pioneer2.address, staking_pool.address)).to.be.revertedWith("AmplesenseVault: contract already initialized");
+        await expect(vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury)).to.be.revertedWith("AmplesenseVault: contract already initialized");
       });
   
       it("deposit shall fail if staking without creating ampl allowance first", async () => {
@@ -101,7 +98,7 @@ describe("Vault", () => {
         await pioneer2.stake(10**9, "0x");
         await vault.makeDeposit(10**9);
         let fee = BigNumber.from(10**9).div(BigNumber.from(await vault.EEFI_DEPOSIT_RATE())).mul(await vault.DEPOSIT_FEE_10000()).div(BigNumber.from(10000));
-        await expect((await pioneer2.getReward(owner)).token).to.be.equal(fee);
+        await expect((await pioneer2.getReward(owner)).__token).to.be.equal(fee);
         await expect((await eefiToken.balanceOf(owner))).to.be.equal(BigNumber.from(10**9 / 10**4).sub(fee));
       });
     });
@@ -126,7 +123,7 @@ describe("Vault", () => {
       });
 
       it("rebasing shall fail unless 24 hours passed", async () => {
-        await expect(vault.rebase()).to.be.revertedWith("AmplesenseVault: rebase can only be called once every 24 hours");
+        await expect(vault.rebase()).to.be.revertedWith("AMPLRebaser: rebase can only be called once every 24 hours");
       });
 
       it("rebasing if ampl hasnt changed shall credit eefi", async () => {
