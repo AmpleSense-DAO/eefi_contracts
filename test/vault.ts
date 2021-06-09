@@ -7,6 +7,7 @@ import { FakeERC721 } from "../typechain/FakeERC721";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { StakingERC721 } from "../typechain/StakingERC721";
 import { BigNumber } from "ethers";
+import { MockTrader } from "../typechain/MockTrader";
 
 chai.use(solidity);
 
@@ -27,6 +28,7 @@ describe("Vault", () => {
   let nft1 : FakeERC721;
   let nft2 : FakeERC721;
   let staking_pool : StakingERC20;
+  let balancerTrader : MockTrader;
 
   beforeEach(async () => {
     const erc20Factory = await ethers.getContractFactory("FakeERC20");
@@ -56,7 +58,6 @@ describe("Vault", () => {
     staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
 
     await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury);
-    // await vault.setTrader(balancerTrader.address); // TODO
   });
 
   describe("AmplesenseVault", async() => {
@@ -107,6 +108,11 @@ describe("Vault", () => {
     describe("AmplesenseVault - rebasing", async() => {
 
       beforeEach(async () => {
+
+        const balancerTraderFactory = await ethers.getContractFactory('MockTrader');
+        balancerTrader = await balancerTraderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseUnits("0.001", "ether"), ethers.utils.parseUnits("0.1", "ether")) as MockTrader;
+        await vault.setTrader(balancerTrader.address);
+
         //no longer needed to stake here
         await amplToken.increaseAllowance(vault.address, 10**9);
         await kmplToken.increaseAllowance(pioneer2.address, 10**9);
@@ -171,6 +177,11 @@ describe("Vault", () => {
     describe("AmplesenseVault - unstaking", async() => {
 
       beforeEach(async () => {
+        
+        const balancerTraderFactory = await ethers.getContractFactory('MockTrader');
+        balancerTrader = await balancerTraderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseUnits("0.001", "ether"), ethers.utils.parseUnits("0.1", "ether")) as MockTrader;
+        await vault.setTrader(balancerTrader.address);
+
         //stake in all distribution contracts
         await amplToken.increaseAllowance(vault.address, 10**9);
         await kmplToken.increaseAllowance(pioneer2.address, 10**9);
