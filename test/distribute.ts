@@ -50,15 +50,19 @@ describe('Distribute Contract', () => {
 
   beforeEach(async () => {
 
-    const erc20Factory = await ethers.getContractFactory('FakeERC20');
-    const distributeFactory = await ethers.getContractFactory('Distribute');
+    const [ erc20Factory, distributeFactory, accounts ] = await Promise.all([
+      ethers.getContractFactory('FakeERC20'),
+      ethers.getContractFactory('Distribute'),
+      ethers.getSigners()
+    ]);
 
-    const accounts = await ethers.getSigners();
-    owner = await accounts[0].getAddress();
-    userA = await accounts[1].getAddress();
-    userB = await accounts[2].getAddress();
-
-    rewardToken = await erc20Factory.deploy('9') as FakeERC20;
+    [ owner, userA, userB, rewardToken ] = await Promise.all([
+      accounts[0].getAddress(),
+      accounts[1].getAddress(),
+      accounts[2].getAddress(),
+      erc20Factory.deploy('9') as Promise<FakeERC20>,
+    ]);
+    
     distribute = await distributeFactory.deploy('0', rewardToken.address) as Distribute;
   });
 
@@ -66,9 +70,9 @@ describe('Distribute Contract', () => {
     
     const { bondValue, investorCount, toDistribute, rewardTokenAddress } = await getInfo(distribute, userA);
 
-    expect(bondValue.toNumber()).to.be.equal(1000000);
-    expect(investorCount.toNumber()).to.be.equal(0);
-    expect(toDistribute.toNumber()).to.be.equal(0);
+    expect(bondValue).to.be.equal(1000000);
+    expect(investorCount).to.be.equal(0);
+    expect(toDistribute).to.be.equal(0);
     expect(rewardTokenAddress).to.be.equal(rewardToken.address);
   });
 
@@ -93,10 +97,10 @@ describe('Distribute Contract', () => {
 
         const { totalStake, investorCount, userStake, userReward } = await getInfo(distribute, userA);
 
-        expect(totalStake.toNumber()).to.be.equal(100);
-        expect(investorCount.toNumber()).to.be.equal(1);
-        expect(userStake.toNumber()).to.be.equal(100);
-        expect(userReward.toNumber()).to.be.equal(0);
+        expect(totalStake).to.be.equal(100);
+        expect(investorCount).to.be.equal(1);
+        expect(userStake).to.be.equal(100);
+        expect(userReward).to.be.equal(0);
       });
 
       it('for the second call with user A', async () => {
@@ -104,10 +108,10 @@ describe('Distribute Contract', () => {
 
         const { totalStake, investorCount, userStake, userReward } = await getInfo(distribute, userA);
 
-        expect(totalStake.toNumber()).to.be.equal(250);
-        expect(investorCount.toNumber()).to.be.equal(1);
-        expect(userStake.toNumber()).to.be.equal(250);
-        expect(userReward.toNumber()).to.be.equal(0);
+        expect(totalStake).to.be.equal(250);
+        expect(investorCount).to.be.equal(1);
+        expect(userStake).to.be.equal(250);
+        expect(userReward).to.be.equal(0);
       });
 
       it('for the second call with user B', async () => {
@@ -151,9 +155,9 @@ describe('Distribute Contract', () => {
 
         const { totalStake, userStake, investorCount } = await getInfo(distribute, userA);
 
-        expect(totalStake.toNumber()).to.be.equal(50);
-        expect(userStake.toNumber()).to.be.equal(50);
-        expect(investorCount.toNumber()).to.be.equal(1);
+        expect(totalStake).to.be.equal(50);
+        expect(userStake).to.be.equal(50);
+        expect(investorCount).to.be.equal(1);
       });
 
       it('Should correctly totally unstake', async () => {
@@ -161,9 +165,9 @@ describe('Distribute Contract', () => {
 
         const { totalStake, userStake, investorCount } = await getInfo(distribute, userA);
 
-        expect(totalStake.toNumber()).to.be.equal(0);
-        expect(userStake.toNumber()).to.be.equal(0);
-        expect(investorCount.toNumber()).to.be.equal(0);
+        expect(totalStake).to.be.equal(0);
+        expect(userStake).to.be.equal(0);
+        expect(investorCount).to.be.equal(0);
       });
 
     });
@@ -201,8 +205,13 @@ describe('Distribute Contract', () => {
       it('Should collect some reward', async () => {
 
         // Pre-compute expected values
-        const { bondValue: initialBondValue, totalStake, userStake: userAStake } = await getInfo(distribute, userA);
-        const { userStake: userBStake } = await getInfo(distribute, userB);
+        const [
+          { bondValue: initialBondValue, totalStake, userStake: userAStake },
+          { userStake: userBStake }
+        ] = await Promise.all([
+          getInfo(distribute, userA),
+          getInfo(distribute, userB),
+        ]);
 
         const distributedAmount = BigNumber.from(getRandomInt(1, 999));
         const expectedIncrease = distributedAmount.div(totalStake);
@@ -216,8 +225,13 @@ describe('Distribute Contract', () => {
         await distribute.distribute(BigNumber.from(distributedAmount), owner);
 
         // Retrieve actual values from teh smart-contract
-        const { bondValue, userReward: userAReward, toDistribute } = await getInfo(distribute, userA);
-        const { userReward: userBReward } = await getInfo(distribute, userB);
+        const [
+          { bondValue, userReward: userAReward, toDistribute },
+          { userReward: userBReward }
+        ] = await Promise.all([
+          getInfo(distribute, userA),
+          getInfo(distribute, userB),
+        ]);
         
         // Check actual values against expected values
         expect(bondValue).to.be.equal(expectedNewBondValue);
@@ -248,13 +262,17 @@ describe('Distribute Contract', () => {
 
     it('Should work as intended', async () => {
 
-      const before = await getInfo(distribute, userA);
-      const beforeBalance = await rewardToken.balanceOf(userA);
+      const [before, beforeBalance] = await Promise.all([
+        getInfo(distribute, userA),
+        rewardToken.balanceOf(userA),
+      ]);
       
       await distribute.withdrawFrom(userA, 50);
       
-      const after = await getInfo(distribute, userA);
-      const afterBalance = await rewardToken.balanceOf(userA);
+      const [after, afterBalance] = await Promise.all([
+        getInfo(distribute, userA),
+        rewardToken.balanceOf(userA),
+      ]);
 
       expect(before.bondValue).to.be.equal(1000002);
       expect(after.bondValue).to.be.equal(before.bondValue);
@@ -270,8 +288,5 @@ describe('Distribute Contract', () => {
       expect(after.totalStake).to.be.equal(before.totalStake);
 
     });
-
   });
-
-
 });
