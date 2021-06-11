@@ -56,10 +56,11 @@ describe.skip('Distribute Contract', () => {
       ethers.getSigners(),
     ]);
 
-    [ owner, userA, userB, rewardToken ] = await Promise.all([
-      accounts[0].getAddress(),
-      accounts[1].getAddress(),
-      accounts[2].getAddress(),
+    owner = accounts[0].address,
+    userA = accounts[1].address,
+    userB = accounts[2].address,
+
+    [ rewardToken ] = await Promise.all([
       erc20Factory.deploy('9') as Promise<FakeERC20>,
     ]);
     
@@ -70,7 +71,7 @@ describe.skip('Distribute Contract', () => {
     
     const { bondValue, investorCount, toDistribute, rewardTokenAddress } = await getInfo(distribute, userA);
 
-    expect(bondValue).to.be.equal(1000000);
+    expect(bondValue).to.be.equal(1_000_000);
     expect(investorCount).to.be.equal(0);
     expect(toDistribute).to.be.equal(0);
     expect(rewardTokenAddress).to.be.equal(rewardToken.address);
@@ -178,8 +179,8 @@ describe.skip('Distribute Contract', () => {
     beforeEach(async () => {
 
       await Promise.all([
-        rewardToken.rebase(BigNumber.from(1000)), // mint 100 token to `owner` address
-        rewardToken.approve(distribute.address, BigNumber.from(1000)), // allow Distribute contract to spend `owner`'s token
+        rewardToken.rebase(BigNumber.from(1_000)), // mint 100 token to `owner` address
+        rewardToken.approve(distribute.address, BigNumber.from(1_000)), // allow Distribute contract to spend `owner`'s token
       ]);
     });
 
@@ -189,7 +190,7 @@ describe.skip('Distribute Contract', () => {
 
       const { bondValue } = await getInfo(distribute, userA);
 
-      expect(bondValue).to.be.equal(1000000); // bond value should not increase
+      expect(bondValue).to.be.equal(1_000_000); // bond value should not increase
     });
     
 
@@ -253,8 +254,8 @@ describe.skip('Distribute Contract', () => {
     beforeEach(async () => {
 
       await Promise.all([
-        rewardToken.rebase(BigNumber.from(1000)), // mint 100 token to `owner` address
-        rewardToken.approve(distribute.address, BigNumber.from(1000)), // allow Distribute contract to spend `owner`'s token
+        rewardToken.rebase(BigNumber.from(1_000)), // mint 1000 token to `owner` address
+        rewardToken.approve(distribute.address, BigNumber.from(1_000)), // allow Distribute contract to spend `owner`'s token
         distribute.stakeFor(userA, BigNumber.from(100)),
         distribute.distribute(BigNumber.from(250), owner),
       ]);
@@ -274,7 +275,7 @@ describe.skip('Distribute Contract', () => {
         rewardToken.balanceOf(userA),
       ]);
 
-      expect(before.bondValue).to.be.equal(1000002);
+      expect(before.bondValue).to.be.equal(1_000_002);
       expect(after.bondValue).to.be.equal(before.bondValue);
       expect(after.toDistribute).to.be.equal(50);
 
