@@ -14,6 +14,7 @@ chai.use(solidity);
 const { expect } = chai;
 
 const initialTokenBalance = BigNumber.from('0xE35FA931A000');
+const initialEthBalance = BigNumber.from('0x21E19E0C9BAB2400000');
 
 async function getInfo(stacking: StakingERC20, userAddress: string) {
   const [
@@ -105,7 +106,7 @@ describe('StackingERC20 Contract', () => {
       ]);
     });
 
-    it('Should stake some tokens', async () => {
+    it('Should stakeFor some tokens', async () => {
 
       const beforeBalance = await stakingToken.balanceOf(owner);
       const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
@@ -143,5 +144,170 @@ describe('StackingERC20 Contract', () => {
       expect(after.userTokenReward).to.be.equal(0);
     });
 
+    it('Should unstake some tokens', async () => {
+
+      staking.stake(BigNumber.from(100), formatBytes32String('0'));
+
+      const beforeBalance = await stakingToken.balanceOf(owner);
+      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
+      const before = await getInfo(staking, owner);
+
+      const tx = await staking.unstake(BigNumber.from(70), formatBytes32String('0'));
+
+      const afterBalance = await stakingToken.balanceOf(owner);
+      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
+      const after = await getInfo(staking, owner);
+
+      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
+      expect(afterBalance).to.be.equal(initialTokenBalance.sub(30));
+      
+      expect(stakingBeforeBalance).to.be.equal(100);
+      expect(stakingAfterBalance).to.be.equal(30);
+
+      expect(tx).to.have.emit(staking, 'Unstaked').withArgs(
+        owner,
+        BigNumber.from(70),
+        BigNumber.from(30),
+        formatBytes32String('0'),
+      );
+      
+      expect(before.totalStake).to.be.equal(100);
+      expect(after.totalStake).to.be.equal(30);
+
+      expect(before.userTotalStake).to.be.equal(100);
+      expect(after.userTotalStake).to.be.equal(30);
+
+      expect(before.userEthReward).to.be.equal(0);
+      expect(after.userEthReward).to.be.equal(0);
+
+      expect(before.userTokenReward).to.be.equal(0);
+      expect(after.userTokenReward).to.be.equal(0);
+    });
+
+
+    it('Should distribute some tokens', async () => {
+
+      await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
+
+      const beforeBalance = await stakingToken.balanceOf(owner);
+      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
+      const before = await getInfo(staking, userA.address);
+
+      const tx = await staking.distribute(BigNumber.from(200));
+
+      const afterBalance = await stakingToken.balanceOf(owner);
+      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
+      const after = await getInfo(staking, userA.address);
+
+      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
+      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
+      
+      expect(stakingBeforeBalance).to.be.equal(100);
+      expect(stakingAfterBalance).to.be.equal(100);
+
+      expect(tx).to.have.emit(staking, 'ProfitToken').withArgs(
+        BigNumber.from(200),
+      );
+      
+      expect(before.totalStake).to.be.equal(100);
+      expect(after.totalStake).to.be.equal(100);
+
+      expect(before.userTotalStake).to.be.equal(100);
+      expect(after.userTotalStake).to.be.equal(100);
+
+      expect(before.userEthReward).to.be.equal(0);
+      expect(after.userEthReward).to.be.equal(0);
+
+      expect(before.userTokenReward).to.be.equal(0);
+      expect(after.userTokenReward).to.be.equal(200);
+    });
+
+
+    it('Should distribute some eth', async () => {
+      
+      await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
+
+      const beforeBalance = await stakingToken.balanceOf(owner);
+      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
+      const before = await getInfo(staking, userA.address);
+      
+      const tx = await staking.distribute_eth({ value: BigNumber.from(100) });
+      
+      const afterBalance = await stakingToken.balanceOf(owner);
+      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
+      const after = await getInfo(staking, userA.address);
+
+      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
+      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
+      
+      expect(stakingBeforeBalance).to.be.equal(100);
+      expect(stakingAfterBalance).to.be.equal(100);
+
+      expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
+        BigNumber.from(100),
+      );
+      
+      expect(before.totalStake).to.be.equal(100);
+      expect(after.totalStake).to.be.equal(100);
+
+      expect(before.userTotalStake).to.be.equal(100);
+      expect(after.userTotalStake).to.be.equal(100);
+
+      expect(before.userEthReward).to.be.equal(0);
+      expect(after.userEthReward).to.be.equal(100);
+
+      expect(before.userTokenReward).to.be.equal(0);
+      expect(after.userTokenReward).to.be.equal(0);
+
+    });
+
+
+    it('Should withdraw reward', async () => {
+      
+      await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
+      await staking.distribute_eth({ value: BigNumber.from(100) });
+      await staking.distribute(BigNumber.from(100));
+
+      const beforeBalance = await stakingToken.balanceOf(owner);
+      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
+      const rewardBeforeBalance = await rewardToken.balanceOf(userA.address);
+      const beforeEthBalance = await userA.getBalance();
+      const before = await getInfo(staking, userA.address);
+      
+      const tx = await staking.connect(userA).withdraw(BigNumber.from(100));
+      const receipt = await tx.wait();
+      
+      const afterBalance = await stakingToken.balanceOf(owner);
+      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
+      const rewardAfterBalance = await rewardToken.balanceOf(userA.address);
+      const afterEthBalance = await userA.getBalance();
+      const after = await getInfo(staking, userA.address);
+
+      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
+      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
+      
+      expect(stakingBeforeBalance).to.be.equal(100);
+      expect(stakingAfterBalance).to.be.equal(100);
+
+      expect(before.totalStake).to.be.equal(100);
+      expect(after.totalStake).to.be.equal(100);
+
+      expect(before.userTotalStake).to.be.equal(100);
+      expect(after.userTotalStake).to.be.equal(100);
+
+      expect(before.userEthReward).to.be.equal(100);
+      expect(after.userEthReward).to.be.equal(0);
+
+      expect(before.userTokenReward).to.be.equal(100);
+      expect(after.userTokenReward).to.be.equal(0);
+
+      expect(rewardBeforeBalance).to.be.equal(0);
+      expect(rewardAfterBalance).to.be.equal(100);
+
+      expect(beforeEthBalance).to.be.equal(initialEthBalance);
+      expect(tx.gasPrice).to.be.equal(8_000_000_000);
+      expect(receipt.gasUsed).to.be.equal(108_936);
+      expect(afterEthBalance).to.be.equal(initialEthBalance.sub(tx.gasPrice.mul(receipt.gasUsed)).add(100));
+    });
   });
 });
