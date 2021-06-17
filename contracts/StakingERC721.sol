@@ -113,6 +113,13 @@ contract StakingERC721  {
     function totalStakedFor(address account) public view returns (uint256) {
         return stakingContractEth.totalStakedFor(account);
     }
+
+    /**
+        @dev returns the total rewards stored for token and eth
+    */
+    function totalReward() external view returns (uint256) {
+        return stakingContractEth.getTotalReward();
+    }
     
     /**
         @dev Returns the current total of tokens staked

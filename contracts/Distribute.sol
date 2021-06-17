@@ -160,6 +160,17 @@ contract Distribute is Ownable {
     }
 
     /**
+        @dev returns the total amount of stored rewards
+    */
+    function getTotalReward() external view returns (uint256) {
+        if(address(reward_token) != address(0)) {
+            return reward_token.balanceOf(address(this));
+        } else {
+            return address(this).balance;
+        }
+    }
+
+    /**
         @dev Returns how much the user can withdraw currently
         @param account Address of the user to check reward for
         @param amount Number of stakes

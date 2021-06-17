@@ -225,6 +225,14 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         return rewards_eth.totalStaked();
     }
 
+    /**
+        @dev returns the total rewards stored for token and eth
+    */
+    function totalReward() external view returns (uint256 token, uint256 eth) {
+        token = rewards_eefi.getTotalReward();
+        eth = rewards_eth.getTotalReward();
+    }
+
     function _popDeposit() internal {
         for (uint i = 0; i < _deposits[msg.sender].length - 1; i++) {
             _deposits[msg.sender][i] = _deposits[msg.sender][i + 1];
