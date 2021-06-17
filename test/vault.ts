@@ -15,7 +15,7 @@ const { expect } = chai;
 
 const zeroAddress = "0x0000000000000000000000000000000000000000";
 
-describe.skip("Vault", () => {
+describe("Vault", () => {
   let vault : AmplesenseVault;
   let owner : string;
   let treasury : string;
