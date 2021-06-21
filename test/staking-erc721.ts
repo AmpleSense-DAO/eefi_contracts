@@ -200,37 +200,39 @@ describe('StackingERC721 Contract', () => {
       const beforeTokenId_1 = await staking.tokenOwnershipA(userA.address, BigNumber.from(1));
       const beforeTokenId_2 = await staking.tokenOwnershipA(userA.address, BigNumber.from(2));
       const before = await getInfo(staking, userA.address);
-
-      const tx = await staking.connect(userA).unstake(BigNumber.from(3), true);
-
-      // const afterBalanceA = await tokenA.balanceOf(userA.address);
-      // const afterStakingBalance = await tokenA.balanceOf(staking.address);
-      // const after = await getInfo(staking, userA.address);
+      
+      const tx = await staking.connect(userA).unstake(BigNumber.from(2), true);
+      
+      const afterBalanceA = await tokenA.balanceOf(userA.address);
+      const afterStakingBalance = await tokenA.balanceOf(staking.address);
+      const afterTokenId_0 = await staking.tokenOwnershipA(userA.address, BigNumber.from(0));
+      const after = await getInfo(staking, userA.address);
      
       expect(beforeBalanceA).to.be.equal(0);
-      // expect(afterBalanceA).to.be.equal(2);
+      expect(afterBalanceA).to.be.equal(2);
 
       expect(beforeStakingBalance).to.be.equal(3);
-      // expect(afterStakingBalance).to.be.equal(1);
+      expect(afterStakingBalance).to.be.equal(1);
 
-      // expect(tx).to.have.emit(staking, 'Unstaked').withArgs(
-      //   userA.address,
-      //   BigNumber.from(2),
-      //   BigNumber.from(2),
-      // );
+      expect(tx).to.have.emit(staking, 'Unstaked').withArgs(
+        userA.address,
+        BigNumber.from(2),
+        BigNumber.from(1),
+      );
 
       expect(beforeTokenId_0).to.be.equal(19);
       expect(beforeTokenId_1).to.be.equal(18);
       expect(beforeTokenId_2).to.be.equal(17);
-
+      expect(afterTokenId_0).to.be.equal(beforeTokenId_0);
+      
       expect(before.totalStake).to.be.equal(3);
-      // expect(after.totalStake).to.be.equal(1);
+      expect(after.totalStake).to.be.equal(1);
 
       expect(before.userTotalStake).to.be.equal(3);
-      // expect(after.userTotalStake).to.be.equal(1);
+      expect(after.userTotalStake).to.be.equal(1);
 
       expect(before.userReward).to.be.equal(0);
-      // expect(after.userReward).to.be.equal(0);
+      expect(after.userReward).to.be.equal(0);
     });
 
 
