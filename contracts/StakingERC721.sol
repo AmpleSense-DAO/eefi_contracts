@@ -85,7 +85,7 @@ contract StakingERC721  {
         else
             tokens = tokenOwnershipB[msg.sender];
 
-        for(uint i = tokens.length - 1; i >= 0; i--) {
+        for(uint i = tokens.length - 1; i > 0; i--) {
             uint256 id = tokens[i];
             tokens.pop();
             if(isTokenA)
