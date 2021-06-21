@@ -38,8 +38,8 @@ describe("Vault", () => {
     const stakingerc721Factory = await ethers.getContractFactory("StakingERC721");
 
     const accounts = await ethers.getSigners();
-    owner = await accounts[0].getAddress();
-    treasury = await accounts[1].getAddress();
+    owner = accounts[0].address;
+    treasury = accounts[1].address;
     
     amplToken = await erc20Factory.deploy("9") as FakeERC20;
     kmplToken = await erc20Factory.deploy("9") as FakeERC20;
