@@ -39,7 +39,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
-    uint256 constant public MINTING_DECAY = 60 days;
+    uint256 constant public MINTING_DECAY = 90 days;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
@@ -198,10 +198,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             treasury.transfer(address(this).balance);
         } else {
             // negative or equal
-            uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
-            eefi_token.mint(address(this), to_mint);
-            eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
-            rewards_eefi.distribute(to_mint, address(this));
+            if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
+                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
+                eefi_token.mint(address(this), to_mint);
+                eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
+                rewards_eefi.distribute(to_mint, address(this));
+            }
         }
     }
 
