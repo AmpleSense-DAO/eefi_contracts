@@ -24,6 +24,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     Distribute public rewards_eefi;
     Distribute public rewards_eth;
     address payable treasury;
+    uint256 public last_positive = block.timestamp;
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
@@ -38,6 +39,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
+    uint256 constant public MINTING_DECAY = 60 days;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
@@ -115,10 +117,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         //send some eefi to pioneer vault 2
-        eefi_token.mint(address(this), deposit_fee);
-        eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
-        pioneer_vault2.distribute(deposit_fee);
-        eefi_token.mint(msg.sender, to_mint.sub(deposit_fee));
+        if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
+            eefi_token.mint(address(this), deposit_fee);
+            eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
+            pioneer_vault2.distribute(deposit_fee);
+            eefi_token.mint(msg.sender, to_mint.sub(deposit_fee));
+        }
         
         // stake the shares also in the rewards pool
         rewards_eefi.stakeFor(account, amount);
@@ -157,6 +161,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         
         if(new_supply > old_supply) {
             // positive rebase
+            last_positive = block.timestamp;
             require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
             uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
