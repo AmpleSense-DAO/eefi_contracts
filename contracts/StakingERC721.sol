@@ -85,8 +85,8 @@ contract StakingERC721  {
         else
             tokens = tokenOwnershipB[msg.sender];
 
-        for(uint i = tokens.length - 1; i > 0; i--) {
-            uint256 id = tokens[i];
+        for(uint i = 0; i < amount; i++) {
+            uint256 id = tokens[tokens.length - 1];
             tokens.pop();
             if(isTokenA)
                 tokenA.transferFrom(address(this), msg.sender, id);
