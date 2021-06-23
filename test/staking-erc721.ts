@@ -237,7 +237,7 @@ describe('StackingERC721 Contract', () => {
     });
 
 
-    it('Should distribute some tokens', async () => {
+    it.skip('Should distribute some tokens', async () => {
 
       await amplToken.approve(staking.address, BigNumber.from(1_000));
 
@@ -280,41 +280,35 @@ describe('StackingERC721 Contract', () => {
     });
 
 
-  //   it('Should distribute some eth', async () => {
+    it('Should distribute some eth', async () => {
+
+      const ids = [ BigNumber.from(19), BigNumber.from(18), BigNumber.from(17),];
+      await staking.stakeFor(userA.address, ids, true);
+
+      const beforeBalanceA = await userA.getBalance();
+      const before = await getInfo(staking, userA.address);
       
-  //     await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
-
-  //     const beforeBalance = await stakingToken.balanceOf(owner);
-  //     const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
-  //     const before = await getInfo(staking, userA.address);
+      const tx = await staking.distribute_eth({ value: BigNumber.from(200) });
       
-  //     const tx = await staking.distribute_eth({ value: BigNumber.from(100) });
-      
-  //     const afterBalance = await stakingToken.balanceOf(owner);
-  //     const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
-  //     const after = await getInfo(staking, userA.address);
+      const afterBalanceA = await userA.getBalance();
+      const after = await getInfo(staking, userA.address);
 
-  //     expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
-  //     expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
-      
-  //     expect(stakingBeforeBalance).to.be.equal(100);
-  //     expect(stakingAfterBalance).to.be.equal(100);
+      expect(beforeBalanceA).to.be.equal(initialEthBalance);
+      expect(afterBalanceA).to.be.equal(initialEthBalance);
 
-  //     expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
-  //       BigNumber.from(100),
-  //     );
-      
-  //     expect(before.totalStake).to.be.equal(100);
-  //     expect(after.totalStake).to.be.equal(100);
+      expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
+        BigNumber.from(200),
+      );
 
-  //     expect(before.userTotalStake).to.be.equal(100);
-  //     expect(after.userTotalStake).to.be.equal(100);
+      expect(before.totalStake).to.be.equal(3);
+      expect(after.totalStake).to.be.equal(3);
 
-  //     expect(before.userEthReward).to.be.equal(0);
-  //     expect(after.userEthReward).to.be.equal(100);
+      expect(before.userTotalStake).to.be.equal(3);
+      expect(after.userTotalStake).to.be.equal(3);
 
-  //   });
-
+      expect(before.userReward).to.be.equal(0);
+      expect(after.userReward).to.be.equal(198);
+    });
 
   //   it('Should withdraw reward', async () => {
       
