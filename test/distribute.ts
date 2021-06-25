@@ -40,7 +40,7 @@ async function getInfo(distribute: Distribute, userAddress: string) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-describe.skip('Distribute Contract', () => {
+describe('Distribute Contract', () => {
 
   let rewardToken: FakeERC20;
   let distribute: Distribute;

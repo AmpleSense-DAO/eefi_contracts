@@ -80,7 +80,7 @@ describe('StackingERC721 Contract', () => {
     staking = await stackingFactory.deploy(tokenA.address, tokenB.address, amplToken.address) as StakingERC721;
   });
 
-  it.skip('Should have been deployed correctly', async () => {
+  it('Should have been deployed correctly', async () => {
     const info = await getInfo(staking, userA.address);
 
     expect(info.tokenAAddress).to.be.equal(tokenA.address);
@@ -106,7 +106,7 @@ describe('StackingERC721 Contract', () => {
       ]);
     });
 
-    it.skip('Should stakeFor some A NFTs', async () => {
+    it('Should stakeFor some A NFTs', async () => {
 
       const beforeBalanceA = await tokenA.balanceOf(owner);
       const beforeStakingBalance = await tokenA.balanceOf(staking.address);
@@ -148,7 +148,7 @@ describe('StackingERC721 Contract', () => {
       expect(after.userReward).to.be.equal(0);
     });
 
-    it.skip('Should stakeFor some B NFTs', async () => {
+    it('Should stakeFor some B NFTs', async () => {
 
       const beforeBalanceB = await tokenB.balanceOf(owner);
       const beforeStakingBalance = await tokenB.balanceOf(staking.address);
@@ -190,7 +190,7 @@ describe('StackingERC721 Contract', () => {
       expect(after.userReward).to.be.equal(0);
     });
 
-    it.skip('Should unstake some A NFTs', async () => {
+    it('Should unstake some A NFTs', async () => {
 
       const ids = [ BigNumber.from(19), BigNumber.from(18), BigNumber.from(17),];
       await staking.stakeFor(userA.address, ids, true);
@@ -237,7 +237,7 @@ describe('StackingERC721 Contract', () => {
     });
 
 
-    it.skip('Should distribute some tokens', async () => {
+    it('Should distribute some tokens', async () => {
 
       await amplToken.approve(staking.address, BigNumber.from(1_000));
 
@@ -280,7 +280,7 @@ describe('StackingERC721 Contract', () => {
     });
 
 
-    it.skip('Should distribute some eth', async () => {
+    it('Should distribute some eth', async () => {
 
       const ids = [ BigNumber.from(19), BigNumber.from(18), BigNumber.from(17),];
       await staking.stakeFor(userA.address, ids, true);
@@ -293,8 +293,7 @@ describe('StackingERC721 Contract', () => {
       const afterBalanceA = await userA.getBalance();
       const after = await getInfo(staking, userA.address);
 
-      expect(beforeBalanceA).to.be.equal(initialEthBalance);
-      expect(afterBalanceA).to.be.equal(initialEthBalance);
+      expect(afterBalanceA).to.be.equal(beforeBalanceA);
 
       expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
         BigNumber.from(200),
@@ -326,7 +325,7 @@ describe('StackingERC721 Contract', () => {
 
       const tx = await staking.connect(userA).withdraw(BigNumber.from(3));
       const receipt = await tx.wait();
-      const aBalance = initialEthBalance.sub(tx.gasPrice.mul(receipt.gasUsed));
+      const txCost = tx.gasPrice.mul(receipt.gasUsed);
 
       const afterBalance = await amplToken.balanceOf(owner);
       const stakingAfterBalance = await amplToken.balanceOf(staking.address);
@@ -343,8 +342,7 @@ describe('StackingERC721 Contract', () => {
       expect(rewardBeforeBalance).to.be.equal(0);
       expect(rewardAfterBalance).to.be.equal(0);
 
-      expect(beforeEthBalance).to.be.equal(initialEthBalance);
-      expect(afterEthBalance).to.be.equal(aBalance.add(198));
+      expect(afterEthBalance).to.be.equal(beforeEthBalance.sub(txCost).add(198));
 
       expect(before.totalStake).to.be.equal(3);
       expect(after.totalStake).to.be.equal(3);
