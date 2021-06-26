@@ -54,7 +54,7 @@ describe('Pioneer1Vault Contract', () => {
     pioneer = await pioneerFactory.deploy(tokenA.address, tokenB.address, amplToken.address) as Pioneer1Vault;
   });
 
-  it.skip('Should have been deployed correctly', async () => {
+  it('Should have been deployed correctly', async () => {
 
     const traderAddress = await pioneer.trader();
     const amplAddress = await pioneer.ampl();
