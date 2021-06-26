@@ -54,7 +54,7 @@ describe('Pioneer1Vault Contract', () => {
     pioneer = await pioneerFactory.deploy(tokenA.address, tokenB.address, amplToken.address) as Pioneer1Vault;
   });
 
-  it('Should have been deployed correctly', async () => {
+  it.skip('Should have been deployed correctly', async () => {
 
     const traderAddress = await pioneer.trader();
     const amplAddress = await pioneer.ampl();
@@ -65,5 +65,24 @@ describe('Pioneer1Vault Contract', () => {
     expect(amplAddress).to.be.equal(amplToken.address);
     expect(tokenAAddress).to.be.equal(tokenA.address);
     expect(tokenBAddress).to.be.equal(tokenB.address);
+  });
+
+  describe('Set Trader', () => {
+
+    it('Should revert with invalid trader', async () => {
+      await expect(pioneer.setTrader(zeroAddress)).to.be.revertedWith('Pioneer1Vault: invalid trader');
+    });
+
+    it('Should work as intended', async () => {
+
+      const beforeTraderAddress = await pioneer.trader();
+      
+      await pioneer.setTrader(trader.address);
+
+      const afterTraderAddress = await pioneer.trader();
+
+      expect(beforeTraderAddress).to.be.equal(zeroAddress);
+      expect(afterTraderAddress).to.be.equal(trader.address);
+    });
   });
 });
