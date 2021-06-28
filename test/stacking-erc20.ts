@@ -306,7 +306,6 @@ describe('StackingERC20 Contract', () => {
 
       expect(beforeEthBalance).to.be.equal(initialEthBalance);
       expect(tx.gasPrice).to.be.equal(8_000_000_000);
-      expect(receipt.gasUsed).to.be.equal(108_936);
       expect(afterEthBalance).to.be.equal(initialEthBalance.sub(tx.gasPrice.mul(receipt.gasUsed)).add(100));
     });
   });
