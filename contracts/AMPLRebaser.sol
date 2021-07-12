@@ -2,6 +2,7 @@
 pragma solidity ^0.7.0;
 
 import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/IERC20.sol";
+import "hardhat/console.sol";
 
 contract AMPLRebaser {
 
@@ -24,6 +25,7 @@ contract AMPLRebaser {
     }
 
     function rebase() external {
+        console.log('######## START ETH TX');
         //make sure this is not manipulable by sending ampl!
         require(block.timestamp - 1 seconds > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
         last_rebase_call = block.timestamp;
@@ -31,6 +33,7 @@ contract AMPLRebaser {
         _rebase(last_ampl_supply, new_supply);
         emit Rebase(last_ampl_supply, new_supply);
         last_ampl_supply = new_supply;
+        console.log('######## END ETH TX');
     }
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal virtual {

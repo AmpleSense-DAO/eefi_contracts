@@ -1,6 +1,6 @@
 
 import chai from 'chai';
-import { ethers } from 'hardhat';
+import { ethers, network } from 'hardhat';
 import { BigNumber } from 'ethers';
 import { solidity } from 'ethereum-waffle';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
@@ -26,7 +26,7 @@ describe('Pioneer1Vault Contract', () => {
   let amplToken: FakeERC20;
   let eefiToken: FakeERC20;
   let pioneer: Pioneer1Vault;
-  let owner: string;
+  let owner: SignerWithAddress;
   let userA: SignerWithAddress;
 
   beforeEach(async () => {
@@ -39,7 +39,7 @@ describe('Pioneer1Vault Contract', () => {
       ethers.getSigners(),
     ]);
 
-    owner = accounts[0].address;
+    owner = accounts[0];
     userA = accounts[1];
 
     [ tokenA, tokenB, amplToken, eefiToken ] = await Promise.all([
@@ -54,26 +54,33 @@ describe('Pioneer1Vault Contract', () => {
     pioneer = await pioneerFactory.deploy(tokenA.address, tokenB.address, amplToken.address) as Pioneer1Vault;
   });
 
-  it('Should have been deployed correctly', async () => {
+  it.skip('Deploy should revert', async () => {
+    const pioneerFactory = await ethers.getContractFactory('Pioneer1Vault');
+    await expect(pioneerFactory.deploy(tokenA.address, tokenB.address, zeroAddress)).to.be.revertedWith('AMPLRebaser: Invalid ampl token address');
+  });
+
+  it.skip('Should have been deployed correctly', async () => {
 
     const traderAddress = await pioneer.trader();
     const amplAddress = await pioneer.ampl();
     const tokenAAddress = await pioneer.tokenA();
     const tokenBAddress = await pioneer.tokenB();
+    const lastAmplSupply = await pioneer.last_ampl_supply();
     
     expect(traderAddress).to.be.equal(zeroAddress);
     expect(amplAddress).to.be.equal(amplToken.address);
     expect(tokenAAddress).to.be.equal(tokenA.address);
     expect(tokenBAddress).to.be.equal(tokenB.address);
+    expect(lastAmplSupply).to.be.equal(initialTokenBalance);
   });
 
   describe('Set Trader', () => {
 
-    it('Should revert with invalid trader', async () => {
+    it.skip('Should revert with invalid trader', async () => {
       await expect(pioneer.setTrader(zeroAddress)).to.be.revertedWith('Pioneer1Vault: invalid trader');
     });
 
-    it('Should work as intended', async () => {
+    it.skip('Should work as intended', async () => {
 
       const beforeTraderAddress = await pioneer.trader();
       
@@ -83,6 +90,82 @@ describe('Pioneer1Vault Contract', () => {
 
       expect(beforeTraderAddress).to.be.equal(zeroAddress);
       expect(afterTraderAddress).to.be.equal(trader.address);
+    });
+  });
+
+  describe('Rebase', () => {
+
+    it.skip('Should revert (less than 24h)', async () => {
+      await expect(pioneer.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
+    });
+
+    it.skip('Should work as intended (no supply increase)', async () => {
+      await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
+
+      const tx = await pioneer.rebase();
+      
+      expect(tx).to.have.emit(pioneer, 'Rebase').withArgs(
+        BigNumber.from(initialTokenBalance),
+        BigNumber.from(initialTokenBalance),
+      );
+    });
+
+    it.skip('Should revert (invalid trader)', async () => {
+      await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
+
+      // increase ampl total balance
+      await amplToken.rebase(BigNumber.from(10_000_000));
+
+      await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: trader not set');
+    });
+
+    it.skip('Should revert (threshold)', async () => {
+      await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
+
+      await pioneer.setTrader(trader.address);
+
+      await amplToken.rebase(BigNumber.from(10_000_000));
+
+      await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: Threshold isnt reached yet');
+    });
+
+    it('', async () => {
+
+      console.log('owner:', owner.address);
+      console.log('pioneer:', pioneer.address);
+      console.log('trader:', trader.address);
+      console.log('ampl:', amplToken.address);
+
+      await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
+
+      await pioneer.setTrader(trader.address);
+
+      await amplToken.rebase(BigNumber.from('40000000000000'));
+      await amplToken.transfer(pioneer.address, BigNumber.from('90000000000000'));
+      // await amplToken.increaseAllowance(trader.address, BigNumber.from('90000000000000'));
+      // await amplToken.increaseAllowance(pioneer.address, BigNumber.from('90000000000000'));
+      
+      const a = await amplToken.allowance(pioneer.address, trader.address);
+      console.log('allowance pioneer -> trader', a.toString());
+
+      await owner.sendTransaction({ to: trader.address, value: BigNumber.from('40000000000000') });
+
+      const beforeOwnerBalance = await owner.getBalance();
+      const beforeAmplBalance = await owner.provider?.getBalance(pioneer.address);
+      
+      const tx = await pioneer.rebase();
+      
+      const afterOwnerBalance = await owner.getBalance();
+      const afterAmplBalance = await owner.provider?.getBalance(pioneer.address);
+
+      expect(tx).to.have.emit(pioneer, 'Rebase').withArgs(
+        // BigNumber.from(initialTokenBalance.add(BigNumber.from('40000000000000'))),
+        BigNumber.from(initialTokenBalance),
+        BigNumber.from(initialTokenBalance.add(BigNumber.from('40000000000000'))),
+        // BigNumber.from(initialTokenBalance),
+      );
+
+      expect(beforeOwnerBalance.lte(initialEthBalance)).to.be.true;
     });
   });
 });
