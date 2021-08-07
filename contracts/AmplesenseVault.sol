@@ -121,8 +121,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
-        //send some eefi to pioneer vault 2
-        if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
+        // send some eefi to pioneer vault 2
+        if(last_positive + MINTING_DECAY > block.timestamp) { // if 60 days without positive rebase do not mint
             eefi_token.mint(address(this), deposit_fee);
             eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
             pioneer_vault2.distribute(deposit_fee);
@@ -139,7 +139,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     function withdraw(uint256 amount) external {
         require(amount <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
         uint256 to_withdraw = amount;
-        //make sure the assets aren't time locked
+        // make sure the assets aren't time locked
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];

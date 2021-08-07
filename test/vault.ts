@@ -1,13 +1,15 @@
-import { ethers } from 'hardhat';
+
 import chai from 'chai';
+import { ethers } from 'hardhat';
+import { BigNumber } from 'ethers';
 import { solidity } from 'ethereum-waffle';
-import { AmplesenseVault } from '../typechain/AmplesenseVault';
+
 import { FakeERC20 } from '../typechain/FakeERC20';
 import { FakeERC721 } from '../typechain/FakeERC721';
+import { MockTrader } from '../typechain/MockTrader';
 import { StakingERC20 } from '../typechain/StakingERC20';
 import { StakingERC721 } from '../typechain/StakingERC721';
-import { BigNumber } from 'ethers';
-import { MockTrader } from '../typechain/MockTrader';
+import { AmplesenseVault } from '../typechain/AmplesenseVault';
 
 chai.use(solidity);
 
@@ -15,19 +17,88 @@ const { expect } = chai;
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
+async function getInfo(vault: AmplesenseVault, account: string) {
+  // Promise.all can handle only 10 promise max
+  const [
+    pioneer_vault1,
+    pioneer_vault2,
+    pioneer_vault3,
+    staking_pool,
+    trader,
+    eefi_token,
+    rewards_eefi,
+    rewards_eth,
+    last_positive,
+    accountTotalStaked,
+  ] = await Promise.all([
+    vault.pioneer_vault1(),
+    vault.pioneer_vault2(),
+    vault.pioneer_vault3(),
+    vault.staking_pool(),
+    vault.trader(),
+    vault.eefi_token(),
+    vault.rewards_eefi(),
+    vault.rewards_eth(),
+    vault.last_positive(),
+    vault.totalStakedFor(account),
+  ]);
+
+  const [
+    accountTotalClaimable,
+    accountBalance,
+    [ accountRewardEth, accountRewardToken ],
+    totalStaked,
+    [ totalRewardEth, totalRewardToken ],
+  ] = await Promise.all([
+    vault.totalClaimableBy(account),
+    vault.balanceOf(account),
+    vault.getReward(account),
+    vault.totalStaked(),
+    vault.totalReward(),
+  ]);
+
+  return {
+    pioneer_vault1,
+    pioneer_vault2,
+    pioneer_vault3,
+    staking_pool,
+    trader,
+    eefi_token,
+    rewards_eefi,
+    rewards_eth,
+    last_positive,
+    accountTotalStaked,
+    accountTotalClaimable,
+    accountBalance,
+    accountRewardEth,
+    accountRewardToken,
+    totalStaked,
+    totalRewardEth,
+    totalRewardToken,
+  };
+}
+
+
 describe('AmplesenseVault Contract', () => {
   let vault : AmplesenseVault;
+
   let owner : string;
   let treasury : string;
-  let amplToken : FakeAMPL;
+  
+  let amplToken : FakeERC20;
   let kmplToken: FakeERC20;
   let eefiToken: FakeERC20;
+  
   let pioneer1 : StakingERC721;
+  
   let pioneer2 : StakingERC20;
   let pioneer3 : StakingERC20;
+  
   let nft1 : FakeERC721;
   let nft2 : FakeERC721;
+  
   let staking_pool : StakingERC20;
+  
   let balancerTrader : MockTrader;
 
   beforeEach(async () => {
@@ -56,55 +127,121 @@ describe('AmplesenseVault Contract', () => {
     pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
     pioneer3 = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
     staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
-
-    await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury);
   });
 
 
-  describe.skip('initialization and first stake', async() => {
+  it.skip('should have been deployed correctly', async () => {
+    const info = await getInfo(vault, owner);
 
-    it('should be initialized only once', async () => {
-      await expect(vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury)).to.be.revertedWith('AmplesenseVault: contract already initialized');
+    const deployBlock = await ethers.provider.getBlock(vault.deployTransaction.blockHash!);
+
+    expect(info.pioneer_vault1).to.be.equal(zeroAddress);
+    expect(info.pioneer_vault2).to.be.equal(zeroAddress);
+    expect(info.pioneer_vault3).to.be.equal(zeroAddress);
+    expect(info.staking_pool).to.be.equal(zeroAddress);
+    expect(info.trader).to.be.equal(zeroAddress);
+
+    expect(info.eefi_token).to.not.be.equal(zeroAddress);
+    expect(info.rewards_eefi).to.not.be.equal(zeroAddress);
+    expect(info.rewards_eth).to.not.be.equal(zeroAddress);
+
+    expect(info.last_positive).to.be.equal(deployBlock.timestamp);
+
+    expect(info.accountTotalStaked).to.be.equal(0);
+    expect(info.accountTotalClaimable).to.be.equal(0);
+    expect(info.accountBalance).to.be.equal(0);
+    expect(info.accountRewardEth).to.be.equal(0);
+    expect(info.accountRewardToken).to.be.equal(0);
+    expect(info.totalStaked).to.be.equal(0);
+    expect(info.totalRewardEth).to.be.equal(0);
+    expect(info.totalRewardToken).to.be.equal(0);
+  });
+
+  describe('Require initialization', async() => {
+
+    beforeEach(async () => {
+      await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury);
     });
 
-    it('deposit shall fail if staking without creating ampl allowance first', async () => {
-      await expect(vault.makeDeposit(10**9)).to.be.revertedWith('ERC20: transfer amount exceeds allowance');
+    describe.skip('initialize()', () => {
+      it('should be initialized correctly', async () => {
+        const info = await getInfo(vault, owner);
+
+        expect(info.pioneer_vault1).to.be.equal(pioneer1.address);
+        expect(info.pioneer_vault2).to.be.equal(pioneer2.address);
+        expect(info.pioneer_vault3).to.be.equal(pioneer3.address);
+        expect(info.staking_pool).to.be.equal(staking_pool.address);
+      });
+
+      it('should be initialized only once', async () => {
+        await expect(
+          vault.initialize(
+            pioneer1.address,
+            pioneer2.address,
+            pioneer3.address,
+            staking_pool.address,
+            treasury
+          )
+        ).to.be.revertedWith('AmplesenseVault: contract already initialized');
+      });
     });
 
-    it('deposit shall set the correct shares in the contracts', async () => {
-      await amplToken.increaseAllowance(vault.address, 10**9);
-      //now stake
-      await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-      await pioneer2.stake(10**9, '0x');
-      await vault.makeDeposit(10**9);
+    describe('makeDeposit()', () => {
+      it.skip('deposit shall fail if staking without creating ampl allowance first', async () => {
+        await expect(vault.makeDeposit(10**9)).to.be.
+          revertedWith('ERC20: transfer amount exceeds allowance');
+      });
 
-      let rewards_eefi = await vault.rewards_eefi();
-      let rewards_eth = await vault.rewards_eth();
-      
-      let rewards_eefi_contract =  await ethers.getContractAt('Distribute', rewards_eefi);
-      let rewards_eth_contract =  await ethers.getContractAt('Distribute', rewards_eth);
-      let total_staked_for = await vault.totalStakedFor(owner);
-      let total_balance_for = await vault.balanceOf(owner);
-      await expect(total_staked_for).to.be.equal(BigNumber.from(10**9));
-      await expect(total_balance_for).to.be.equal(BigNumber.from(10**9));
-      await expect(await rewards_eefi_contract.totalStakedFor(owner)).to.be.equal(BigNumber.from(10**9));
-      await expect(await rewards_eth_contract.totalStakedFor(owner)).to.be.equal(BigNumber.from(10**9));
-    });
+      it('should set shares in the contracts & mint eefi', async () => {
+        const deposit = BigNumber.from(10**9);
+        const EEFI_DEPOSIT_RATE = await vault.EEFI_DEPOSIT_RATE();
+        const DEPOSIT_FEE_1000 = await vault.DEPOSIT_FEE_10000();
+        const fee = deposit.div(EEFI_DEPOSIT_RATE).mul(DEPOSIT_FEE_1000).div(10000);
 
-    it('deposit shall mint eefi to pioneer2 and to user', async () => {
-      await amplToken.increaseAllowance(vault.address, 10**9);
-      //now stake
-      await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-      await pioneer2.stake(10**9, '0x');
-      await vault.makeDeposit(10**9);
-      let fee = BigNumber.from(10**9).div(BigNumber.from(await vault.EEFI_DEPOSIT_RATE())).mul(await vault.DEPOSIT_FEE_10000()).div(BigNumber.from(10000));
-      await expect((await pioneer2.getReward(owner)).__token).to.be.equal(fee);
-      await expect((await eefiToken.balanceOf(owner))).to.be.equal(BigNumber.from(10**9 / 10**4).sub(fee));
+        const beforeInfo = await getInfo(vault, owner);
+
+        const rewardsEth = await ethers.getContractAt('Distribute', beforeInfo.rewards_eth);
+        const rewardsEefi = await ethers.getContractAt('Distribute', beforeInfo.rewards_eefi);
+
+        const beforeOwnerEthReward = await rewardsEth.totalStakedFor(owner);
+        const beforeOwnerEefiReward = await rewardsEefi.totalStakedFor(owner);
+        const beforeOwnerPioneer2Reward = await pioneer2.getReward(owner);
+        const beforeOwnerEefiBalance = await eefiToken.balanceOf(owner);
+
+        await amplToken.increaseAllowance(vault.address, 10**9);
+        await kmplToken.increaseAllowance(pioneer2.address, 10**9);
+        await pioneer2.stake(10**9, '0x');
+        const tx = await vault.makeDeposit(deposit);
+
+        const afterInfo = await getInfo(vault, owner);
+        const afterOwnerEthReward = await rewardsEth.totalStakedFor(owner);
+        const afterOwnerEefiReward = await rewardsEefi.totalStakedFor(owner);
+        const afterOwnerPioneer2Reward = await pioneer2.getReward(owner);
+        const afterOwnerEefiBalance = await eefiToken.balanceOf(owner);
+        
+        expect(beforeInfo.accountTotalStaked).to.be.equal(0);
+        expect(beforeInfo.accountBalance).to.be.equal(0);
+
+        expect(beforeOwnerEthReward).to.be.equal(0);
+        expect(beforeOwnerEefiReward).to.be.equal(0);
+        
+        expect(beforeOwnerPioneer2Reward.__token).to.be.equal(0);
+        expect(beforeOwnerEefiBalance).to.be.equal(0);
+
+        expect(afterInfo.accountTotalStaked).to.be.equal(deposit);
+        expect(afterInfo.accountBalance).to.be.equal(deposit);
+
+        expect(afterOwnerEthReward).to.be.equal(deposit);
+        expect(afterOwnerEefiReward).to.be.equal(deposit);
+
+        expect(afterOwnerPioneer2Reward.__token).to.be.equal(fee);
+        expect(afterOwnerEefiBalance).to.be.equal(BigNumber.from(10**9 / 10**4).sub(fee));
+      });
     });
   });
   
 
-  describe('rebasing', async() => {
+  describe.skip('rebasing', async() => {
 
     beforeEach(async () => {
 
