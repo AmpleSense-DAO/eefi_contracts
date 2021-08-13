@@ -107,6 +107,7 @@ describe('AmplesenseVault Contract', () => {
     const vaultFactory = await ethers.getContractFactory('AmplesenseVault');
     const stakingerc20Factory = await ethers.getContractFactory('StakingERC20');
     const stakingerc721Factory = await ethers.getContractFactory('StakingERC721');
+    const traderFactory = await ethers.getContractFactory('MockTrader');
 
     const accounts = await ethers.getSigners();
     owner = accounts[0].address;
@@ -127,6 +128,7 @@ describe('AmplesenseVault Contract', () => {
     pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
     pioneer3 = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
     staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
+    balancerTrader = await traderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseEther('1'), ethers.utils.parseEther('1')) as MockTrader;
   });
 
 
@@ -186,7 +188,7 @@ describe('AmplesenseVault Contract', () => {
       });
     });
 
-    describe('makeDeposit()', () => {
+    describe.skip('makeDeposit()', () => {
       it.skip('deposit shall fail if staking without creating ampl allowance first', async () => {
         await expect(vault.makeDeposit(10**9)).to.be.
           revertedWith('ERC20: transfer amount exceeds allowance');
@@ -236,6 +238,25 @@ describe('AmplesenseVault Contract', () => {
 
         expect(afterOwnerPioneer2Reward.__token).to.be.equal(fee);
         expect(afterOwnerEefiBalance).to.be.equal(BigNumber.from(10**9 / 10**4).sub(fee));
+      });
+    });
+
+    describe('setTrader()', () => {
+
+      it('should revert if trader is the zero address', async () => {
+        await expect(vault.setTrader(zeroAddress)).to.be.
+          revertedWith('AmplesenseVault: invalid trader');
+      });
+
+      it('should correctly set the trader', async () => {
+        const beforeInfo = await getInfo(vault, owner);
+
+        const tx = await vault.setTrader(balancerTrader.address);
+
+        const afterInfo = await getInfo(vault, owner);
+
+        expect(beforeInfo.trader).to.be.equal(zeroAddress);
+        expect(afterInfo.trader).to.be.equal(balancerTrader.address);
       });
     });
   });
