@@ -9,7 +9,7 @@ import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
-import "./interfaces/IBalancerTrader.sol";
+import './interfaces/IBalancerTrader.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -60,10 +60,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Ownable() {
+        eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
         rewards_eth = new Distribute(9, IERC20(0));
-        eefi_token = new EEFIToken();
     }
+
+    receive() external payable { }
 
     /**
      * @param account User address
@@ -169,7 +171,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             uint256 for_eefi = percent.mul(TRADE_POSITIVE_EEFI_100);
             uint256 for_eth = percent.mul(TRADE_POSITIVE_ETH_100);
             uint256 for_pioneer1 = percent.mul(TRADE_POSITIVE_PIONEER1_100);
-            //30% ampl remains
+
+            // 30% ampl remains
             // buy and burn eefi
             _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
             trader.sellAMPLForEEFI(for_eefi);
@@ -199,7 +202,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         } else {
             // negative or equal
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
-                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
+                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
                 eefi_token.mint(address(this), to_mint);
                 eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
                 rewards_eefi.distribute(to_mint, address(this));
