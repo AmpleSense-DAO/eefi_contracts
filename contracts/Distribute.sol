@@ -6,8 +6,6 @@ import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/IERC20.sol";
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
-import "hardhat/console.sol";
-
 /**
  * staking contract for ERC20 tokens or ETH
  */

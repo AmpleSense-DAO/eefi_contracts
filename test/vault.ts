@@ -189,7 +189,7 @@ describe('AmplesenseVault Contract', () => {
     });
 
     describe.skip('makeDeposit()', () => {
-      it.skip('deposit shall fail if staking without creating ampl allowance first', async () => {
+      it('deposit shall fail if staking without creating ampl allowance first', async () => {
         await expect(vault.makeDeposit(10**9)).to.be.
           revertedWith('ERC20: transfer amount exceeds allowance');
       });
@@ -241,7 +241,7 @@ describe('AmplesenseVault Contract', () => {
       });
     });
 
-    describe('setTrader()', () => {
+    describe.skip('setTrader()', () => {
 
       it('should revert if trader is the zero address', async () => {
         await expect(vault.setTrader(zeroAddress)).to.be.
@@ -259,75 +259,91 @@ describe('AmplesenseVault Contract', () => {
         expect(afterInfo.trader).to.be.equal(balancerTrader.address);
       });
     });
-  });
   
 
-  describe.skip('rebasing', async() => {
+    describe('rebasing', async() => {
 
-    beforeEach(async () => {
+      beforeEach(async () => {
+        // await vault.setTrader(balancerTrader.address);
 
-      const balancerTraderFactory = await ethers.getContractFactory('MockTrader');
-      balancerTrader = await balancerTraderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseUnits('0.001', 'ether'), ethers.utils.parseUnits('0.1', 'ether')) as MockTrader;
-      await vault.setTrader(balancerTrader.address);
+        //no longer needed to stake here
+        await amplToken.increaseAllowance(vault.address, 10**9);
+        // await kmplToken.increaseAllowance(pioneer2.address, 10**9);
+        // await pioneer2.stake(10**9, '0x');
+        
+        // await amplToken.increaseAllowance(staking_pool.address, 10**9);
+        // await staking_pool.stake(10**9, '0x');
 
-      //no longer needed to stake here
-      await amplToken.increaseAllowance(vault.address, 10**9);
-      await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-      await pioneer2.stake(10**9, '0x');
-      await amplToken.increaseAllowance(staking_pool.address, 10**9);
-      await staking_pool.stake(10**9, '0x');
-      await amplToken.increaseAllowance(pioneer1.address, 10**9);
-      await nft1.setApprovalForAll(pioneer1.address, true);
-      await nft2.setApprovalForAll(pioneer1.address, true);
-      await pioneer1.stake([0, 1], true);
-      await pioneer1.stake([0, 1], false);
+        // await amplToken.increaseAllowance(pioneer1.address, 10**9);
+        // await nft1.setApprovalForAll(pioneer1.address, true);
+        // await nft2.setApprovalForAll(pioneer1.address, true);
+        // await pioneer1.stake([0, 1], true);
+        // await pioneer1.stake([0, 1], false);
 
-      await vault.makeDeposit(10**9);
-    });
+        await vault.makeDeposit(10**9);
+      });
 
-    it('rebasing shall fail unless 24 hours passed', async () => {
-      await expect(vault.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
-    });
+      it.skip('rebasing shall fail unless 24 hours passed', async () => {
+        await expect(vault.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
+      });
 
-    it('rebasing if ampl hasnt changed shall credit eefi', async () => {
-      await ethers.provider.send('evm_increaseTime', [3600*24])
-      await ethers.provider.send('evm_mine', []) // this one will have 02:00 PM as its timestamp
-      await vault.rebase();
-      let reward = await vault.getReward(owner);
-      await expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_EQULIBRIUM_REBASE_RATE()));
-      await expect(reward.eth).to.be.equal(BigNumber.from(0));
-    });
+      it('rebasing if ampl hasn\'t changed shall credit eefi', async () => {
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
 
-    it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
-      await amplToken.rebase(-500);
-      await ethers.provider.send('evm_increaseTime', [3600*24])
-      await ethers.provider.send('evm_mine', []) // this one will have 02:00 PM as its timestamp
-      await vault.rebase();
-      let reward = await vault.getReward(owner);
-      await expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_NEGATIVE_REBASE_RATE()));
-      await expect(reward.eth).to.be.equal(BigNumber.from(0));
-    });
+        const EEFI_EQULIBRIUM_REBASE_RATE = await vault.EEFI_EQULIBRIUM_REBASE_RATE();
+        const expectedRewardToken = BigNumber.from(10**9).div(EEFI_EQULIBRIUM_REBASE_RATE);
+        
+        const before = await getInfo(vault, owner);
 
-    it('rebasing if ampl had a positive rebase shall credit eefi', async () => {
-      await amplToken.rebase(500);
-      //increase time by 24h
-      await ethers.provider.send('evm_increaseTime', [3600*24])
-      await ethers.provider.send('evm_mine', [])
-      const receipt = await vault.rebase();
-      //burning 0 because the fake uniswap contract isnt doing anything
-      await expect(receipt).to.emit(vault, 'Sale_EEFI');
-      await expect(receipt).to.emit(vault, 'Sale_ETH');
-      await expect(receipt).to.emit(vault, 'Burn').withArgs(0);
-      await expect(receipt).to.emit(pioneer1, 'ReceivedAMPL').withArgs(BigNumber.from(500/100).mul(await vault.TRADE_POSITIVE_PIONEER1_100()));
-      await expect(receipt).to.emit(pioneer2, 'ProfitEth').withArgs(0);
-      await expect(receipt).to.emit(staking_pool, 'ProfitEth').withArgs(0);
+        const tx = await vault.rebase();
 
-      //test reward once we have a good uniswap emulator???
+        const after = await getInfo(vault, owner);
 
-      // let reward = await vault.getReward(owner);
-      // console.log(reward)
-      // expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_POSITIVE_REBASE_RATE()));
-      // expect(reward.eth).to.be.equal(BigNumber.from(0));
+        expect(before.accountRewardToken).to.be.equal(0);
+        expect(before.accountRewardEth).to.be.equal(0);
+        expect(before.totalRewardToken).to.be.equal(0);
+        expect(before.totalRewardEth).to.be.equal(0);
+        expect(before.totalStaked).to.be.equal(10**9);
+
+        expect(after.accountRewardToken).to.be.equal(expectedRewardToken);
+        expect(after.accountRewardEth).to.be.equal(0);
+        expect(after.totalRewardToken).to.be.equal(0);
+        expect(after.totalRewardEth).to.be.equal(100000);
+        expect(after.totalStaked).to.be.equal(10**9);
+      });
+
+      it.skip('rebasing if ampl had a negative rebase shall credit eefi', async () => {
+        await amplToken.rebase(-500);
+        await ethers.provider.send('evm_increaseTime', [3600*24])
+        await ethers.provider.send('evm_mine', []) // this one will have 02:00 PM as its timestamp
+        await vault.rebase();
+        let reward = await vault.getReward(owner);
+        await expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_NEGATIVE_REBASE_RATE()));
+        await expect(reward.eth).to.be.equal(BigNumber.from(0));
+      });
+
+      it.skip('rebasing if ampl had a positive rebase shall credit eefi', async () => {
+        await amplToken.rebase(500);
+        //increase time by 24h
+        await ethers.provider.send('evm_increaseTime', [3600*24])
+        await ethers.provider.send('evm_mine', [])
+        const receipt = await vault.rebase();
+        //burning 0 because the fake uniswap contract isnt doing anything
+        await expect(receipt).to.emit(vault, 'Sale_EEFI');
+        await expect(receipt).to.emit(vault, 'Sale_ETH');
+        await expect(receipt).to.emit(vault, 'Burn').withArgs(0);
+        await expect(receipt).to.emit(pioneer1, 'ReceivedAMPL').withArgs(BigNumber.from(500/100).mul(await vault.TRADE_POSITIVE_PIONEER1_100()));
+        await expect(receipt).to.emit(pioneer2, 'ProfitEth').withArgs(0);
+        await expect(receipt).to.emit(staking_pool, 'ProfitEth').withArgs(0);
+
+        //test reward once we have a good uniswap emulator???
+
+        // let reward = await vault.getReward(owner);
+        // console.log(reward)
+        // expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_POSITIVE_REBASE_RATE()));
+        // expect(reward.eth).to.be.equal(BigNumber.from(0));
+      });
     });
   });
 
