@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
+import "hardhat/console.sol";
+
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/ERC20Burnable.sol';
@@ -166,7 +168,10 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             last_positive = block.timestamp;
             require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
-            uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
+            // ! WARNING CALCULATION OF SURPLUS (commented line) SEEMS STRANGE: allways get 0
+            // uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
+            uint256 surplus = new_supply.sub(old_supply);
+            
             uint256 percent = surplus.divDown(100);
             uint256 for_eefi = percent.mul(TRADE_POSITIVE_EEFI_100);
             uint256 for_eth = percent.mul(TRADE_POSITIVE_ETH_100);
@@ -174,8 +179,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
             // 30% ampl remains
             // buy and burn eefi
-            _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
+            
+            // _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
+            _ampl_token.approve(address(trader), for_eefi.add(for_eth));
+
             trader.sellAMPLForEEFI(for_eefi);
+
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
