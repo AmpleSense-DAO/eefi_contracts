@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
-import "hardhat/console.sol";
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
