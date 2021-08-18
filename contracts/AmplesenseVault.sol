@@ -167,14 +167,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             last_positive = block.timestamp;
             require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
-            // ! WARNING CALCULATION OF SURPLUS (commented line) SEEMS STRANGE: allways get 0
-            // uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
-            uint256 surplus = new_supply.sub(old_supply);
+            uint256 changeRatio18Digits = new_supply.sub(old_supply).mul(10**18).divDown(new_supply);
+            uint256 surplus = new_balance.mul(changeRatio18Digits).divDown(10**18);
             
-            uint256 percent = surplus.divDown(100);
-            uint256 for_eefi = percent.mul(TRADE_POSITIVE_EEFI_100);
-            uint256 for_eth = percent.mul(TRADE_POSITIVE_ETH_100);
-            uint256 for_pioneer1 = percent.mul(TRADE_POSITIVE_PIONEER1_100);
+            uint256 for_eefi = surplus.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
+            uint256 for_eth = surplus.mul(TRADE_POSITIVE_ETH_100).divDown(100);
+            uint256 for_pioneer1 = surplus.mul(TRADE_POSITIVE_PIONEER1_100).divDown(100);
 
             // 30% ampl remains
             // buy and burn eefi
