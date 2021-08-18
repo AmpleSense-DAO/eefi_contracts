@@ -11,6 +11,7 @@ import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
 import './interfaces/IBalancerTrader.sol';
+import 'hardhat/console.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -220,8 +221,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
     function claim() external {
         (uint256 eth, uint256 token) = getReward(msg.sender);
-        rewards_eth.withdrawFrom(msg.sender, eth);
-        rewards_eefi.withdrawFrom(msg.sender, token);
+        rewards_eth.withdrawFrom(msg.sender, rewards_eth.totalStaked());
+        rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStaked());
         emit Claimed(msg.sender, eth, token);
     }
 

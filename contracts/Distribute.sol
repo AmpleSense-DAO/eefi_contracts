@@ -13,7 +13,15 @@ contract Distribute is Ownable {
     using Math for uint256;
     using SafeERC20 for IERC20;
 
-    uint256 PRECISION;
+    /**
+     @dev This value is very important because if the number of bonds is too great
+     compared to the distributed value, then the bond increase will be zero
+     therefore this value depends on the number of decimals
+     of the distributed token and I suggest it to be the same
+     For example if the token has 18 decimals, then the precision should also have 18 decimals
+
+    */
+    uint256 public PRECISION;
 
     uint256 constant INITIAL_BOND_VALUE = 1000000;
 
@@ -33,7 +41,7 @@ contract Distribute is Ownable {
 
     /**
         @dev Initialize the contract
-        @param decimals Precision to use
+        @param decimals Number of decimals of the reward token
         @param _reward_token The token used for rewards. Set to 0 for ETH
     */
     constructor(uint256 decimals, IERC20 _reward_token) Ownable() {
@@ -57,7 +65,7 @@ contract Distribute is Ownable {
         uint256 accumulated_reward = getReward(account);
         _stakes[account] = _stakes[account].add(amount);
 
-        uint256 new_bond_value = accumulated_reward / _stakes[account] / PRECISION;
+        uint256 new_bond_value = accumulated_reward * PRECISION / _stakes[account];
         _bond_value_addr[account] = bond_value.sub(new_bond_value);
     }
 
@@ -128,7 +136,8 @@ contract Distribute is Ownable {
         uint256 bond_increase = temp_to_distribute / total_bonds;
         uint256 distributed_total = total_bonds.mul(bond_increase);
         bond_value = bond_value.add(bond_increase);
-        //collect the dust
+        //collect the dust because of the PRECISION used for bonds
+        //it will be reinjected into the next distribution
         to_distribute = temp_to_distribute.sub(distributed_total);
     }
 

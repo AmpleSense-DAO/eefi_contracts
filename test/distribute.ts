@@ -64,7 +64,7 @@ describe('Distribute Contract', () => {
       erc20Factory.deploy('9') as Promise<FakeERC20>,
     ]);
     
-    distribute = await distributeFactory.deploy('0', rewardToken.address) as Distribute;
+    distribute = await distributeFactory.deploy('9', rewardToken.address) as Distribute;
   });
 
   it('Should have been deployed correctly', async () => {
@@ -81,7 +81,7 @@ describe('Distribute Contract', () => {
 
     describe('Should revert', () => {
       it('if account is the zero address', async () => {
-        await expect(distribute.stakeFor(zeroAddress, BigNumber.from(100))).to.be.revertedWith('Distribute: Invalid account');
+        await expect(distribute.stakeFor(zeroAddress, BigNumber.from(100*10**9))).to.be.revertedWith('Distribute: Invalid account');
       });
 
       it('if amount is  zero', async () => {
@@ -91,38 +91,38 @@ describe('Distribute Contract', () => {
     
     describe('Should work as expected', () => {
       beforeEach(async () => {
-        await distribute.stakeFor(userA, BigNumber.from(100));
+        await distribute.stakeFor(userA, BigNumber.from(100*10**9));
       });
 
       it('for the first call with user A', async () => {
 
         const { totalStake, investorCount, userStake, userReward } = await getInfo(distribute, userA);
 
-        expect(totalStake).to.be.equal(100);
+        expect(totalStake).to.be.equal(100*10**9);
         expect(investorCount).to.be.equal(1);
-        expect(userStake).to.be.equal(100);
+        expect(userStake).to.be.equal(100*10**9);
         expect(userReward).to.be.equal(0);
       });
 
       it('for the second call with user A', async () => {
-        await distribute.stakeFor(userA, BigNumber.from(150));
+        await distribute.stakeFor(userA, BigNumber.from(150*10**9));
 
         const { totalStake, investorCount, userStake, userReward } = await getInfo(distribute, userA);
 
-        expect(totalStake).to.be.equal(250);
+        expect(totalStake).to.be.equal(250*10**9);
         expect(investorCount).to.be.equal(1);
-        expect(userStake).to.be.equal(250);
+        expect(userStake).to.be.equal(250*10**9);
         expect(userReward).to.be.equal(0);
       });
 
       it('for the second call with user B', async () => {
-        await distribute.stakeFor(userB, BigNumber.from(150));
+        await distribute.stakeFor(userB, BigNumber.from(150*10**9));
 
         const { totalStake, investorCount, userStake, userReward } = await getInfo(distribute, userB);
 
-        expect(totalStake).to.be.equal(250);
+        expect(totalStake).to.be.equal(250*10**9);
         expect(investorCount).to.be.equal(2);
-        expect(userStake).to.be.equal(150);
+        expect(userStake).to.be.equal(150*10**9);
         expect(userReward).to.be.equal(0);
       });
     });
@@ -133,7 +133,7 @@ describe('Distribute Contract', () => {
 
     describe('Should revert', () => {
       it('for account zero', async () => {
-        await expect(distribute.unstakeFrom(zeroAddress, BigNumber.from(100))).to.be.revertedWith('Distribute: Invalid account');
+        await expect(distribute.unstakeFrom(zeroAddress, BigNumber.from(100*10**9))).to.be.revertedWith('Distribute: Invalid account');
       });
 
       it('for amount zero', async () => {
@@ -144,25 +144,25 @@ describe('Distribute Contract', () => {
     describe('stake 100 for user A, then', () => {
 
       beforeEach(async () => {
-        await distribute.stakeFor(userA, BigNumber.from(100));
+        await distribute.stakeFor(userA, BigNumber.from(100*10**9));
       });
 
       it('Should revert if unstake is greater than stake', async () => {
-        await expect(distribute.unstakeFrom(userA, BigNumber.from(101))).to.be.revertedWith('Distribute: Dont have enough staked');
+        await expect(distribute.unstakeFrom(userA, BigNumber.from(101*10**9))).to.be.revertedWith('Distribute: Dont have enough staked');
       });
 
       it('Should correctly partially unstake', async () => {
-        await distribute.unstakeFrom(userA, BigNumber.from(50));
+        await distribute.unstakeFrom(userA, BigNumber.from(50*10**9));
 
         const { totalStake, userStake, investorCount } = await getInfo(distribute, userA);
 
-        expect(totalStake).to.be.equal(50);
-        expect(userStake).to.be.equal(50);
+        expect(totalStake).to.be.equal(50*10**9);
+        expect(userStake).to.be.equal(50*10**9);
         expect(investorCount).to.be.equal(1);
       });
 
       it('Should correctly totally unstake', async () => {
-        await distribute.unstakeFrom(userA, BigNumber.from(100));
+        await distribute.unstakeFrom(userA, BigNumber.from(100*10**9));
 
         const { totalStake, userStake, investorCount } = await getInfo(distribute, userA);
 
@@ -180,13 +180,13 @@ describe('Distribute Contract', () => {
 
       await Promise.all([
         rewardToken.rebase(BigNumber.from(1_000)), // mint 100 token to `owner` address
-        rewardToken.approve(distribute.address, BigNumber.from(1_000)), // allow Distribute contract to spend `owner`'s token
+        rewardToken.approve(distribute.address, BigNumber.from("1000000000000000000")), // allow Distribute contract to spend `owner`'s token
       ]);
     });
 
     
     it('Should add amount to temp_pool', async () => {
-      await distribute.distribute(BigNumber.from(100), owner);
+      await distribute.distribute(BigNumber.from(100*10**9), owner);
 
       const { bondValue } = await getInfo(distribute, userA);
 
@@ -198,9 +198,22 @@ describe('Distribute Contract', () => {
 
       beforeEach(async () => {
         await Promise.all([
-          distribute.stakeFor(userA, BigNumber.from(100)),
-          distribute.stakeFor(userB, BigNumber.from(50)),
+          distribute.stakeFor(userA, BigNumber.from(100*10**9)),
+          distribute.stakeFor(userB, BigNumber.from(50*10**9)),
         ]);
+      });
+
+      it('Should not change the reward after a second stake', async () => {
+        const distributedAmount = BigNumber.from(getRandomInt(10000000000, 9990000000000));
+        await distribute.stakeFor(userA, BigNumber.from("10000000000000000"));
+        // Distribute transaction
+        await distribute.distribute(BigNumber.from(distributedAmount), owner);
+        const { userReward: userAReward } = await getInfo(distribute, userA);
+        const precisionAdjustedRewardA = userAReward.div(BigNumber.from(await distribute.PRECISION()));
+        await distribute.stakeFor(userA, BigNumber.from(1));
+        const { userReward: userAReward2 } = await getInfo(distribute, userA);
+        const precisionAdjustedRewardA2 = userAReward2.div(BigNumber.from(await distribute.PRECISION()));
+        expect(precisionAdjustedRewardA).to.be.equal(precisionAdjustedRewardA2);
       });
 
       it('Should collect some reward', async () => {
@@ -214,13 +227,12 @@ describe('Distribute Contract', () => {
           getInfo(distribute, userB),
         ]);
 
-        const distributedAmount = BigNumber.from(getRandomInt(1, 999));
-        const expectedIncrease = distributedAmount.div(totalStake);
+        const distributedAmount = BigNumber.from(getRandomInt(10**9, 999*10**9));
+        const expectedIncrease = distributedAmount.div(totalStake.div(await distribute.PRECISION()));
         const expectedNewBondValue = initialBondValue.add(expectedIncrease);
-        const expectedRemaining = distributedAmount.mod(totalStake);
-        const expectedUserAReward = userAStake.mul(expectedIncrease);
-        const expectedUserBReward = userBStake.mul(expectedIncrease);
-
+        const expectedRemaining = distributedAmount.mod(totalStake.div(await distribute.PRECISION()));
+        const expectedUserAReward = userAStake.div(await distribute.PRECISION()).mul(expectedIncrease);
+        const expectedUserBReward = userBStake.div(await distribute.PRECISION()).mul(expectedIncrease);
 
         // Distribute transaction
         await distribute.distribute(BigNumber.from(distributedAmount), owner);
@@ -242,8 +254,8 @@ describe('Distribute Contract', () => {
         expect(userBReward).to.be.equal(expectedUserBReward);
 
         // stacked amount should not have changed
-        expect(userAStake).to.be.equal(100);
-        expect(userBStake).to.be.equal(50);
+        expect(userAStake).to.be.equal(100*10**9);
+        expect(userBStake).to.be.equal(50*10**9);
       });
     });
 
@@ -255,9 +267,9 @@ describe('Distribute Contract', () => {
 
       await Promise.all([
         rewardToken.rebase(BigNumber.from(1_000)), // mint 1000 token to `owner` address
-        rewardToken.approve(distribute.address, BigNumber.from(1_000)), // allow Distribute contract to spend `owner`'s token
-        distribute.stakeFor(userA, BigNumber.from(100)),
-        distribute.distribute(BigNumber.from(250), owner),
+        rewardToken.approve(distribute.address, BigNumber.from(1_000*10**9)), // allow Distribute contract to spend `owner`'s token
+        distribute.stakeFor(userA, BigNumber.from(100*10**9)),
+        distribute.distribute(BigNumber.from(200*10**9), owner),
       ]);
     });
 
@@ -268,22 +280,21 @@ describe('Distribute Contract', () => {
         rewardToken.balanceOf(userA),
       ]);
       
-      await distribute.withdrawFrom(userA, 50);
+      await distribute.withdrawFrom(userA, 50*10**9);
       
       const [after, afterBalance] = await Promise.all([
         getInfo(distribute, userA),
         rewardToken.balanceOf(userA),
       ]);
 
-      expect(before.bondValue).to.be.equal(1_000_002);
       expect(after.bondValue).to.be.equal(before.bondValue);
-      expect(after.toDistribute).to.be.equal(50);
+      expect(after.toDistribute).to.be.equal(0);
 
-      expect(before.userReward).to.be.equal(200);
-      expect(after.userReward).to.be.equal(100);
+      expect(before.userReward).to.be.equal(200*10**9);
+      expect(after.userReward).to.be.equal(100*10**9);
 
       expect(beforeBalance).to.be.equal(0);
-      expect(afterBalance).to.be.equal(100);
+      expect(afterBalance).to.be.equal(100*10**9);
 
       expect(after.userStake).to.be.equal(before.userStake);
       expect(after.totalStake).to.be.equal(before.totalStake);

@@ -7,13 +7,19 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [{ version: "0.7.6", settings: {} }],
   },
-  // networks: {
-  //   hardhat: {},
-  //   rinkeby: {
-  //     url: `https://rinkeby.infura.io/v3/${INFURA_API_KEY}`,
-  //     accounts: [RINKEBY_PRIVATE_KEY],
-  //   },
-  // },
+  networks: {
+    hardhat: {
+      allowUnlimitedContractSize : true
+    },
+    rinkeby: {
+      url: `https://eth-rinkeby.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
+      accounts: ["PK"],
+      gasPrice : 1000000000
+    },
+  },
+  etherscan: {
+    apiKey: "2NA2YSGJTXQJFFDEKXH9SC2JZJDRVWBSKR"
+  }
 };
 
 export default config;
