@@ -2,6 +2,7 @@
   "dependencies": {
     "@balancer-labs/balancer-core-v2": "https://github.com/balancer-labs/balancer-core-v2#c5b42e8cd4ffe62a82ba85263eac498df7a913b5",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
+    "@nomiclabs/hardhat-etherscan": "^2.1.3",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^3.3.0",
     "@openzeppelin/test-helpers": "^0.5.10",

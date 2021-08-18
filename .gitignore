@@ -10,3 +10,4 @@ cache/
 typechain/
 *.lock
 *.log
+hardhat.config.ts

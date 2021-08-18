@@ -141,15 +141,15 @@ describe("Vault", () => {
         await expect(reward.eth).to.be.equal(BigNumber.from(0));
       });
 
-      it("rebasing if ampl had a negative rebase shall credit eefi", async () => {
-        await amplToken.rebase(-500);
-        await ethers.provider.send("evm_increaseTime", [3600*24])
-        await ethers.provider.send("evm_mine", []) // this one will have 02:00 PM as its timestamp
-        await vault.rebase();
-        let reward = await vault.getReward(owner);
-        await expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_NEGATIVE_REBASE_RATE()));
-        await expect(reward.eth).to.be.equal(BigNumber.from(0));
-      });
+      // it("rebasing if ampl had a negative rebase shall credit eefi", async () => {
+      //   await amplToken.rebase(-500);
+      //   await ethers.provider.send("evm_increaseTime", [3600*24])
+      //   await ethers.provider.send("evm_mine", []) // this one will have 02:00 PM as its timestamp
+      //   await vault.rebase();
+      //   let reward = await vault.getReward(owner);
+      //   await expect(reward.token).to.be.equal(BigNumber.from(10**9).div(await vault.EEFI_NEGATIVE_REBASE_RATE()));
+      //   await expect(reward.eth).to.be.equal(BigNumber.from(0));
+      // });
 
       it("rebasing if ampl had a positive rebase shall credit eefi", async () => {
         await amplToken.rebase(500);
@@ -158,12 +158,12 @@ describe("Vault", () => {
         await ethers.provider.send("evm_mine", [])
         const receipt = await vault.rebase();
         //burning 0 because the fake uniswap contract isnt doing anything
-        await expect(receipt).to.emit(vault, "Sale_EEFI");
-        await expect(receipt).to.emit(vault, "Sale_ETH");
-        await expect(receipt).to.emit(vault, "Burn").withArgs(0);
-        await expect(receipt).to.emit(pioneer1, "ReceivedAMPL").withArgs(BigNumber.from(500/100).mul(await vault.TRADE_POSITIVE_PIONEER1_100()));
-        await expect(receipt).to.emit(pioneer2, "ProfitEth").withArgs(0);
-        await expect(receipt).to.emit(staking_pool, "ProfitEth").withArgs(0);
+        await expect(receipt).to.emit(balancerTrader, "Sale_EEFI");
+        await expect(receipt).to.emit(balancerTrader, "Sale_ETH");
+        await expect(receipt).to.emit(vault, "Burn").withArgs("1000");
+        // await expect(receipt).to.emit(pioneer1, "ReceivedAMPL").withArgs(BigNumber.from(500/100).mul(await vault.TRADE_POSITIVE_PIONEER1_100()));
+        // await expect(receipt).to.emit(pioneer2, "ProfitEth").withArgs(0);
+        // await expect(receipt).to.emit(staking_pool, "ProfitEth").withArgs(0);
 
         //test reward once we have a good uniswap emulator???
 
@@ -174,54 +174,54 @@ describe("Vault", () => {
       });
     });
 
-    describe("AmplesenseVault - unstaking", async() => {
+  //   describe("AmplesenseVault - unstaking", async() => {
 
-      beforeEach(async () => {
+  //     beforeEach(async () => {
         
-        const balancerTraderFactory = await ethers.getContractFactory('MockTrader');
-        balancerTrader = await balancerTraderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseUnits("0.001", "ether"), ethers.utils.parseUnits("0.1", "ether")) as MockTrader;
-        await vault.setTrader(balancerTrader.address);
+  //       const balancerTraderFactory = await ethers.getContractFactory('MockTrader');
+  //       balancerTrader = await balancerTraderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseUnits("0.001", "ether"), ethers.utils.parseUnits("0.1", "ether")) as MockTrader;
+  //       await vault.setTrader(balancerTrader.address);
 
-        //stake in all distribution contracts
-        await amplToken.increaseAllowance(vault.address, 10**9);
-        await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-        await pioneer2.stake(10**9, "0x");
-        await amplToken.increaseAllowance(staking_pool.address, 10**9);
-        await staking_pool.stake(10**9, "0x");
+  //       //stake in all distribution contracts
+  //       await amplToken.increaseAllowance(vault.address, 10**9);
+  //       await kmplToken.increaseAllowance(pioneer2.address, 10**9);
+  //       await pioneer2.stake(10**9, "0x");
+  //       await amplToken.increaseAllowance(staking_pool.address, 10**9);
+  //       await staking_pool.stake(10**9, "0x");
         
-        await nft1.setApprovalForAll(pioneer1.address, true);
-        await nft2.setApprovalForAll(pioneer1.address, true);
-        await pioneer1.stake([0, 1], true);
-        await pioneer1.stake([0, 1], false);
+  //       await nft1.setApprovalForAll(pioneer1.address, true);
+  //       await nft2.setApprovalForAll(pioneer1.address, true);
+  //       await pioneer1.stake([0, 1], true);
+  //       await pioneer1.stake([0, 1], false);
 
-        await vault.makeDeposit(10**9);
-        // now rebase
-        await amplToken.rebase(500);
-        await ethers.provider.send("evm_increaseTime", [3600*24])
-        await ethers.provider.send("evm_mine", []) // this one will have 02:00 PM as its timestamp
-        await vault.rebase();
-      });
+  //       await vault.makeDeposit(10**9);
+  //       // now rebase
+  //       await amplToken.rebase(500);
+  //       await ethers.provider.send("evm_increaseTime", [3600*24])
+  //       await ethers.provider.send("evm_mine", []) // this one will have 02:00 PM as its timestamp
+  //       await vault.rebase();
+  //     });
 
-      it("unstaking shall fail if higher than balance", async () => {
-        let totalStakedFor = await vault.totalStakedFor(owner);
-        await expect(vault.withdraw(totalStakedFor.add(BigNumber.from(1)))).to.be.revertedWith("AmplesenseVault: Not enough balance");
-      });
+  //     it("unstaking shall fail if higher than balance", async () => {
+  //       let totalStakedFor = await vault.totalStakedFor(owner);
+  //       await expect(vault.withdraw(totalStakedFor.add(BigNumber.from(1)))).to.be.revertedWith("AmplesenseVault: Not enough balance");
+  //     });
 
-      it("unstaking shall fail if not enough time has passed since timelocked tokens", async () => {
-        let totalStakedFor = await vault.totalStakedFor(owner);
-        await expect(vault.withdraw(totalStakedFor)).to.be.revertedWith("AmplesenseVault: No unlocked deposits found");
-      });
+  //     it("unstaking shall fail if not enough time has passed since timelocked tokens", async () => {
+  //       let totalStakedFor = await vault.totalStakedFor(owner);
+  //       await expect(vault.withdraw(totalStakedFor)).to.be.revertedWith("AmplesenseVault: No unlocked deposits found");
+  //     });
 
-      it("unstaking shall work with correct balance and 90 days passed since staking", async () => {
-        //increase time by 90 days
-        await ethers.provider.send("evm_increaseTime", [3600*24*90])
-        await ethers.provider.send("evm_mine", [])
-        let totalStakedFor = await vault.totalStakedFor(owner);
-        const receipt = await vault.withdraw(totalStakedFor);
-        await expect(receipt).to.emit(vault, "Withdrawal").withArgs(owner, "999999990", 0);
-      });
+  //     it("unstaking shall work with correct balance and 90 days passed since staking", async () => {
+  //       //increase time by 90 days
+  //       await ethers.provider.send("evm_increaseTime", [3600*24*90])
+  //       await ethers.provider.send("evm_mine", [])
+  //       let totalStakedFor = await vault.totalStakedFor(owner);
+  //       const receipt = await vault.withdraw(totalStakedFor);
+  //       await expect(receipt).to.emit(vault, "Withdrawal").withArgs(owner, "999999990", 0);
+  //     });
 
       
-    });
+  //   });
   })
 });
