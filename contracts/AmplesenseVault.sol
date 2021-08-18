@@ -189,11 +189,11 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             emit Burn(to_burn);
             // buy eth and distribute
             trader.sellAMPLForEth(for_eth);
-            percent = address(this).balance.divDown(100);
-            uint256 to_rewards = percent.mul(TRADE_POSITIVE_REWARDS_100);
-            uint256 to_pioneer2 = percent.mul(TRADE_POSITIVE_PIONEER2_100);
-            uint256 to_pioneer3 = percent.mul(TRADE_POSITIVE_PIONEER3_100);
-            uint256 to_lp_staking = percent.mul(TRADE_POSITIVE_LPSTAKING_100);
+ 
+            uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
+            uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
+            uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
+            uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
             pioneer_vault3.distribute_eth{value: to_pioneer3}();
