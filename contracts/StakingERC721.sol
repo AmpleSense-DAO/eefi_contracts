@@ -19,6 +19,7 @@ contract StakingERC721  {
     event ReceivedAMPL(uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 total);
     event Unstaked(address indexed account, uint256 amount, uint256 total);
+    event StakeChanged(uint256 total, uint256 timestamp);
 
     constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _ampl) {
         tokenA = _tokenA;
@@ -69,6 +70,7 @@ contract StakingERC721  {
         stakingContractEth.stakeFor(account, ids.length);
         
         emit Staked(account, ids.length, totalStakedFor(account));
+        emit StakeChanged(stakingContractEth.totalStaked(), block.timestamp);
     }
 
     /**
@@ -95,6 +97,7 @@ contract StakingERC721  {
         }
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
+        emit StakeChanged(stakingContractEth.totalStaked(), block.timestamp);
     }
 
      /**

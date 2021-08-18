@@ -18,6 +18,7 @@ contract StakingERC20 is IERC900  {
 
     event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);
+    event StakeChanged(uint256 total, uint256 timestamp);
 
     constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
         _token = stake_token;
@@ -56,6 +57,7 @@ contract StakingERC20 is IERC900  {
         staking_contract_eth.stakeFor(account, amount);
         staking_contract_token.stakeFor(account, amount);
         emit Staked(account, amount, totalStakedFor(account), data);
+        emit StakeChanged(staking_contract_eth.totalStaked(), block.timestamp);
     }
 
     /**
@@ -68,6 +70,7 @@ contract StakingERC20 is IERC900  {
         staking_contract_token.unstakeFrom(msg.sender, amount);
         _token.safeTransfer(msg.sender, amount);
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), data);
+        emit StakeChanged(staking_contract_eth.totalStaked(), block.timestamp);
     }
 
      /**

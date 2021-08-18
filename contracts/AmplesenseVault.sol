@@ -30,7 +30,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
     uint256 constant public EEFI_EQULIBRIUM_REBASE_RATE = 10000;
     uint256 constant public DEPOSIT_FEE_10000 = 65;
-    uint256 constant public LOCK_TIME = 90 days;
+    uint256 constant public LOCK_TIME = 20 seconds;
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 48;
     uint256 constant public TRADE_POSITIVE_ETH_100 = 20;
     uint256 constant public TRADE_POSITIVE_PIONEER1_100 = 2;
@@ -39,12 +39,13 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
-    uint256 constant public MINTING_DECAY = 90 days;
+    uint256 constant public MINTING_DECAY = 2 hours;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
     event Deposit(address indexed account, uint256 amount, uint256 length);
     event Withdrawal(address indexed account, uint256 amount, uint256 length);
+    event StakeChanged(uint256 total, uint256 timestamp);
 
     struct DepositChunk {
         uint256 amount;
@@ -64,6 +65,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         rewards_eth = new Distribute(9, IERC20(0));
         eefi_token = new EEFIToken();
     }
+
+    receive() external payable { }
 
     /**
      * @param account User address
@@ -128,6 +131,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         rewards_eefi.stakeFor(account, amount);
         rewards_eth.stakeFor(account, amount);
         emit Deposit(account, amount, _deposits[account].length);
+        emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 
     function withdraw(uint256 amount) external {
@@ -154,6 +158,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         rewards_eefi.unstakeFrom(msg.sender, amount);
         rewards_eth.unstakeFrom(msg.sender, amount);
         emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
+        emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
