@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
+
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/ERC20Burnable.sol';
@@ -9,7 +10,8 @@ import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
-import "./interfaces/IBalancerTrader.sol";
+import './interfaces/IBalancerTrader.sol';
+import 'hardhat/console.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -61,9 +63,9 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Ownable() {
+        eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
         rewards_eth = new Distribute(9, IERC20(0));
-        eefi_token = new EEFIToken();
     }
 
     receive() external payable { }
@@ -169,15 +171,21 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             last_positive = block.timestamp;
             require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
-            uint256 surplus = new_supply.sub(old_supply).mul(new_balance).divDown(new_supply);
-            uint256 percent = surplus.divDown(100);
-            uint256 for_eefi = percent.mul(TRADE_POSITIVE_EEFI_100);
-            uint256 for_eth = percent.mul(TRADE_POSITIVE_ETH_100);
-            uint256 for_pioneer1 = percent.mul(TRADE_POSITIVE_PIONEER1_100);
-            //30% ampl remains
+            uint256 changeRatio18Digits = old_supply.mul(10**18).divDown(new_supply);
+            uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
+
+            uint256 for_eefi = surplus.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
+            uint256 for_eth = surplus.mul(TRADE_POSITIVE_ETH_100).divDown(100);
+            uint256 for_pioneer1 = surplus.mul(TRADE_POSITIVE_PIONEER1_100).divDown(100);
+
+            // 30% ampl remains
             // buy and burn eefi
-            _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
+            
+            // _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
+            _ampl_token.approve(address(trader), for_eefi.add(for_eth));
+
             trader.sellAMPLForEEFI(for_eefi);
+
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
@@ -185,11 +193,13 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             emit Burn(to_burn);
             // buy eth and distribute
             trader.sellAMPLForEth(for_eth);
-            percent = address(this).balance.divDown(100);
-            uint256 to_rewards = percent.mul(TRADE_POSITIVE_REWARDS_100);
-            uint256 to_pioneer2 = percent.mul(TRADE_POSITIVE_PIONEER2_100);
-            uint256 to_pioneer3 = percent.mul(TRADE_POSITIVE_PIONEER3_100);
-            uint256 to_lp_staking = percent.mul(TRADE_POSITIVE_LPSTAKING_100);
+            console.log("for eth", for_eth);
+ 
+            uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
+            uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
+            uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
+            uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+            console.log("balance", address(this).balance, to_rewards);
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
             pioneer_vault3.distribute_eth{value: to_pioneer3}();
@@ -204,7 +214,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         } else {
             // negative or equal
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
-                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
+                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
                 eefi_token.mint(address(this), to_mint);
                 eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
                 rewards_eefi.distribute(to_mint, address(this));

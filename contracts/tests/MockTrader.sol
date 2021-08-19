@@ -11,8 +11,8 @@ contract MockTrader is IBalancerTrader {
 
     IERC20 public ampl_token;
     IERC20 public eefi_token;
-    uint256 ratio_eth = 1 ether;
-    uint256 ratio_eefi = 1 ether;
+    uint256 public ratio_eth = 1 ether;
+    uint256 public ratio_eefi = 1 ether;
 
     constructor(IERC20 _ampl_token, IERC20 _eefi_token, uint256 _ratio_eth, uint256 _ratio_eefi) {
         ampl_token = _ampl_token;
