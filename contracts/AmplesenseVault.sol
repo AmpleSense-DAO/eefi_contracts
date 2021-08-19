@@ -11,6 +11,7 @@ import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
 import './interfaces/IBalancerTrader.sol';
+import 'hardhat/console.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -167,9 +168,9 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             last_positive = block.timestamp;
             require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
-            uint256 changeRatio18Digits = new_supply.sub(old_supply).mul(10**18).divDown(new_supply);
-            uint256 surplus = new_balance.mul(changeRatio18Digits).divDown(10**18);
-            
+            uint256 changeRatio18Digits = old_supply.mul(10**18).divDown(new_supply);
+            uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
+
             uint256 for_eefi = surplus.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
             uint256 for_eth = surplus.mul(TRADE_POSITIVE_ETH_100).divDown(100);
             uint256 for_pioneer1 = surplus.mul(TRADE_POSITIVE_PIONEER1_100).divDown(100);
@@ -189,11 +190,13 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             emit Burn(to_burn);
             // buy eth and distribute
             trader.sellAMPLForEth(for_eth);
+            console.log("for eth", for_eth);
  
             uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
             uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
             uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
             uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+            console.log("balance", address(this).balance, to_rewards);
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
             pioneer_vault3.distribute_eth{value: to_pioneer3}();

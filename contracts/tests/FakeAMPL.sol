@@ -5,6 +5,7 @@ import 'uFragments/contracts/UFragments.sol';
 
 contract FakeAMPL is UFragments {
     constructor() UFragments() {
+        monetaryPolicy = msg.sender;
         initialize(msg.sender);
     }
 }
