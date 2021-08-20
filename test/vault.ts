@@ -262,24 +262,12 @@ describe('AmplesenseVault Contract', () => {
     });
   
 
-    describe('rebasing', async() => {
+    describe.skip('_rebase()', async() => {
 
       beforeEach(async () => {
         await vault.setTrader(balancerTrader.address);
 
-        //no longer needed to stake here
         await amplToken.increaseAllowance(vault.address, 10**9);
-        // await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-        // await pioneer2.stake(10**9, '0x');
-        
-        // await amplToken.increaseAllowance(staking_pool.address, 10**9);
-        // await staking_pool.stake(10**9, '0x');
-
-        // await amplToken.increaseAllowance(pioneer1.address, 10**9);
-        // await nft1.setApprovalForAll(pioneer1.address, true);
-        // await nft2.setApprovalForAll(pioneer1.address, true);
-        // await pioneer1.stake([0, 1], true);
-        // await pioneer1.stake([0, 1], false);
 
         await vault.TESTMINT(99999, balancerTrader.address);
         const [ ownerAccount ] = await ethers.getSigners();
@@ -288,11 +276,11 @@ describe('AmplesenseVault Contract', () => {
         await vault.makeDeposit(10**9);
       });
 
-      it.skip('rebasing shall fail unless 24 hours passed', async () => {
+      it('rebasing shall fail unless 24 hours passed', async () => {
         await expect(vault.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
       });
 
-      it.skip('rebasing if ampl hasn\'t changed shall credit eefi', async () => {
+      it('rebasing if ampl hasn\'t changed shall credit eefi', async () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
 
@@ -318,7 +306,7 @@ describe('AmplesenseVault Contract', () => {
         expect(after.totalStaked).to.be.equal(10**9);
       });
 
-      it.skip('rebasing if ampl had a negative rebase shall credit eefi', async () => {
+      it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
         await ethers.provider.send('evm_increaseTime', [3600*24])
         await ethers.provider.send('evm_mine', []) // this one will have 02:00 PM as its timestamp
 
@@ -417,53 +405,44 @@ describe('AmplesenseVault Contract', () => {
         expect(reward.eth).to.be.equal(900);
       });
     });
-  });
 
-  describe.skip('unstaking', async() => {
+    describe('withdraw()', async() => {
 
-    beforeEach(async () => {
-      
-      const balancerTraderFactory = await ethers.getContractFactory('MockTrader');
-      balancerTrader = await balancerTraderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseUnits('0.001', 'ether'), ethers.utils.parseUnits('0.1', 'ether')) as MockTrader;
-      await vault.setTrader(balancerTrader.address);
+      beforeEach(async () => {      
+        await vault.setTrader(balancerTrader.address);
 
-      //stake in all distribution contracts
-      await amplToken.increaseAllowance(vault.address, 10**9);
-      await kmplToken.increaseAllowance(pioneer2.address, 10**9);
-      await pioneer2.stake(10**9, '0x');
-      await amplToken.increaseAllowance(staking_pool.address, 10**9);
-      await staking_pool.stake(10**9, '0x');
-      
-      await nft1.setApprovalForAll(pioneer1.address, true);
-      await nft2.setApprovalForAll(pioneer1.address, true);
-      await pioneer1.stake([0, 1], true);
-      await pioneer1.stake([0, 1], false);
+        await amplToken.increaseAllowance(vault.address, 10**9);
 
-      await vault.makeDeposit(10**9);
-      // now rebase
-      await amplToken.rebase(0, 500);
-      await ethers.provider.send('evm_increaseTime', [3600*24])
-      await ethers.provider.send('evm_mine', []) // this one will have 02:00 PM as its timestamp
-      await vault.rebase();
-    });
+        await vault.TESTMINT(99999, balancerTrader.address);
+        const [ ownerAccount ] = await ethers.getSigners();
+        ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
-    it.skip('unstaking shall fail if higher than balance', async () => {
-      let totalStakedFor = await vault.totalStakedFor(owner);
-      await expect(vault.withdraw(totalStakedFor.add(BigNumber.from(1)))).to.be.revertedWith('AmplesenseVault: Not enough balance');
-    });
+        await vault.makeDeposit(10**9);
 
-    it.skip('unstaking shall fail if not enough time has passed since timelocked tokens', async () => {
-      let totalStakedFor = await vault.totalStakedFor(owner);
-      await expect(vault.withdraw(totalStakedFor)).to.be.revertedWith('AmplesenseVault: No unlocked deposits found');
-    });
+        await vault.rebase();
+      });
+  
+      it('unstaking shall fail if higher than balance', async () => {
+        const totalStakedFor = await vault.totalStakedFor(owner);
+        await expect(vault.withdraw(totalStakedFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
+      });
+  
+      it('unstaking shall fail if not enough time has passed since timelocked tokens', async () => {
+        const totalStakedFor = await vault.totalStakedFor(owner);
+        await expect(vault.withdraw(totalStakedFor)).to.be.revertedWith('AmplesenseVault: No unlocked deposits found');
+      });
+  
+      it('unstaking shall work with correct balance and 90 days passed since staking', async () => {
 
-    it.skip('unstaking shall work with correct balance and 90 days passed since staking', async () => {
-      //increase time by 90 days
-      await ethers.provider.send('evm_increaseTime', [3600*24*90])
-      await ethers.provider.send('evm_mine', [])
-      let totalStakedFor = await vault.totalStakedFor(owner);
-      const receipt = await vault.withdraw(totalStakedFor);
-      await expect(receipt).to.emit(vault, 'Withdrawal').withArgs(owner, '999999990', 0);
+        await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
+        await ethers.provider.send('evm_mine', []);
+
+        let totalStakedFor = await vault.totalStakedFor(owner);
+
+        const tx = await vault.withdraw(totalStakedFor);
+
+        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '1000000000', 0);
+      });
     });
   });
 });
