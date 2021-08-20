@@ -11,7 +11,6 @@ import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
 import './interfaces/IBalancerTrader.sol';
-import 'hardhat/console.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -32,7 +31,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
     uint256 constant public EEFI_EQULIBRIUM_REBASE_RATE = 10000;
     uint256 constant public DEPOSIT_FEE_10000 = 65;
-    uint256 constant public LOCK_TIME = 20 seconds;
+    uint256 constant public LOCK_TIME = 90 days;
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 48;
     uint256 constant public TRADE_POSITIVE_ETH_100 = 20;
     uint256 constant public TRADE_POSITIVE_PIONEER1_100 = 2;
@@ -41,7 +40,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
-    uint256 constant public MINTING_DECAY = 2 hours;
+    uint256 constant public MINTING_DECAY = 90 days;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
@@ -165,7 +164,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
         uint256 new_balance = _ampl_token.balanceOf(address(this));
-        
+
         if(new_supply > old_supply) {
             // positive rebase
             last_positive = block.timestamp;
@@ -181,7 +180,6 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             // 30% ampl remains
             // buy and burn eefi
             
-            // _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
             trader.sellAMPLForEEFI(for_eefi);
@@ -193,13 +191,11 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             emit Burn(to_burn);
             // buy eth and distribute
             trader.sellAMPLForEth(for_eth);
-            console.log("for eth", for_eth);
  
             uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
             uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
             uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
             uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
-            console.log("balance", address(this).balance, to_rewards);
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
             pioneer_vault3.distribute_eth{value: to_pioneer3}();
