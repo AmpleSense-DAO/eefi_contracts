@@ -406,7 +406,7 @@ describe('AmplesenseVault Contract', () => {
       });
     });
 
-    describe('withdraw()', async() => {
+    describe.skip('withdraw()', async() => {
 
       beforeEach(async () => {      
         await vault.setTrader(balancerTrader.address);
@@ -442,6 +442,44 @@ describe('AmplesenseVault Contract', () => {
         const tx = await vault.withdraw(totalStakedFor);
 
         expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '1000000000', 0);
+      });
+    });
+
+    describe('claim()', async () => {
+
+      beforeEach(async () => {      
+        await vault.setTrader(balancerTrader.address);
+
+        await amplToken.increaseAllowance(vault.address, 10**9);
+
+        await vault.TESTMINT(99999, balancerTrader.address);
+        const [ ownerAccount ] = await ethers.getSigners();
+        ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
+
+        await vault.makeDeposit(10**9);
+
+        await vault.rebase();
+        
+        await amplToken.rebase(0, 500 * 10**9);
+        
+        await vault.rebase();
+      });
+
+      it('should work as expected', async () => {
+
+        const before = await getInfo(vault, owner);
+        
+        const tx = await vault.claim();
+        
+        const after = await getInfo(vault, owner);
+
+        expect(before.accountRewardEth).to.be.equal(900);
+        expect(before.accountRewardToken).to.be.equal(100000);
+
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 900, 100000);
+
+        expect(after.accountRewardEth).to.be.equal(0);
+        expect(after.accountRewardToken).to.be.equal(0);
       });
     });
   });
