@@ -31,8 +31,6 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
     function setTrader(IBalancerTrader _trader) external onlyOwner() {
         require(address(_trader) != address(0), "Pioneer1Vault: invalid trader");
         trader = _trader;
-        // TODO REMOVE LINE BELLOW
-        // _ampl_token.approve(address(trader), uint256(0x00fffffffffffffffffffffffffffffffffffffffff));
     }
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {

@@ -56,12 +56,12 @@ describe('Pioneer1Vault Contract', () => {
     pioneer = await pioneerFactory.deploy(tokenA.address, tokenB.address, amplToken.address) as Pioneer1Vault;
   });
 
-  it.skip('Deploy should revert', async () => {
+  it('Deploy should revert', async () => {
     const pioneerFactory = await ethers.getContractFactory('Pioneer1Vault');
     await expect(pioneerFactory.deploy(tokenA.address, tokenB.address, zeroAddress)).to.be.revertedWith('AMPLRebaser: Invalid ampl token address');
   });
 
-  it.skip('Should have been deployed correctly', async () => {
+  it('Should have been deployed correctly', async () => {
 
     const traderAddress = await pioneer.trader();
     const amplAddress = await pioneer.ampl();
@@ -76,7 +76,7 @@ describe('Pioneer1Vault Contract', () => {
     expect(lastAmplSupply).to.be.equal(initialTokenBalance);
   });
 
-  describe.skip('Set Trader', () => {
+  describe('Set Trader', () => {
 
     it('Should revert with invalid trader', async () => {
       await expect(pioneer.setTrader(zeroAddress)).to.be.revertedWith('Pioneer1Vault: invalid trader');
@@ -97,11 +97,11 @@ describe('Pioneer1Vault Contract', () => {
 
   describe('Rebase', () => {
 
-    it.skip('Should revert (less than 24h)', async () => {
+    it('Should revert (less than 24h)', async () => {
       await expect(pioneer.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
     });
 
-    it.skip('Should work as intended (no supply increase)', async () => {
+    it('Should work as intended (no supply increase)', async () => {
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
 
       const tx = await pioneer.rebase();
@@ -112,7 +112,7 @@ describe('Pioneer1Vault Contract', () => {
       );
     });
 
-    it.skip('Should revert (invalid trader)', async () => {
+    it('Should revert (invalid trader)', async () => {
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
 
       // increase ampl total balance
@@ -121,7 +121,7 @@ describe('Pioneer1Vault Contract', () => {
       await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: trader not set');
     });
 
-    it.skip('Should revert (threshold)', async () => {
+    it('Should revert (threshold)', async () => {
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
 
       await pioneer.setTrader(trader.address);
@@ -157,10 +157,10 @@ describe('Pioneer1Vault Contract', () => {
         initialTokenBalance.add(amount),
       );
 
-      expect(beforeOwnerBalance).to.be.closeTo(initialEthBalance as any, BigNumber.from('200000000000000000') as any);
+      expect(beforeOwnerBalance).to.be.closeTo(initialEthBalance as any, BigNumber.from('2000000000000000000') as any);
       expect(beforeAmplBalance).to.be.equal(0);
 
-      expect(afterOwnerBalance).to.be.closeTo(initialEthBalance as any, BigNumber.from('200000000000000000') as any);
+      expect(afterOwnerBalance).to.be.closeTo(initialEthBalance as any, BigNumber.from('2000000000000000000') as any);
       expect(afterAmplBalance).to.be.equal(0);
     });
   });

@@ -48,7 +48,7 @@ async function getInfo(stacking: StakingERC721, userAddress: string) {
 }
 
 
-describe.skip('StackingERC721 Contract', () => {
+describe('StackingERC721 Contract', () => {
 
   let amplToken: FakeERC20;
   let tokenA: FakeERC721;
