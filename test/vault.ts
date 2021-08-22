@@ -134,7 +134,7 @@ describe('AmplesenseVault Contract', () => {
   });
 
 
-  it.skip('should have been deployed correctly', async () => {
+  it('should have been deployed correctly', async () => {
     const info = await getInfo(vault, owner);
 
     const deployBlock = await ethers.provider.getBlock(vault.deployTransaction.blockHash!);
@@ -167,7 +167,7 @@ describe('AmplesenseVault Contract', () => {
       await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury);
     });
 
-    describe.skip('initialize()', () => {
+    describe('initialize()', () => {
       it('should be initialized correctly', async () => {
         const info = await getInfo(vault, owner);
 
@@ -190,7 +190,7 @@ describe('AmplesenseVault Contract', () => {
       });
     });
 
-    describe.skip('makeDeposit()', () => {
+    describe('makeDeposit()', () => {
       it('deposit shall fail if staking without creating ampl allowance first', async () => {
         await expect(vault.makeDeposit(10**9)).to.be.reverted;
       });
@@ -242,7 +242,7 @@ describe('AmplesenseVault Contract', () => {
       });
     });
 
-    describe.skip('setTrader()', () => {
+    describe('setTrader()', () => {
 
       it('should revert if trader is the zero address', async () => {
         await expect(vault.setTrader(zeroAddress)).to.be.
@@ -262,7 +262,7 @@ describe('AmplesenseVault Contract', () => {
     });
   
 
-    describe.skip('_rebase()', async() => {
+    describe('_rebase()', async() => {
 
       beforeEach(async () => {
         await vault.setTrader(balancerTrader.address);
@@ -406,7 +406,7 @@ describe('AmplesenseVault Contract', () => {
       });
     });
 
-    describe.skip('withdraw()', async() => {
+    describe('withdraw()', async() => {
 
       beforeEach(async () => {      
         await vault.setTrader(balancerTrader.address);
@@ -418,6 +418,10 @@ describe('AmplesenseVault Contract', () => {
         ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
         await vault.makeDeposit(10**9);
+
+        // increase time by 24h
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
 
         await vault.rebase();
       });
@@ -458,9 +462,17 @@ describe('AmplesenseVault Contract', () => {
 
         await vault.makeDeposit(10**9);
 
+        // increase time by 24h
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+
         await vault.rebase();
         
         await amplToken.rebase(0, 500 * 10**9);
+
+        // increase time by 24h
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
         
         await vault.rebase();
       });
