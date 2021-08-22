@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol";
 import "../interfaces/IBalancerTrader.sol";
-import "hardhat/console.sol";
 
 contract MockTrader is IBalancerTrader {
 
@@ -30,16 +29,9 @@ contract MockTrader is IBalancerTrader {
     * @dev Caller must transfer the right amount of tokens to the trader
      */
     function sellAMPLForEth(uint256 amount) external override returns (uint256 ethAmount) {
-        console.log('---- ---- ---- START sellAMPLForEth');
-        console.log('msg.sender:', msg.sender);
-        console.log('address(this):', address(this));
-        console.log('amount:', amount);
-        // console.log('allowance msg.sender -> address(this)', ampl_token.allowance(msg.sender, address(this)));
         ethAmount = amount * ratio_eth / 1 ether;
-        console.log('send X eth to msg.sender, X =', ethAmount);
         msg.sender.transfer(ethAmount);
         emit Sale_ETH(amount, ethAmount);
-        console.log('---- ---- ---- END sellAMPLForEth');
     }
 
     /**

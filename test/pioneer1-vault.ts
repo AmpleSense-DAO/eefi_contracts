@@ -9,12 +9,13 @@ import { FakeERC20 } from '../typechain/FakeERC20';
 import { FakeERC721 } from '../typechain/FakeERC721';
 import { Pioneer1Vault } from '../typechain/Pioneer1Vault';
 import { MockTrader } from '../typechain/MockTrader';
+import { FakeAMPL } from '../typechain/FakeAMPL';
 
 chai.use(solidity);
 
 const { expect } = chai;
 
-const initialTokenBalance = BigNumber.from('0xE35FA931A000');
+const initialTokenBalance = BigNumber.from('50000000000000000');
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 const initialEthBalance = BigNumber.from('0x21E19E0C9BAB2400000');
 
@@ -23,7 +24,7 @@ describe('Pioneer1Vault Contract', () => {
   let tokenA: FakeERC721;
   let tokenB: FakeERC721;
   let trader: MockTrader;
-  let amplToken: FakeERC20;
+  let amplToken: FakeAMPL;
   let eefiToken: FakeERC20;
   let pioneer: Pioneer1Vault;
   let owner: SignerWithAddress;
@@ -31,7 +32,8 @@ describe('Pioneer1Vault Contract', () => {
 
   beforeEach(async () => {
 
-    const [ erc20Factory, erc721Factory, traderFactory, pioneerFactory, accounts ] = await Promise.all([
+    const [ amplFactory, erc20Factory, erc721Factory, traderFactory, pioneerFactory, accounts ] = await Promise.all([
+      ethers.getContractFactory('FakeAMPL'),
       ethers.getContractFactory('FakeERC20'),
       ethers.getContractFactory('FakeERC721'),
       ethers.getContractFactory('MockTrader'),
@@ -45,7 +47,7 @@ describe('Pioneer1Vault Contract', () => {
     [ tokenA, tokenB, amplToken, eefiToken ] = await Promise.all([
       erc721Factory.deploy() as Promise<FakeERC721>,
       erc721Factory.deploy() as Promise<FakeERC721>,
-      erc20Factory.deploy('9') as Promise<FakeERC20>,
+      amplFactory.deploy() as Promise<FakeAMPL>,
       erc20Factory.deploy('9') as Promise<FakeERC20>,
     ]);
 
@@ -114,7 +116,7 @@ describe('Pioneer1Vault Contract', () => {
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
 
       // increase ampl total balance
-      await amplToken.rebase(BigNumber.from(10_000_000));
+      await amplToken.rebase(0, BigNumber.from(10_000_000));
 
       await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: trader not set');
     });
@@ -124,48 +126,42 @@ describe('Pioneer1Vault Contract', () => {
 
       await pioneer.setTrader(trader.address);
 
-      await amplToken.rebase(BigNumber.from(10_000_000));
+      await amplToken.rebase(0, BigNumber.from(10_000_000));
 
       await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: Threshold isnt reached yet');
     });
 
-    it('', async () => {
+    it('Should work as intended', async () => {
 
-      console.log('owner:', owner.address);
-      console.log('pioneer:', pioneer.address);
-      console.log('trader:', trader.address);
-      console.log('ampl:', amplToken.address);
+      const amount = BigNumber.from('40000000000000');
 
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
 
       await pioneer.setTrader(trader.address);
 
-      await amplToken.rebase(BigNumber.from('40000000000000'));
-      await amplToken.transfer(pioneer.address, BigNumber.from('90000000000000'));
-      // await amplToken.increaseAllowance(trader.address, BigNumber.from('90000000000000'));
-      // await amplToken.increaseAllowance(pioneer.address, BigNumber.from('90000000000000'));
-      
-      const a = await amplToken.allowance(pioneer.address, trader.address);
-      console.log('allowance pioneer -> trader', a.toString());
+      await amplToken.rebase(0, amount);
+      await amplToken.transfer(pioneer.address, amount.add('50000000000000'));
 
-      await owner.sendTransaction({ to: trader.address, value: BigNumber.from('40000000000000') });
+      await owner.sendTransaction({ to: trader.address, value: amount });
 
       const beforeOwnerBalance = await owner.getBalance();
       const beforeAmplBalance = await owner.provider?.getBalance(pioneer.address);
       
       const tx = await pioneer.rebase();
-      
+
       const afterOwnerBalance = await owner.getBalance();
       const afterAmplBalance = await owner.provider?.getBalance(pioneer.address);
 
       expect(tx).to.have.emit(pioneer, 'Rebase').withArgs(
-        // BigNumber.from(initialTokenBalance.add(BigNumber.from('40000000000000'))),
-        BigNumber.from(initialTokenBalance),
-        BigNumber.from(initialTokenBalance.add(BigNumber.from('40000000000000'))),
-        // BigNumber.from(initialTokenBalance),
+        initialTokenBalance,
+        initialTokenBalance.add(amount),
       );
 
-      expect(beforeOwnerBalance.lte(initialEthBalance)).to.be.true;
+      expect(beforeOwnerBalance).to.be.closeTo(initialEthBalance as any, BigNumber.from('200000000000000000') as any);
+      expect(beforeAmplBalance).to.be.equal(0);
+
+      expect(afterOwnerBalance).to.be.closeTo(initialEthBalance as any, BigNumber.from('200000000000000000') as any);
+      expect(afterAmplBalance).to.be.equal(0);
     });
   });
 });
