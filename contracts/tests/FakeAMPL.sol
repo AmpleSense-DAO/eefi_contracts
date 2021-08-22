@@ -9,11 +9,4 @@ contract FakeAMPL is UFragments {
         initialize(msg.sender);
         monetaryPolicy = msg.sender;
     }
-
-    function forceRebase(uint256 epoch, int256 supplyDelta)
-        external
-        returns (uint256)
-    {
-        return rebase(epoch, supplyDelta);
-    }
 }

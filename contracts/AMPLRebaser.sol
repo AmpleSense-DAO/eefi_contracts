@@ -27,7 +27,7 @@ contract AMPLRebaser {
     function rebase() external {
         console.log('######## START ETH TX');
         //make sure this is not manipulable by sending ampl!
-        require(block.timestamp - 1 seconds > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
+        require(block.timestamp - 24 hours > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
         last_rebase_call = block.timestamp;
         uint256 new_supply = _ampl_token.totalSupply();
         _rebase(last_ampl_supply, new_supply);

@@ -74,13 +74,13 @@ describe('Pioneer1Vault Contract', () => {
     expect(lastAmplSupply).to.be.equal(initialTokenBalance);
   });
 
-  describe('Set Trader', () => {
+  describe.skip('Set Trader', () => {
 
-    it.skip('Should revert with invalid trader', async () => {
+    it('Should revert with invalid trader', async () => {
       await expect(pioneer.setTrader(zeroAddress)).to.be.revertedWith('Pioneer1Vault: invalid trader');
     });
 
-    it.skip('Should work as intended', async () => {
+    it('Should work as intended', async () => {
 
       const beforeTraderAddress = await pioneer.trader();
       
