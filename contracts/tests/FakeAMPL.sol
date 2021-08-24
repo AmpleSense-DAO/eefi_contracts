@@ -10,5 +10,4 @@ contract FakeAMPL is UFragments {
         initialize(msg.sender);
         monetaryPolicy = msg.sender;
     }
-
 }

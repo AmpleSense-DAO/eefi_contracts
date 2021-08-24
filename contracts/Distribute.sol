@@ -112,7 +112,7 @@ contract Distribute is Ownable {
         }
 
         if(_total_staked == 0) {
-            //no stakes yet, put into temp pool
+            // no stakes yet, put into temp pool
             _temp_pool = _temp_pool.add(amount);
             return;
         }
