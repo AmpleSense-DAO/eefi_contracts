@@ -6,8 +6,6 @@ import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/IERC20.sol";
 import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
-import "hardhat/console.sol";
-
 /**
  * staking contract for ERC20 tokens or ETH
  */
@@ -114,7 +112,7 @@ contract Distribute is Ownable {
         }
 
         if(_total_staked == 0) {
-            //no stakes yet, put into temp pool
+            // no stakes yet, put into temp pool
             _temp_pool = _temp_pool.add(amount);
             return;
         }

@@ -35,19 +35,24 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
         if(new_supply > old_supply) {
+
             require(address(trader) != address(0), "Pioneer1Vault: trader not set");
             //only for positive rebases
             uint256 balance = _ampl_token.balanceOf(address(this));
+
             uint256 surplus = new_supply.sub(old_supply).mul(balance).divDown(new_supply);
+
             uint256 toSell = _toSell(surplus);
+            
             _ampl_token.transfer(address(trader), toSell);
+
             trader.sellAMPLForEth(_toSell(surplus));
             require(_ampl_token.balanceOf(address(this)) >= SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet");
             stakingContractEth.distribute{value : address(this).balance}(0, address(this));
         }
     }
 
-    function _toSell(uint256 amount) internal view returns (uint256) {
+    function _toSell(uint256 amount) internal pure returns (uint256) {
         uint256 percentage = (END_PERCENT - START_PERCENT).mul(Math.min(amount, CAP)).divDown(CAP) + START_PERCENT;
         return percentage.mul(amount).divDown(100);
     }
