@@ -120,8 +120,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
-        //send some eefi to pioneer vault 2
-        if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
+        // send some eefi to pioneer vault 2
+        if(last_positive + MINTING_DECAY > block.timestamp) { // if 60 days without positive rebase do not mint
             eefi_token.mint(address(this), deposit_fee);
             eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
             pioneer_vault2.distribute(deposit_fee);
@@ -138,7 +138,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     function withdraw(uint256 amount) external {
         require(amount <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
         uint256 to_withdraw = amount;
-        //make sure the assets aren't time locked
+        // make sure the assets aren't time locked
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
@@ -164,7 +164,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
         uint256 new_balance = _ampl_token.balanceOf(address(this));
-        
+
         if(new_supply > old_supply) {
             // positive rebase
             last_positive = block.timestamp;
@@ -180,7 +180,6 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             // 30% ampl remains
             // buy and burn eefi
             
-            // _ampl_token.safeTransfer(address(trader), for_eefi.add(for_eth));
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
             trader.sellAMPLForEEFI(for_eefi);
