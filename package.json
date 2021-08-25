@@ -28,6 +28,7 @@
     "test": "npx hardhat test",
     "build": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy_test.ts --network localhost",
+    "deploy-rinkeby": "npx hardhat run scripts/deploy_rinkeby.ts --network rinkeby",
     "start": "npx hardhat node"
   }
 }

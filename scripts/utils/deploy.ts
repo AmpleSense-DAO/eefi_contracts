@@ -9,7 +9,7 @@ export async function deployVerify(contractName : string, ...args : any) : Promi
     const contract = await factory.deploy(...args);
     if(hre.network.name == "hardhat") return contract;
     console.log("Waiting a minute...");
-    await sleep(60000);
+    await sleep(100000);
     await hre.run("verify:verify", {
         address: contract.address,
         constructorArguments: args,

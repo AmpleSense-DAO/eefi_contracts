@@ -19,6 +19,8 @@ async function main() {
 
   console.log("Deployed tokens");
 
+  console.log("deploying vault " + tokens.ampl.address)
+
   let vault = await deployVerify("AmplesenseVault",tokens.ampl.address) as AmplesenseVault;
 
   console.log("Deployed vault");
@@ -45,7 +47,8 @@ async function main() {
   await vault.TESTMINT(50000 * 10**9, trader.address);
   await accounts[0].sendTransaction({
     to: trader.address,
-    value: hre.ethers.utils.parseEther("1.0")
+    value: hre.ethers.utils.parseEther("1.0"),
+    gasLimit: 999999
   });
   await vault.setTrader(trader.address);
   await pioneer1.setTrader(trader.address);
@@ -72,10 +75,9 @@ async function main() {
   console.log("NFT1 deployed to " + tokens.nft1.address);
   console.log("NFT2 deployed to " + tokens.nft2.address);
 
-  await tokens.ampl.forceRebase(0, hre.ethers.utils.parseUnits("1000000", "gwei"));
-  await tokens.ampl.transfer(distributor.address, hre.ethers.utils.parseUnits("10000", "gwei"));
-  await eefiToken.transfer(distributor.address, hre.ethers.utils.parseUnits("10000", "gwei"));
-  await tokens.kmpl.transfer(distributor.address, hre.ethers.utils.parseUnits("10000", "gwei"));
+  await tokens.ampl.transfer(distributor.address, 10000 * 10**9);
+  await vault.TESTMINT(10000 * 10**9, distributor.address);
+  await tokens.kmpl.transfer(distributor.address, 10000 * 10**9);
   console.log("Send ampl, eefi, kmpl");
   await tokens.eefiethlp.transfer(distributor.address, hre.ethers.utils.parseUnits("1.0", "ether"));
   await tokens.kmplethlp.transfer(distributor.address, hre.ethers.utils.parseUnits("1.0", "ether"));
