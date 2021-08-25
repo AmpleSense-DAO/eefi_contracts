@@ -2,7 +2,7 @@
 pragma solidity ^0.7.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import "@balancer-labs/balancer-core-v2/contracts/lib/math/Math.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "./interfaces/IBalancerTrader.sol";
 import "./AMPLRebaser.sol";
 import "./StakingERC721.sol";

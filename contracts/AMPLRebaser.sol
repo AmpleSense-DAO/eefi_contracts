@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
-import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/IERC20.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 
 contract AMPLRebaser {
 
