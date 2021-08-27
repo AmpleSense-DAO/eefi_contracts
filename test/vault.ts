@@ -454,13 +454,13 @@ describe('AmplesenseVault Contract', () => {
       beforeEach(async () => {      
         await vault.setTrader(balancerTrader.address);
 
-        await amplToken.increaseAllowance(vault.address, 10**9);
+        await amplToken.increaseAllowance(vault.address, 999999*10**9);
 
-        await vault.TESTMINT(99999, balancerTrader.address);
+        await vault.TESTMINT(99999*10**9, balancerTrader.address);
         const [ ownerAccount ] = await ethers.getSigners();
         ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
-        await vault.makeDeposit(10**9);
+        await vault.makeDeposit(10000*10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
@@ -485,10 +485,10 @@ describe('AmplesenseVault Contract', () => {
         
         const after = await getInfo(vault, owner);
 
-        expect(before.accountRewardEth).to.be.equal(900);
-        expect(before.accountRewardToken).to.be.equal(100000);
+        expect(before.accountRewardEth).to.be.equal(9000000);
+        expect(before.accountRewardToken).to.be.equal(1000000000);
 
-        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 900, 100000);
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 9000000, 1000000000);
 
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.accountRewardToken).to.be.equal(0);
