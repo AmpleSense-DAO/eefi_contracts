@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@balancer-labs/balancer-core-v2": "https://github.com/balancer-labs/balancer-core-v2#c5b42e8cd4ffe62a82ba85263eac498df7a913b5",
+    "@balancer-labs/balancer-v2-monorepo": "https://github.com/balancer-labs/balancer-v2-monorepo#f45076067b68b27ea023632e69349e3051746cd4",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-etherscan": "^2.1.4",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
@@ -14,7 +15,7 @@
     "chai": "^4.2.0",
     "ethereum-waffle": "^3.2.2",
     "ethers": "^5.0.26",
-    "hardhat": "^2.0.8",
+    "hardhat": "^2.6.2",
     "hardhat-typechain": "^0.3.4",
     "mocca": "^1.0.3",
     "solidity-coverage": "^0.7.14",
@@ -27,8 +28,10 @@
   "scripts": {
     "test": "npx hardhat test",
     "build": "npx hardhat compile",
-    "deploy": "npx hardhat run scripts/deploy_test.ts --network localhost",
+    "deploy": "npx hardhat run scripts/deploy_fork.ts --network localhost",
     "deploy-rinkeby": "npx hardhat run scripts/deploy_rinkeby.ts --network rinkeby",
-    "start": "npx hardhat node"
+    "deploy-fork": "npx hardhat run scripts/deploy_fork.ts --network hardhat",
+    "start": "npx hardhat node",
+    "forknode": "npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy --fork-block-number 13235981"
   }
 }

@@ -177,6 +177,10 @@ describe('AmplesenseVault Contract', () => {
         expect(info.staking_pool).to.be.equal(staking_pool.address);
       });
 
+      it('should be mint EEFI upon initialization correctly', async () => {
+        expect(await eefiToken.balanceOf(treasury)).to.be.equal(await vault.INITIAL_MINT());
+      });
+
       it('should be initialized only once', async () => {
         await expect(
           vault.initialize(
@@ -289,6 +293,8 @@ describe('AmplesenseVault Contract', () => {
         
         const before = await getInfo(vault, owner);
 
+        const beforeEEFICallerBalance = await eefiToken.balanceOf(owner);
+
         const tx = await vault.rebase();
 
         const after = await getInfo(vault, owner);
@@ -304,6 +310,10 @@ describe('AmplesenseVault Contract', () => {
         expect(after.totalRewardToken).to.be.equal(0);
         expect(after.totalRewardEth).to.be.equal(100000);
         expect(after.totalStaked).to.be.equal(10**9);
+
+        //plus send reward eefi to the caller
+        const afterEEFICallerBalance = await eefiToken.balanceOf(owner);
+        expect(afterEEFICallerBalance.sub(beforeEEFICallerBalance)).to.be.equal(await vault.REBASE_REWARD());
       });
 
       it('rebasing if ampl had a negative rebase shall credit eefi', async () => {

@@ -21,7 +21,7 @@ async function main() {
 
   console.log("deploying vault " + tokens.ampl.address)
 
-  let vault = await deployVerify("AmplesenseVault",tokens.ampl.address) as AmplesenseVault;
+  let [p1, vault] = await deployVerify("AmplesenseVault",tokens.ampl.address) as [any, AmplesenseVault];
 
   console.log("Deployed vault");
 
@@ -29,22 +29,22 @@ async function main() {
   let eefiToken = await hre.ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
 
 
-  let pioneer1 = await deployVerify("Pioneer1Vault",tokens.nft1.address, tokens.nft2.address, tokens.ampl.address) as Pioneer1Vault;
+  let [p2, pioneer1] = await deployVerify("Pioneer1Vault",tokens.nft1.address, tokens.nft2.address, tokens.ampl.address) as [any, Pioneer1Vault];
   console.log("pioneer1");
-  let pioneer2 = await deployVerify("StakingERC20",tokens.kmpl.address, eefiTokenAddress, 9) as StakingERC20;
+  let [p3, pioneer2] = await deployVerify("StakingERC20",tokens.kmpl.address, eefiTokenAddress, 9) as [any, StakingERC20];
   console.log("pioneer2");
-  let pioneer3 = await deployVerify("StakingERC20",tokens.kmplethlp.address, eefiTokenAddress, 9) as StakingERC20;
+  let [p4, pioneer3] = await deployVerify("StakingERC20",tokens.kmplethlp.address, eefiTokenAddress, 9) as [any, StakingERC20];
   console.log("pioneer3");
-  let staking_pool = await deployVerify("StakingERC20",tokens.eefiethlp.address, eefiTokenAddress, 9) as StakingERC20;
+  let [p5, staking_pool] = await deployVerify("StakingERC20",tokens.eefiethlp.address, eefiTokenAddress, 9) as [any, StakingERC20];
   console.log("staking pool");
 
   await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0].address);
   console.log("vault initialized");
 
-  let trader = await deployVerify("MockTrader",tokens.ampl.address, eefiTokenAddress, hre.ethers.utils.parseUnits("0.001", "ether"), hre.ethers.utils.parseUnits("0.1", "ether")) as MockTrader;
+  let [p6, trader] = await deployVerify("MockTrader","0x526B6Ed08093D6A6952109EeDb46c4bB7aC7278c", "0xa0d530c68c0a5547880727412adaf289465a27c4", hre.ethers.utils.parseUnits("1000000", "ether"), hre.ethers.utils.parseUnits("1000000000", "ether")) as [any, MockTrader];
   console.log("trader");
 
-  await vault.TESTMINT(50000 * 10**9, trader.address);
+  await vault.TESTMINT(hre.ethers.utils.parseUnits("50000", "ether"), trader.address);
   await accounts[0].sendTransaction({
     to: trader.address,
     value: hre.ethers.utils.parseEther("1.0"),
@@ -55,8 +55,13 @@ async function main() {
 
   
 
-  const distributor = await deployVerify("TokenDistributor", tokens.ampl.address, eefiTokenAddress, tokens.kmpl.address, tokens.kmplethlp.address, tokens.eefiethlp.address);
+  const [p7, distributor] = await deployVerify("TokenDistributor", tokens.ampl.address, eefiTokenAddress, tokens.kmpl.address, tokens.kmplethlp.address, tokens.eefiethlp.address);
   console.log("Deployed distributor");
+
+  //check etherscan verify
+  await Promise.all([p1, p2, p3, p4, p5, p6, p7]).catch(error => {
+    console.log("not all contracts were verified");
+  });
   //stake in all distribution contracts
 
 
