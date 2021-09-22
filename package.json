@@ -1,7 +1,9 @@
 {
   "dependencies": {
-    "@balancer-labs/balancer-core-v2": "https://github.com/balancer-labs/balancer-core-v2#c5b42e8cd4ffe62a82ba85263eac498df7a913b5",
-    "@balancer-labs/balancer-v2-monorepo": "https://github.com/balancer-labs/balancer-v2-monorepo#f45076067b68b27ea023632e69349e3051746cd4",
+    "@balancer-labs/v2-pool-utils": "^2.0.1",
+    "@balancer-labs/v2-pool-weighted": "^2.0.1",
+    "@balancer-labs/v2-solidity-utils": "^2.0.0",
+    "@balancer-labs/v2-vault": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-etherscan": "^2.1.4",
     "@nomiclabs/hardhat-waffle": "^2.0.1",

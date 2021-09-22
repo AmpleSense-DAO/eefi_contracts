@@ -5,11 +5,12 @@ import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
 import { EEFIToken } from "../typechain/EEFIToken";
 import { UniswapV2Router02 } from "../typechain/UniswapV2Router02";
 import { IUniswapV2Factory } from "../typechain/IUniswapV2Factory";
-import { WeightedPoolFactory } from "../typechain/WeightedPoolFactory";
-import { WeightedPool } from "../typechain/WeightedPool";
-import { Vault } from "../typechain/Vault";
+import { WeightedPool2TokensFactory } from "../typechain/WeightedPool2TokensFactory";
+import { WeightedPool2Tokens } from "../typechain/WeightedPool2Tokens";
+import { IVault } from "../typechain/IVault";
 import { deploy } from "./utils/deploy";
 import { formatBytes32String } from 'ethers/lib/utils';
+import { encodeJoin } from "./utils/encoding"
 
 async function main() {
   const accounts = await hre.ethers.getSigners();
@@ -52,7 +53,7 @@ async function main() {
   const nft2_address = "0x74ee0c3882b97d3d2a04c81c72d16878876329e4";
   const kmpl_address = "0xe8d17542dfe79ff4fbd4b850f2d39dc69c4489a2";
   const router_address = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
-  const weithed_pool_factory_address = "0x8E9aa87E45e92bad84D5F8DD1bff34Fb92637dE9";
+  const weithed_pool_factory_address = "0xA5bf2ddF098bb0Ef6d120C98217dD6B141c74EE0";
   const usdc_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
   const balancer_vault_address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8";
 
@@ -65,8 +66,8 @@ async function main() {
   let eefiTokenAddress = await vault.eefi_token();
   let eefiToken = await hre.ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
   const router = await hre.ethers.getContractAt("UniswapV2Router02", router_address) as UniswapV2Router02;
-  const poolFactory = await hre.ethers.getContractAt("WeightedPoolFactory", weithed_pool_factory_address) as WeightedPoolFactory;
-  const balancerVault = await hre.ethers.getContractAt("Vault", balancer_vault_address) as Vault;
+  const poolFactory = await hre.ethers.getContractAt("WeightedPool2TokensFactory", weithed_pool_factory_address) as WeightedPool2TokensFactory;
+  const balancerVault = await hre.ethers.getContractAt("IVault", balancer_vault_address) as IVault;
   const kmpl = await hre.ethers.getContractAt("EEFIToken", kmpl_address) as EEFIToken;
   const usdc = await hre.ethers.getContractAt("EEFIToken", usdc_address) as EEFIToken;
 
@@ -132,24 +133,25 @@ async function main() {
   await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0].address);
   console.log("vault initialized");
 
-  let tx = await poolFactory.create("eefi pool", "eefipool", [usdc_address, eefiTokenAddress], ["500000000000000001", "499999999999999999"], 1e12, accounts[0].address);
+  let tx = await poolFactory.create("eefi pool", "eefipool", [usdc_address, eefiTokenAddress], ["500000000000000001", "499999999999999999"], 1e12, false, accounts[0].address);
   const poolCreationEvents = await poolFactory.queryFilter(poolFactory.filters.PoolCreated(null), tx.blockHash);
   const poolAddr = poolCreationEvents[poolCreationEvents.length - 1].args?.pool;
-
-  const pool = await hre.ethers.getContractAt("WeightedPool", poolAddr) as WeightedPool;
+  const pool = await hre.ethers.getContractAt("WeightedPool2Tokens", factoryAddress) as WeightedPool2Tokens;
+  console.log(poolAddr);
+  
   const poolRegisterEvents = await balancerVault.queryFilter(balancerVault.filters.PoolRegistered(null, poolAddr, null));
 
   const poolID = poolRegisterEvents[0].args?.poolId;
+  // await pool.queryJoin(poolID, accounts[0].address, accounts[0].address, ["50000000000", "50000000000"], "0", 
   const request = {
     assets : [usdc_address, eefiTokenAddress],
-    maxAmountsIn : ["50000000000", "10000000000000"],
-    userData : formatBytes32String("0x"),
+    maxAmountsIn : ["100000000000", "100000000000"],
+    userData : encodeJoin(["50000000000", "50000000000"], ["0","0"]),
     fromInternalBalance : false
   }
   await vault.TESTMINT("10000000000000", accounts[0].address);
-  await eefiToken.approve(balancerVault.address, "10000000000000");
-  await usdc.approve(balancerVault.address, "50000000000");
-  pool.queryJoin()
+  await eefiToken.approve(poolAddr, "50000000000");
+  await usdc.approve(poolAddr, "50000000000");
   console.log("" + await usdc.balanceOf(accounts[0].address));
   console.log("" + await eefiToken.balanceOf(accounts[0].address));
   await balancerVault.joinPool(poolID, accounts[0].address, accounts[0].address, request);

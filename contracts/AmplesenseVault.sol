@@ -3,8 +3,8 @@ pragma solidity ^0.7.0;
 
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
-import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/ERC20Burnable.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
 
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';

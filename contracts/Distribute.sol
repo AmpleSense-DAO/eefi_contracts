@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
-import "@balancer-labs/balancer-core-v2/contracts/lib/math/Math.sol";
-import "@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/IERC20.sol";
-import '@balancer-labs/balancer-core-v2/contracts/lib/openzeppelin/SafeERC20.sol';
+import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 /**
