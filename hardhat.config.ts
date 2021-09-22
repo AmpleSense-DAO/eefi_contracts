@@ -1,6 +1,8 @@
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-typechain";
-import "@nomiclabs/hardhat-etherscan"
+import "solidity-coverage";
+import "hardhat-gas-reporter";
+import "@nomiclabs/hardhat-etherscan";
 import { HardhatUserConfig } from "hardhat/types";
 
 const config: HardhatUserConfig = {
