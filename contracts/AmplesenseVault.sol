@@ -32,7 +32,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
     uint256 constant public EEFI_EQULIBRIUM_REBASE_RATE = 10000;
     uint256 constant public DEPOSIT_FEE_10000 = 65;
-    uint256 constant public LOCK_TIME = 1 minutes;
+    uint256 constant public LOCK_TIME = 90 days;
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 48;
     uint256 constant public TRADE_POSITIVE_ETH_100 = 20;
     uint256 constant public TRADE_POSITIVE_PIONEER1_100 = 2;
@@ -41,9 +41,9 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public TRADE_POSITIVE_PIONEER3_100 = 5;
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
-    uint256 constant public MINTING_DECAY = 2 hours;
+    uint256 constant public MINTING_DECAY = 90 days;
     uint256 constant public INITIAL_MINT = 85000 ether;
-    uint256 constant public REBASE_REWARD = 0.035 ether; // TODO
+    uint256 constant public REBASE_REWARD = 0.035 ether;
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);

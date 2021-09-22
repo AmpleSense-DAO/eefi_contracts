@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
     },
     rinkeby: {
       url: `https://eth-rinkeby.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
-      accounts: ["6e7825978d908282db7082d0f6b45753811fb4fc8283b29810ca779ef248cdf8"],
+      accounts: ["PK"],
       gasPrice : 1000000000
     }
   },
