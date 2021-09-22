@@ -44,7 +44,7 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
 
             uint256 toSell = _toSell(surplus);
             
-            _ampl_token.transfer(address(trader), toSell);
+            _ampl_token.approve(address(trader), toSell);
 
             trader.sellAMPLForEth(_toSell(surplus));
             require(_ampl_token.balanceOf(address(this)) >= SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet");

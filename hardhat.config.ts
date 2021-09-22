@@ -1,5 +1,6 @@
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-typechain";
+import "@nomiclabs/hardhat-etherscan"
 import { HardhatUserConfig } from "hardhat/types";
 
 const config: HardhatUserConfig = {
@@ -24,11 +25,6 @@ const config: HardhatUserConfig = {
         url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
         blockNumber: 13235981,
       }
-    },
-    rinkeby: {
-      url: `https://eth-rinkeby.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
-      accounts: ["PK"],
-      gasPrice : 1000000000
     }
   },
   etherscan: {

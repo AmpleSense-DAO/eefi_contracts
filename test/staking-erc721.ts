@@ -325,7 +325,7 @@ describe('StackingERC721 Contract', () => {
 
       const tx = await staking.connect(userA).withdraw(BigNumber.from(3));
       const receipt = await tx.wait();
-      const txCost = tx.gasPrice.mul(receipt.gasUsed);
+      const txCost = tx.gasPrice!.mul(receipt.gasUsed);
 
       const afterBalance = await amplToken.balanceOf(owner);
       const stakingAfterBalance = await amplToken.balanceOf(staking.address);

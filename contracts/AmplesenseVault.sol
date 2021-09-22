@@ -87,6 +87,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         @return total The total amount of AMPL claimable by a user
     */
     function totalClaimableBy(address account) public view returns (uint256 total) {
+        if(rewards_eefi.totalStaked() == 0) return 0;
         uint256 ampl_balance = _ampl_token.balanceOf(address(this));
         for(uint i = 0; i < _deposits[account].length; i++) {
             if(_deposits[account][i].timestamp < block.timestamp.sub(LOCK_TIME)) {
