@@ -6,7 +6,16 @@ import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "./interfaces/IBalancerTrader.sol";
 import "./AMPLRebaser.sol";
 import "./StakingERC721.sol";
+/*
+Definitions and explanations: 
+- Sell Threshold: Only sell AMPL when total AMPL amount is > 40,000
+- Start Percent: At the beginning 25% of new AMPL supply will be sold for ETH
+- End Percent: At maximum 80% of new AMPL supply will be sold for ETH
+- Two ERC721 tokens will be accepted: Zeus and Apollo 
+- AMPL will be sold for ETH utilizing the Balancer trading contract 
+- The amount of AMPL to sell is dependent on the amount of AMPL in in the vault and is controlled by the CAP constant
 
+*/
 contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
     using Math for uint256;
 
