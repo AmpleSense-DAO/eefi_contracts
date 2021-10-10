@@ -27,6 +27,26 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     Distribute public rewards_eth;
     address payable treasury;
     uint256 public last_positive = block.timestamp;
+/* 
+
+Parameter Definitions: 
+
+- EEFI Deposit: Depositors receive reward of .0001 EEFI * Amount of AMPL user deposited into vault
+- EEFI Negative Rebase rate: When AMPL supply declines mint EEFI at rate of .00001 EEFI * total AMPL deposited into vault 
+- EEFI Equilibrium Rebase Rate: When AMPL supply is does not change (is at equilibrium) mint EEFI at a rate of .0001 EEFI * total AMPL deposited into vault
+- Deposit FEE_10000: .65% of EEFI minted to user upon initial deposit is delivered to kMPL Stakers 
+- Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
+- Trade Posiitve EEFI_100: Upon positive rebase 48% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
+- Trade Positive ETH_100: Upon positive rebase 20% of the new AMPL supply (based on total AMPL in vault) is sold for ETH
+- Trade Positive Pioneer1_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers)
+- Trade Positive Rewards_100: Upon positive rebase, send 45% of ETH rewards to users staking AMPL in vault 
+- Trade Positive Pioneer2_100: Upon positive rebase, send 10% of ETH rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
+- Trade Positive Pioneer3_100: Upon positive rebase, send 5% of ETH rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
+- Trade Positive LP Staking_100: Upon positive rebase, send 35% of ETH rewards to uses staking LP tokens (EEFI/ETH) 
+- Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 90 days, do not mint EEFI, or distribute rewards to stakers 
+- Initial MINT: Amount of EEFI that will be minted at contract deployment (will be edited to 100000 ether)
+- Rebase Reward: Amount of EEFI distributed to wallet address that successfully calls rebase function (will be edited to 0.1 ether) 
+*/
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
@@ -45,6 +65,16 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     uint256 constant public INITIAL_MINT = 85000 ether;
     uint256 constant public REBASE_REWARD = 0.035 ether;
 
+/* 
+Event Definitions:
+
+- Burn: EEFI burned (EEFI purchased using AMPL is burned)
+- Claimed: Rewards claimed by address 
+- Deposit: AMPL deposited by address 
+- Withdrawal: AMPL withdrawn by address 
+- StakeChanged: AMPL staked in contract; calculated as shares of total AMPL deposited 
+*/
+
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 eth, uint256 token);
     event Deposit(address indexed account, uint256 amount, uint256 length);
@@ -57,11 +87,11 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     }
 
     mapping(address => DepositChunk[]) private _deposits;
-    // ONLY TEST
+    // Test mint function: only used during testing.
     function TESTMINT(uint256 amount, address who) external onlyOwner() {
         eefi_token.mint(who, amount);
     }
-    
+// Only contract can mint new EEFI, and distribute ETH and EEFI rewards     
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Ownable() {
@@ -72,10 +102,13 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
     receive() external payable { }
 
+//Comments below outline how AMPL stake and withdrawable amounts are calculated based on AMPL rebase
+
     /**
      * @param account User address
      * @return total amount of shares owned by account
      */
+
     function totalStakedFor(address account) public view returns (uint256 total) {
         for(uint i = 0; i < _deposits[account].length; i++) {
             total += _deposits[account][i].amount;
@@ -84,7 +117,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     }
 
     /**
-        @return total The total amount of AMPL claimable by a user
+        @return total The total amount of AMPL claimable by a user (accounting for rebases) 
     */
     function totalClaimableBy(address account) public view returns (uint256 total) {
         if(rewards_eefi.totalStaked() == 0) return 0;
@@ -109,12 +142,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     }
 
     /**
-        @dev Called only once by the owner this function sets up the vault
-        @param _pioneer_vault1 Address of the pioneer1 vault
-        @param _pioneer_vault2 Address of the pioneer2 vault
-        @param _pioneer_vault3 Address of the pioneer3 vault
-        @param _staking_pool Address of the LP staking pool
-        @param _treasury Address of the treasury
+        @dev Called only once by the owner; this function sets up the vaults
+        @param _pioneer_vault1 Address of the pioneer1 vault (NFT vault: Zeus/Apollo)
+        @param _pioneer_vault2 Address of the pioneer2 vault (kMPL staker vault)
+        @param _pioneer_vault3 Address of the pioneer3 vault (kMPL/ETH LP token staking vault) 
+        @param _staking_pool Address of the LP staking pool (EEFI/ETH LP token staking pool)
+        @param _treasury Address of the treasury (Address of Amplesense DAO Treasury)
     */
     function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external
     onlyOwner() 
@@ -130,7 +163,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
     /**
         @dev Contract owner can set and replace the contract used
-        for trading AMPL, ETH and EEFI
+        for trading AMPL, ETH and EEFI - Note: this is the only admin permission on the vault and is included to account for changes in future AMPL liqudity distribution and does not impact EEFI minting or provide access to user funds or rewards)
         @param _trader Address of the trader contract
     */
     function setTrader(IBalancerTrader _trader) external onlyOwner() {
@@ -157,8 +190,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
-        // send some eefi to pioneer vault 2
-        if(last_positive + MINTING_DECAY > block.timestamp) { // if 60 days without positive rebase do not mint
+        // send some EEFI to pioneer vault 2 (kMPL stakers) upon initial mint 
+        if(last_positive + MINTING_DECAY > block.timestamp) { // if 90 days without positive rebase do not mint EEFI
             eefi_token.mint(address(this), deposit_fee);
             eefi_token.increaseAllowance(pioneer_vault2.staking_contract_token(), deposit_fee);
             pioneer_vault2.distribute(deposit_fee);
@@ -173,7 +206,7 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     }
 
     /**
-        @dev Withdraw an amount of AMPL
+        @dev Withdraw an amount of AMPL from vault 
         Shares are auto computed
         @param amount Amount of AMPL to withdraw
     */
@@ -206,12 +239,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     /**
         @dev Withdraw an amount of shares
         @param amount Amount of shares to withdraw
-        !!! This isnt the amount of AMPL the user will get
+        !!! This isnt the amount of AMPL the user will get because the amount of AMPL provided depends on the rebase and distribution of rebased AMPL during positive AMPL rebases
     */
     function withdraw(uint256 amount) public {
         require(amount <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
         uint256 to_withdraw = amount;
-        // make sure the assets aren't time locked
+        // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
@@ -234,12 +267,12 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
         emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
-
+//Functions called depending on AMPL rebase status
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
         uint256 new_balance = _ampl_token.balanceOf(address(this));
 
         if(new_supply > old_supply) {
-            // positive rebase
+            // This is a positive AMPL rebase and initates trading and distribuition of AMPL according to parameters (see parameters definitions)
             last_positive = block.timestamp;
             require(address(trader) != address(0), "AmplesenseVault: trader not set");
 
@@ -250,8 +283,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             uint256 for_eth = surplus.mul(TRADE_POSITIVE_ETH_100).divDown(100);
             uint256 for_pioneer1 = surplus.mul(TRADE_POSITIVE_PIONEER1_100).divDown(100);
 
-            // 30% ampl remains
-            // buy and burn eefi
+            // 30% ampl remains in vault after positive rebase
+            // use rebased AMPL to buy and burn eefi
             
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
@@ -278,11 +311,11 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
             _ampl_token.approve(address(pioneer_vault1), for_pioneer1);
             pioneer_vault1.distribute(for_pioneer1);
 
-            // distribute the remainder (5%) to the treasury
+            // distribute the remainder of purchased ETH (5%) to the DAO treasury
             treasury.transfer(address(this).balance);
         } else {
             // negative or equal
-            if(last_positive + MINTING_DECAY > block.timestamp) { //if 60 days without positive rebase do not mint
+            if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
                 uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
                 eefi_token.mint(address(this), to_mint);
                 eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
