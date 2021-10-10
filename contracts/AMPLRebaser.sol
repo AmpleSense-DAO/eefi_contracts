@@ -8,7 +8,7 @@ contract AMPLRebaser {
     event Rebase(uint256 old_supply, uint256 new_supply);
 
     //
-    // Last AMPL total supply
+    // Check last AMPL total supply; last rebase call 24+ hours agao
     //
     uint256 public last_ampl_supply;
 
@@ -24,7 +24,7 @@ contract AMPLRebaser {
     }
 
     function rebase() external {
-        //make sure this is not manipulable by sending ampl!
+        //require timestamp to exceed 24 hours; call is not manipulable by sending ampl
         require(block.timestamp - 24 hours > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
         last_rebase_call = block.timestamp;
         uint256 new_supply = _ampl_token.totalSupply();
