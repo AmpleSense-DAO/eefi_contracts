@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: NONE
 pragma solidity ^0.7.0;
 
-
+// Contract requirements 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
