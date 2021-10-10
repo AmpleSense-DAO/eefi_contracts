@@ -19,7 +19,7 @@ contract BalancerTrader is IBalancerTrader {
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_INT = uint256(-1);
-
+//USDC will be removed from the parameters below, as trading pair will be EEFI/ETH
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     address public constant usdcToken = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     IWETH9 public constant wethToken = IWETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -56,7 +56,7 @@ contract BalancerTrader is IBalancerTrader {
     }
 
     /**
-    * @dev Caller must transfer the right amount of tokens to the trader
+    * @dev Caller must transfer the right amount of tokens to the trader (USDC will be replaced with ETH)
      */
     function sellAMPLForEEFI(uint256 amount) external override returns (uint256 eefiAmount) {
         amplToken.transferFrom(msg.sender, address(this), amount);
