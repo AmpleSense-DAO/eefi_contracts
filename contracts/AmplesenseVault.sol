@@ -62,7 +62,7 @@ Parameter Definitions:
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 90 days;
-    uint256 constant public INITIAL_MINT = 85000 ether;
+    uint256 constant public INITIAL_MINT = 100000 ether;
     uint256 constant public REBASE_REWARD = 0.035 ether;
 
 /* 
@@ -318,8 +318,23 @@ Event Definitions:
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
                 uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
                 eefi_token.mint(address(this), to_mint);
-                eefi_token.increaseAllowance(address(rewards_eefi), to_mint);
-                rewards_eefi.distribute(to_mint, address(this));
+
+                uint256 to_rewards = to_mint.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
+                uint256 to_pioneer2 = to_mint.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
+                uint256 to_pioneer3 = to_mint.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
+                uint256 to_lp_staking = to_mint.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+
+                eefi_token.increaseAllowance(address(rewards_eefi), to_rewards);
+                eefi_token.increaseAllowance(address(pioneer_vault2.staking_contract_token()), to_pioneer2);
+                eefi_token.increaseAllowance(address(pioneer_vault3.staking_contract_token()), to_pioneer3);
+                eefi_token.increaseAllowance(address(staking_pool.staking_contract_token()), to_lp_staking);
+                rewards_eefi.distribute(to_rewards, address(this));
+                pioneer_vault2.distribute(to_pioneer2);
+                pioneer_vault3.distribute(to_pioneer3);
+                staking_pool.distribute(to_lp_staking);
+
+                // distribute the remainder (5%) to the treasury
+                require(eefi_token.transfer(treasury, eefi_token.balanceOf(address(this))), "AmplesenseVault: Treasury transfer failed");
             }
         }
 

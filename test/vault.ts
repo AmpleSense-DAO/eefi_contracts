@@ -288,14 +288,30 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
 
-        const EEFI_EQULIBRIUM_REBASE_RATE = await vault.EEFI_EQULIBRIUM_REBASE_RATE();
-        const expectedRewardToken = BigNumber.from(10**9).div(EEFI_EQULIBRIUM_REBASE_RATE);
+        const expectedRewardToken = BigNumber.from(10**9).div(await vault.EEFI_EQULIBRIUM_REBASE_RATE());
+
+        const to_rewards = expectedRewardToken.mul(await vault.TRADE_POSITIVE_REWARDS_100()).div(100);
+        const to_pioneer2 = expectedRewardToken.mul(await vault.TRADE_POSITIVE_PIONEER2_100()).div(100);
+        const to_pioneer3 = expectedRewardToken.mul(await vault.TRADE_POSITIVE_PIONEER3_100()).div(100);
+        const to_lp_staking = expectedRewardToken.mul(await vault.TRADE_POSITIVE_LPSTAKING_100()).div(100);
+
+        const to_treasury = expectedRewardToken.sub(to_rewards).sub(to_pioneer2).sub(to_pioneer3).sub(to_lp_staking);
         
         const before = await getInfo(vault, owner);
 
         const beforeEEFICallerBalance = await eefiToken.balanceOf(owner);
 
+        const balanceTreasury = await eefiToken.balanceOf(treasury);
+
         const tx = await vault.rebase();
+
+        expect(tx).to.have.emit(pioneer2, "ProfitToken").withArgs(to_pioneer2);
+        expect(tx).to.have.emit(pioneer3, "ProfitToken").withArgs(to_pioneer3);
+        expect(tx).to.have.emit(staking_pool, "ProfitToken").withArgs(to_lp_staking);
+
+        const balanceTreasuryAfter = await eefiToken.balanceOf(treasury);
+
+        expect(balanceTreasuryAfter.sub(balanceTreasury)).to.be.equal(to_treasury);
 
         const after = await getInfo(vault, owner);
 
@@ -305,10 +321,10 @@ describe('AmplesenseVault Contract', () => {
         expect(before.totalRewardEth).to.be.equal(0);
         expect(before.totalStaked).to.be.equal(10**9);
 
-        expect(after.accountRewardToken).to.be.equal(expectedRewardToken);
+        expect(after.accountRewardToken).to.be.equal(to_rewards);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
-        expect(after.totalRewardEth).to.be.equal(100000);
+        expect(after.totalRewardEth).to.be.equal(45000);
         expect(after.totalStaked).to.be.equal(10**9);
 
         //plus send reward eefi to the caller
@@ -322,6 +338,7 @@ describe('AmplesenseVault Contract', () => {
 
         const EEFI_NEGATIVE_REBASE_RATE = await vault.EEFI_NEGATIVE_REBASE_RATE();
         const expectedRewardToken = BigNumber.from(10**9).div(EEFI_NEGATIVE_REBASE_RATE);
+        const to_rewards = expectedRewardToken.mul(await vault.TRADE_POSITIVE_REWARDS_100()).div(100);
 
         await amplToken.rebase(0, -500);
 
@@ -337,11 +354,13 @@ describe('AmplesenseVault Contract', () => {
         expect(before.totalRewardEth).to.be.equal(0);
         expect(before.totalStaked).to.be.equal(10**9);
 
-        expect(after.accountRewardToken).to.be.closeTo(expectedRewardToken as any, 1);
+        expect(after.accountRewardToken).to.be.closeTo(to_rewards as any, 1);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
-        expect(after.totalRewardEth).to.be.closeTo(expectedRewardToken as any, 1);
+        expect(after.totalRewardEth).to.be.closeTo(to_rewards as any, 1);
         expect(after.totalStaked).to.be.equal(10**9);
+
+        //other distribution detail tests are done in the previous test
       });
 
       it('rebasing if ampl had a positive rebase shall credit eefi', async () => {
@@ -527,9 +546,9 @@ describe('AmplesenseVault Contract', () => {
         const after = await getInfo(vault, owner);
 
         expect(before.accountRewardEth).to.be.equal(9000000);
-        expect(before.accountRewardToken).to.be.equal(1000000000);
+        expect(before.accountRewardToken).to.be.equal(450000000);
 
-        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 9000000, 1000000000);
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 9000000, 450000000);
 
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.accountRewardToken).to.be.equal(0);
