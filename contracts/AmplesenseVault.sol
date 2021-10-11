@@ -45,7 +45,8 @@ Parameter Definitions:
 - Trade Positive LP Staking_100: Upon positive rebase, send 35% of ETH rewards to uses staking LP tokens (EEFI/ETH) 
 - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 90 days, do not mint EEFI, or distribute rewards to stakers 
 - Initial MINT: Amount of EEFI that will be minted at contract deployment 
-- Rebase Reward: Amount of EEFI distributed to wallet address that successfully calls rebase function (will be edited to 0.1 ether) 
+- Rebase Reward: Amount of EEFI distributed to wallet address that successfully calls rebase function (.1 EEFI per successful call distributed to caller)
+- Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
 */
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
@@ -289,13 +290,13 @@ Event Definitions:
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
             trader.sellAMPLForEEFI(for_eefi);
-
+           // 10% of purchased EEFI is sent to the DAO Treasury. The remaining 90% is burned. 
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
             eefi_token.burn(address(this), to_burn);
             emit Burn(to_burn);
-            // buy eth and distribute
+            // buy eth and distribute to vaults
             trader.sellAMPLForEth(for_eth);
  
             uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
