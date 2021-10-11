@@ -7,7 +7,7 @@ The value is generated during every phase of the AMPL rebase cycle: positive, ne
 
 During Negative Rebases: The vault mints EEFI (based on how much AMPL is deposited into the vault) and distributes it to AMPL stakers and other vaults (EEFI/ETH LP providers, kMPL holders and kMPL/ETH liquidity providers)
 
-During Neutral Rebases/Eqilibrium: The vault mints EEFI (based on how much AMPL is deposited into the vault); the mint amount is higher than what occurs during negative rebaers. EEFI is distributed as outlined above. 
+During Neutral Rebases/Equilibrium: The vault mints EEFI (based on how much AMPL is deposited into the vault); the mint amount is higher than what occurs during negative rebaers. EEFI is distributed as outlined above. 
 
 During positive rebases, 70% of the new AMPL supply is sold for ETH and EEFI. 90% of purchased EEFI is burned. ETH purchaed is distributed to stakers and vaults (as outlined above).  
 
