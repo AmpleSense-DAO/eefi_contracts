@@ -44,7 +44,7 @@ Parameter Definitions:
 - Trade Positive Pioneer3_100: Upon positive rebase, send 5% of ETH rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
 - Trade Positive LP Staking_100: Upon positive rebase, send 35% of ETH rewards to uses staking LP tokens (EEFI/ETH) 
 - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 90 days, do not mint EEFI, or distribute rewards to stakers 
-- Initial MINT: Amount of EEFI that will be minted at contract deployment (will be edited to 100000 ether)
+- Initial MINT: Amount of EEFI that will be minted at contract deployment 
 - Rebase Reward: Amount of EEFI distributed to wallet address that successfully calls rebase function (will be edited to 0.1 ether) 
 */
 
@@ -63,7 +63,7 @@ Parameter Definitions:
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 90 days;
     uint256 constant public INITIAL_MINT = 100000 ether;
-    uint256 constant public REBASE_REWARD = 0.035 ether;
+    uint256 constant public REBASE_REWARD = 0.1 ether;
 
 /* 
 Event Definitions:
@@ -314,10 +314,20 @@ Event Definitions:
             // distribute the remainder of purchased ETH (5%) to the DAO treasury
             treasury.transfer(address(this).balance);
         } else {
-            // negative or equal
+            // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
                 uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
                 eefi_token.mint(address(this), to_mint);
+
+/* 
+EEFI Reward Distribution Overview: 
+
+- Trade Positive Rewards_100: Upon neutral/negative rebase, send 45% of EEFI rewards to users staking AMPL in vault 
+- Trade Positive Pioneer2_100: Upon neutral/negative rebase, send 10% of EEFI rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
+- Trade Positive Pioneer3_100: Upon neutral/negative rebase, send 5% of EEFI rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
+- Trade Positive LP Staking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/ETH) 
+*/
+
 
                 uint256 to_rewards = to_mint.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
                 uint256 to_pioneer2 = to_mint.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
@@ -333,7 +343,7 @@ Event Definitions:
                 pioneer_vault3.distribute(to_pioneer3);
                 staking_pool.distribute(to_lp_staking);
 
-                // distribute the remainder (5%) to the treasury
+                // distribute the remainder (5%) of EEFI to the treasury
                 require(eefi_token.transfer(treasury, eefi_token.balanceOf(address(this))), "AmplesenseVault: Treasury transfer failed");
             }
         }
