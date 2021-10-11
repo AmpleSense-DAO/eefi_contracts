@@ -21,7 +21,7 @@ We use the Distribute contract to handle ETH and EEFI rewards pools and their co
 
 ## EEFIToken.sol
 
-This is a simple erc20 token contract. Note that the token can be minted and bured. The AmplesenseVault.sol token is the only authorized minter and burner of EEFI. 
+This is a simple erc20 token contract. Note that the token can be minted and burned. The AmplesenseVault.sol token is the only authorized minter and burner of EEFI. 
 
 ## Pioneer1Vault.sol
 
