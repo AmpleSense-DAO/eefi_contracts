@@ -3,7 +3,7 @@
 ## AmplesenseVault.sol
 The main amplesense vault allowing users to stake AMPL and earn rewards in EEFI and ETH.
 
-The value is generated during every phase of the AMPL rebase cycle: positive, negative and neutral (eqilibrium) rebases. 
+The value is generated during every phase of the AMPL rebase cycle: positive, negative and neutral (equilibrium) rebases. 
 
 During Negative Rebases: The vault mints EEFI (based on how much AMPL is deposited into the vault) and distributes it to AMPL stakers and other vaults (EEFI/ETH LP providers, kMPL holders and kMPL/ETH liquidity providers)
 
