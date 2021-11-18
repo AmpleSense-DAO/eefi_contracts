@@ -22,7 +22,7 @@ contract StakingERC20 is IERC900  {
 
     constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
         _token = stake_token;
-        staking_contract_eth = new Distribute(decimals, IERC20(address(0)));
+        staking_contract_eth = new Distribute(1, IERC20(address(0)));
         staking_contract_token = new Distribute(decimals, reward_token);
     }
 

@@ -10,21 +10,21 @@ contract StakingERC721  {
     /// @dev handle to access ERC721 token contract to make transfers
     IERC721 public tokenA;
     IERC721 public tokenB;
-    IERC20 public ampl;
+    IERC20 public token;
     Distribute public stakingContractEth;
     mapping(address => uint256[]) public tokenOwnershipA;
     mapping(address => uint256[]) public tokenOwnershipB;
 
     event ProfitEth(uint256 amount);
-    event ReceivedAMPL(uint256 amount);
+    event ReceivedToken(uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 total);
     event Unstaked(address indexed account, uint256 amount, uint256 total);
     event StakeChanged(uint256 total, uint256 timestamp);
 
-    constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _ampl) {
+    constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _token) {
         tokenA = _tokenA;
         tokenB = _tokenB;
-        ampl = _ampl;
+        token = _token;
         stakingContractEth = new Distribute(0, IERC20(address(0)));
     }
 
@@ -34,8 +34,8 @@ contract StakingERC721  {
     }
 
     function distribute(uint256 amount) external {
-        ampl.safeTransferFrom(msg.sender, address(this), amount);
-        emit ReceivedAMPL(amount);
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        emit ReceivedToken(amount);
     }
     
     /**
@@ -115,6 +115,15 @@ contract StakingERC721  {
     */
     function totalStakedFor(address account) public view returns (uint256) {
         return stakingContractEth.totalStakedFor(account);
+    }
+
+    /**
+        @param account address owning the stake
+        @return tokenA Amount of tokenA staked by the account. tokenB Amount of tokenB staked by the account
+    */
+    function totalTokenStakedFor(address account) public view returns (uint256 tokenA, uint256 tokenB) {
+        tokenA = tokenOwnershipA[account].length;
+        tokenB = tokenOwnershipB[account].length;
     }
 
     /**

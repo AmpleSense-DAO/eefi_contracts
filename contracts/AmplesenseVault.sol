@@ -98,7 +98,7 @@ Event Definitions:
     Ownable() {
         eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
-        rewards_eth = new Distribute(9, IERC20(0));
+        rewards_eth = new Distribute(1, IERC20(0));
     }
 
     receive() external payable { }
@@ -288,7 +288,6 @@ Event Definitions:
             // use rebased AMPL to buy and burn eefi
             
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
-
             trader.sellAMPLForEEFI(for_eefi);
            // 10% of purchased EEFI is sent to the DAO Treasury. The remaining 90% is burned. 
             uint256 balance = eefi_token.balanceOf(address(this));
@@ -320,14 +319,14 @@ Event Definitions:
                 uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
                 eefi_token.mint(address(this), to_mint);
 
-/* 
-EEFI Reward Distribution Overview: 
+                /* 
+                EEFI Reward Distribution Overview: 
 
-- Trade Positive Rewards_100: Upon neutral/negative rebase, send 45% of EEFI rewards to users staking AMPL in vault 
-- Trade Positive Pioneer2_100: Upon neutral/negative rebase, send 10% of EEFI rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
-- Trade Positive Pioneer3_100: Upon neutral/negative rebase, send 5% of EEFI rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
-- Trade Positive LP Staking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/ETH) 
-*/
+                - Trade Positive Rewards_100: Upon neutral/negative rebase, send 45% of EEFI rewards to users staking AMPL in vault 
+                - Trade Positive Pioneer2_100: Upon neutral/negative rebase, send 10% of EEFI rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
+                - Trade Positive Pioneer3_100: Upon neutral/negative rebase, send 5% of EEFI rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
+                - Trade Positive LP Staking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/ETH) 
+                */
 
 
                 uint256 to_rewards = to_mint.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
@@ -339,6 +338,8 @@ EEFI Reward Distribution Overview:
                 eefi_token.increaseAllowance(address(pioneer_vault2.staking_contract_token()), to_pioneer2);
                 eefi_token.increaseAllowance(address(pioneer_vault3.staking_contract_token()), to_pioneer3);
                 eefi_token.increaseAllowance(address(staking_pool.staking_contract_token()), to_lp_staking);
+
+                console.log("to_rewards", to_rewards);
                 rewards_eefi.distribute(to_rewards, address(this));
                 pioneer_vault2.distribute(to_pioneer2);
                 pioneer_vault3.distribute(to_pioneer3);

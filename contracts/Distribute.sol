@@ -5,6 +5,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import "hardhat/console.sol";
 
 /**
  * staking contract for ERC20 tokens or ETH
@@ -133,7 +134,11 @@ contract Distribute is Ownable {
         
         uint256 temp_to_distribute = to_distribute.add(amount);
         uint256 total_bonds = _total_staked / PRECISION;
+
         uint256 bond_increase = temp_to_distribute / total_bonds;
+        console.log("bond increase",bond_increase);
+        console.log("temp_to_distribute",temp_to_distribute);
+        console.log("total_bonds",total_bonds);
         uint256 distributed_total = total_bonds.mul(bond_increase);
         bond_value = bond_value.add(bond_increase);
         //collect the dust because of the PRECISION used for bonds

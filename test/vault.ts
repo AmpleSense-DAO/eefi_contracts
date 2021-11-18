@@ -424,7 +424,7 @@ describe('AmplesenseVault Contract', () => {
         expect(tx).to.emit(balancerTrader, 'Sale_EEFI').withArgs(4800, 4800);
         expect(tx).to.emit(balancerTrader, 'Sale_ETH').withArgs(2000, 2000);
         expect(tx).to.emit(vault, 'Burn').withArgs(toBurn);
-        expect(tx).to.emit(pioneer1, 'ReceivedAMPL').withArgs(for_pioneer1);
+        expect(tx).to.emit(pioneer1, 'ReceivedToken').withArgs(for_pioneer1);
 
         // pioneer2 and staking pool should get eth
         expect(tx).to.emit(pioneer2, 'ProfitEth').withArgs(expectedEthProfit);
