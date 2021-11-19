@@ -36,7 +36,7 @@
     "deploy-rinkeby": "npx hardhat run scripts/deploy_rinkeby.ts --network rinkeby",
     "deploy-fork": "npx hardhat run scripts/deploy_fork.ts --network hardhat",
     "start": "npx hardhat node",
-    "forknode": "npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy --fork-block-number 13235981",
+    "forknode": "npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy --fork-block-number 13645000",
     "rebase": "npx hardhat run scripts/rebase.ts --network localhost",
     "move": "npx hardhat run scripts/increase_time.ts --network localhost"
   }

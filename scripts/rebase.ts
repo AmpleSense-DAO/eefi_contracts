@@ -21,8 +21,8 @@ async function main() {
 
   const ampleMonetaryPolicy = await hre.ethers.getSigner("0x1b228a749077b8e307c5856ce62ef35d96dca2ea");
 
-  const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650") as AmplesenseVault;
-  const pioneer1 = await hre.ethers.getContractAt("AmplesenseVault", "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe") as AmplesenseVault;
+  const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B") as AmplesenseVault;
+  const pioneer1 = await hre.ethers.getContractAt("AmplesenseVault", "0x1c85638e118b37167e9298c2268758e058DdfDA0") as AmplesenseVault;
   const amplToken = await hre.ethers.getContractAt("FakeAMPL", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as FakeAMPL;
 
   while(true) {
