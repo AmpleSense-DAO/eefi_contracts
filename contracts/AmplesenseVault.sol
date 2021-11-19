@@ -11,7 +11,6 @@ import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
 import './interfaces/IBalancerTrader.sol';
-import 'hardhat/console.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -339,7 +338,6 @@ Event Definitions:
                 eefi_token.increaseAllowance(address(pioneer_vault3.staking_contract_token()), to_pioneer3);
                 eefi_token.increaseAllowance(address(staking_pool.staking_contract_token()), to_lp_staking);
 
-                console.log("to_rewards", to_rewards);
                 rewards_eefi.distribute(to_rewards, address(this));
                 pioneer_vault2.distribute(to_pioneer2);
                 pioneer_vault3.distribute(to_pioneer3);
