@@ -521,6 +521,8 @@ describe('AmplesenseVault Contract', () => {
         ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
         await vault.makeDeposit(10000*10**9);
+        // add a deposit for another user because we didnt see the critical claiming issue before
+        await vault.depositFor(treasury, 10000*10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
