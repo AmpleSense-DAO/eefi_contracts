@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 //https://github.com/ethereum/EIPs/blob/master/EIPS/eip-900.md
 interface IERC900 {

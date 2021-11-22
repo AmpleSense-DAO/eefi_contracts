@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 interface IStakingERC20  {
     function staking_contract_token() external returns (address);
