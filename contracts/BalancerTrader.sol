@@ -18,7 +18,7 @@ contract BalancerTrader is IBalancerTrader {
 
     using SafeERC20 for IERC20;
 
-    uint256 constant MAX_INT = uint256(-1);
+    uint256 constant MAX_UINT = type(uint256).max;
 //USDC will be removed from the parameters below, as trading pair will be EEFI/ETH
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     address public constant usdcToken = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
@@ -36,8 +36,8 @@ contract BalancerTrader is IBalancerTrader {
         require(address(_eefiToken) != address(0), "BalancerTrader: Invalid eefi token address");
         eefiToken = IERC20(_eefiToken);
         eefiUsdcPoolID = _eefiUsdcPoolID;
-        require(amplToken.approve(address(amplUsdc), MAX_INT), 'BalancerTrader: Approval failed');
-        require(amplToken.approve(address(amplEth), MAX_INT), 'BalancerTrader: Approval failed');
+        require(amplToken.approve(address(amplUsdc), MAX_UINT), 'BalancerTrader: Approval failed');
+        require(amplToken.approve(address(amplEth), MAX_UINT), 'BalancerTrader: Approval failed');
     }
 
     receive() external payable {
@@ -49,7 +49,7 @@ contract BalancerTrader is IBalancerTrader {
      */
     function sellAMPLForEth(uint256 amount) external override returns (uint256 ethAmount) {
         require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
-        (ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_INT);
+        (ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_UINT);
         wethToken.withdraw(ethAmount);
         msg.sender.transfer(ethAmount);
         emit Sale_ETH(amount, ethAmount);
@@ -60,7 +60,7 @@ contract BalancerTrader is IBalancerTrader {
      */
     function sellAMPLForEEFI(uint256 amount) external override returns (uint256 eefiAmount) {
         require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
-        (uint256 usdcAmount,) = amplUsdc.swapExactAmountIn(address(amplToken), amount, address(usdcToken), 0, MAX_INT);
+        (uint256 usdcAmount,) = amplUsdc.swapExactAmountIn(address(amplToken), amount, address(usdcToken), 0, MAX_UINT);
         eefiAmount = vault.swap(IVault.SingleSwap(
             eefiUsdcPoolID,
             IVault.SwapKind.GIVEN_IN,
