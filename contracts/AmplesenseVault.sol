@@ -345,7 +345,7 @@ EEFI Reward Distribution Overview:
                 staking_pool.distribute(to_lp_staking);
 
                 // distribute the remainder (5%) of EEFI to the treasury
-                require(eefi_token.transfer(treasury, eefi_token.balanceOf(address(this))), "AmplesenseVault: Treasury transfer failed");
+                IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
             }
         }
 
