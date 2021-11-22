@@ -24,7 +24,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     */
     uint256 public PRECISION;
 
-    uint256 constant INITIAL_BOND_VALUE = 1000000;
+    uint256 public constant INITIAL_BOND_VALUE = 1000000;
 
     uint256 public bond_value = INITIAL_BOND_VALUE;
     //just for info
