@@ -18,7 +18,7 @@ contract BalancerTrader is IBalancerTrader {
 
     using SafeERC20 for IERC20;
 
-    uint256 constant MAX_UINT = type(uint256).max;
+    uint256 private constant MAX_UINT = type(uint256).max;
 //USDC will be removed from the parameters below, as trading pair will be EEFI/ETH
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     address public constant usdcToken = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
@@ -27,9 +27,9 @@ contract BalancerTrader is IBalancerTrader {
     bytes32 public eefiUsdcPoolID;
     
 
-    IPoolV1 constant amplUsdc = IPoolV1(0x7860E28ebFB8Ae052Bfe279c07aC5d94c9cD2937);
-    IPoolV1 constant amplEth = IPoolV1(0xa751A143f8fe0a108800Bfb915585E4255C2FE80);
-    IVault constant vault = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IPoolV1 public constant amplUsdc = IPoolV1(0x7860E28ebFB8Ae052Bfe279c07aC5d94c9cD2937);
+    IPoolV1 public constant amplEth = IPoolV1(0xa751A143f8fe0a108800Bfb915585E4255C2FE80);
+    IVault public constant vault = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
 
 
     constructor(IERC20 _eefiToken, bytes32 _eefiUsdcPoolID) {
