@@ -48,8 +48,6 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
         require(new_balance > SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet"); //needs to be checked or else _toSell fails
         if(new_supply > old_supply) {
             //only for positive rebases
-            uint256 balance = _ampl_token.balanceOf(address(this));
-
             uint256 change_ratio_18digits = old_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(change_ratio_18digits).divDown(10**18));
             uint256 to_sell = _toSell(surplus);
