@@ -23,8 +23,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     IStakingERC20 public staking_pool;
     IBalancerTrader public trader;
     EEFIToken public eefi_token;
-    Distribute public rewards_eefi;
-    Distribute public rewards_eth;
+    Distribute immutable public rewards_eefi;
+    Distribute immutable public rewards_eth;
     address payable treasury;
     uint256 public last_positive = block.timestamp;
 /* 
