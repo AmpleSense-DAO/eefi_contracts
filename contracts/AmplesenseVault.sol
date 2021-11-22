@@ -354,8 +354,8 @@ EEFI Reward Distribution Overview:
 
     function claim() external {
         (uint256 eth, uint256 token) = getReward(msg.sender);
-        rewards_eth.withdrawFrom(msg.sender, rewards_eth.totalStaked());
-        rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStaked());
+        rewards_eth.withdrawFrom(msg.sender, rewards_eth.totalStakedFor(msg.sender));
+        rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStakedFor(msg.sender));
         emit Claimed(msg.sender, eth, token);
     }
 
