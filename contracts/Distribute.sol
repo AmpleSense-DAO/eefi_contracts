@@ -4,12 +4,13 @@ pragma solidity ^0.7.0;
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
+import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol";
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 /**
  * staking contract for ERC20 tokens or ETH
  */
-contract Distribute is Ownable {
+contract Distribute is Ownable, ReentrancyGuard {
     using Math for uint256;
     using SafeERC20 for IERC20;
 
@@ -44,7 +45,7 @@ contract Distribute is Ownable {
         @param decimals Number of decimals of the reward token
         @param _reward_token The token used for rewards. Set to 0 for ETH
     */
-    constructor(uint256 decimals, IERC20 _reward_token) Ownable() {
+    constructor(uint256 decimals, IERC20 _reward_token) Ownable() ReentrancyGuard() {
         reward_token = _reward_token;
         PRECISION = 10**decimals;
     }
@@ -54,7 +55,7 @@ contract Distribute is Ownable {
         @param account Address who will own the stake afterwards
         @param amount Amount to stake
     */
-    function stakeFor(address account, uint256 amount) public onlyOwner {
+    function stakeFor(address account, uint256 amount) public onlyOwner nonReentrant {
         require(account != address(0), "Distribute: Invalid account");
         require(amount > 0, "Distribute: Amount must be greater than zero");
         _total_staked = _total_staked.add(amount);
@@ -74,7 +75,7 @@ contract Distribute is Ownable {
         @param account From whom
         @param amount Amount to remove from the stake
     */
-    function unstakeFrom(address payable account, uint256 amount) public onlyOwner {
+    function unstakeFrom(address payable account, uint256 amount) public onlyOwner nonReentrant {
         require(account != address(0), "Distribute: Invalid account");
         require(amount > 0, "Distribute: Amount must be greater than zero");
         require(amount <= _stakes[account], "Distribute: Dont have enough staked");
@@ -100,7 +101,7 @@ contract Distribute is Ownable {
         @param account From whom
         @param amount Amount to remove from the stake
     */
-    function withdrawFrom(address payable account, uint256 amount) external onlyOwner {
+    function withdrawFrom(address payable account, uint256 amount) external onlyOwner nonReentrant {
         unstakeFrom(account, amount);
         stakeFor(account, amount);
     }
@@ -111,7 +112,7 @@ contract Distribute is Ownable {
         @param amount Amount of token to distribute
         @param from Address from which to take the token
     */
-    function distribute(uint256 amount, address from) external payable onlyOwner {
+    function distribute(uint256 amount, address from) external payable onlyOwner nonReentrant {
         if(address(reward_token) != address(0)) {
             if(amount == 0) return;
             reward_token.safeTransferFrom(from, address(this), amount);
