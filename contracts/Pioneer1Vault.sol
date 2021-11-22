@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import "@balancer-labs/v2-vault/contracts/interfaces/IVault.sol";
@@ -48,7 +48,7 @@ contract BalancerTrader is IBalancerTrader {
     * @dev Caller must transfer the right amount of tokens to the trader
      */
     function sellAMPLForEth(uint256 amount) external override returns (uint256 ethAmount) {
-        amplToken.transferFrom(msg.sender, address(this), amount);
+        require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
         (ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_INT);
         wethToken.withdraw(ethAmount);
         msg.sender.transfer(ethAmount);
@@ -59,7 +59,7 @@ contract BalancerTrader is IBalancerTrader {
     * @dev Caller must transfer the right amount of tokens to the trader (USDC will be replaced with ETH)
      */
     function sellAMPLForEEFI(uint256 amount) external override returns (uint256 eefiAmount) {
-        amplToken.transferFrom(msg.sender, address(this), amount);
+        require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
         (uint256 usdcAmount,) = amplUsdc.swapExactAmountIn(address(amplToken), amount, address(usdcToken), 0, MAX_INT);
         eefiAmount = vault.swap(IVault.SingleSwap(
             eefiUsdcPoolID,
