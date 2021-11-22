@@ -22,7 +22,7 @@ contract Distribute is Ownable, ReentrancyGuard {
      For example if the token has 18 decimals, then the precision should also have 18 decimals
 
     */
-    uint256 public PRECISION;
+    uint256 immutable public PRECISION;
 
     uint256 public constant INITIAL_BOND_VALUE = 1000000;
 
@@ -38,7 +38,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     mapping(address => uint256) private _stakes;
 
     /// @dev token to distribute
-    IERC20 public reward_token;
+    IERC20 immutable public reward_token;
 
     /**
         @dev Initialize the contract
