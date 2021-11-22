@@ -13,8 +13,8 @@ contract StakingERC20 is IERC900  {
 
     /// @dev handle to access ERC20 token token contract to make transfers
     IERC20 private _token;
-    Distribute public staking_contract_eth;
-    Distribute public staking_contract_token;
+    Distribute immutable public staking_contract_eth;
+    Distribute immutable public staking_contract_token;
 
     event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);
