@@ -19,10 +19,10 @@ Definitions and explanations:
 contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
     using Math for uint256;
 
-    uint256 constant SELL_THRESHOLD = 40000 * 10**9;
-    uint256 constant START_PERCENT = 25;
-    uint256 constant END_PERCENT = 80;
-    uint256 constant CAP = 800000 * 10**9;
+    uint256 public constant SELL_THRESHOLD = 40000 * 10**9;
+    uint256 public constant START_PERCENT = 25;
+    uint256 public constant END_PERCENT = 80;
+    uint256 public constant CAP = 800000 * 10**9;
     IBalancerTrader public trader;
 
     constructor(
