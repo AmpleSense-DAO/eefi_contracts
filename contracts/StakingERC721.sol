@@ -8,10 +8,10 @@ contract StakingERC721  {
     using SafeERC20 for IERC20;
 
     /// @dev handle to access ERC721 token contract to make transfers
-    IERC721 public tokenA;
-    IERC721 public tokenB;
-    IERC20 public ampl;
-    Distribute public stakingContractEth;
+    IERC721 immutable public tokenA;
+    IERC721 immutable public tokenB;
+    IERC20 immutable public ampl;
+    Distribute immutable public stakingContractEth;
     mapping(address => uint256[]) public tokenOwnershipA;
     mapping(address => uint256[]) public tokenOwnershipB;
 
