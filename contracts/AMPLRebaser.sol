@@ -12,9 +12,9 @@ contract AMPLRebaser {
     //
     uint256 public last_ampl_supply;
 
-    uint256 last_rebase_call;
+    uint256 public last_rebase_call;
 
-    IERC20 _ampl_token;
+    IERC20 public _ampl_token;
 
     constructor(IERC20 ampl_token) {
         require(address(ampl_token) != address(0), "AMPLRebaser: Invalid ampl token address");
