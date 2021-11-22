@@ -3,7 +3,7 @@ pragma solidity ^0.7.0;
 
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 
-contract AMPLRebaser {
+abstract contract AMPLRebaser {
 
     event Rebase(uint256 old_supply, uint256 new_supply);
 
@@ -33,6 +33,5 @@ contract AMPLRebaser {
         last_ampl_supply = new_supply;
     }
 
-    function _rebase(uint256 old_supply, uint256 new_supply) internal virtual {
-    }
+    function _rebase(uint256 old_supply, uint256 new_supply) internal virtual;
 }
