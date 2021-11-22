@@ -23,8 +23,8 @@ contract BalancerTrader is IBalancerTrader {
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     address public constant usdcToken = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     IWETH9 public constant wethToken = IWETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20 public eefiToken;
-    bytes32 public eefiUsdcPoolID;
+    IERC20 public immutable eefiToken;
+    bytes32 public immutable eefiUsdcPoolID;
     
 
     IPoolV1 public constant amplUsdc = IPoolV1(0x7860E28ebFB8Ae052Bfe279c07aC5d94c9cD2937);
