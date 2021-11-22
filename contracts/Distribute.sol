@@ -63,11 +63,10 @@ contract Distribute is Ownable, ReentrancyGuard {
             investor_count++;
         }
 
-        uint256 accumulated_reward = getReward(account);
         _stakes[account] = _stakes[account].add(amount);
 
-        uint256 new_bond_value = accumulated_reward * PRECISION / _stakes[account];
-        _bond_value_addr[account] = bond_value.sub(new_bond_value);
+        uint256 new_bond_value = getReward(account) * PRECISION / _stakes[account];
+        _bond_value_addr[account] = bond_value - new_bond_value;
     }
 
     /**
@@ -80,8 +79,8 @@ contract Distribute is Ownable, ReentrancyGuard {
         require(amount > 0, "Distribute: Amount must be greater than zero");
         require(amount <= _stakes[account], "Distribute: Dont have enough staked");
         uint256 to_reward = _getReward(account, amount);
-        _total_staked = _total_staked.sub(amount);
-        _stakes[account] = _stakes[account].sub(amount);
+        _total_staked -= amount;
+        _stakes[account] -= amount;
         if(_stakes[account] == 0) {
             investor_count--;
         }
@@ -132,14 +131,14 @@ contract Distribute is Ownable, ReentrancyGuard {
             _temp_pool = 0;
         }
         
-        uint256 temp_to_distribute = to_distribute.add(amount);
+        uint256 temp_to_distribute = to_distribute + amount;
         uint256 total_bonds = _total_staked / PRECISION;
         uint256 bond_increase = temp_to_distribute / total_bonds;
         uint256 distributed_total = total_bonds.mul(bond_increase);
-        bond_value = bond_value.add(bond_increase);
+        bond_value += bond_increase;
         //collect the dust because of the PRECISION used for bonds
         //it will be reinjected into the next distribution
-        to_distribute = temp_to_distribute.sub(distributed_total);
+        to_distribute = temp_to_distribute - distributed_total;
     }
 
     /**
