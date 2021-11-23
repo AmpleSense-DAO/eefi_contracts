@@ -82,18 +82,22 @@ contract StakingERC721  {
         stakingContractEth.unstakeFrom(msg.sender, amount);
 
         uint256[] storage tokens;
-        if(isTokenA)
+        IERC721 token;
+        if(isTokenA) {
             tokens = tokenOwnershipA[msg.sender];
-        else
+            token = tokenA;
+        }
+        else {
             tokens = tokenOwnershipB[msg.sender];
+            token = tokenB;
+        }
+
+        require(amount <= tokens.length, "StakingERC721: Not enough tokens of this type");
 
         for(uint i = 0; i < amount; i++) {
             uint256 id = tokens[tokens.length - 1];
             tokens.pop();
-            if(isTokenA)
-                tokenA.transferFrom(address(this), msg.sender, id);
-            else
-                tokenB.transferFrom(address(this), msg.sender, id);
+            token.transferFrom(address(this), msg.sender, id);
         }
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
