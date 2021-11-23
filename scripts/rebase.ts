@@ -1,5 +1,7 @@
 const hre = require("hardhat");
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { StakingERC20 } from "../typechain/StakingERC20";
+import { EEFIToken } from "../typechain/EEFIToken";
 import { FakeAMPL } from "../typechain/FakeAMPL";
 
 function delay(ms: number) {
@@ -24,6 +26,8 @@ async function main() {
   const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B") as AmplesenseVault;
   const pioneer1 = await hre.ethers.getContractAt("AmplesenseVault", "0x1c85638e118b37167e9298c2268758e058DdfDA0") as AmplesenseVault;
   const amplToken = await hre.ethers.getContractAt("FakeAMPL", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as FakeAMPL;
+  const lpstaking = await hre.ethers.getContractAt("StakingERC20", "0x7A9Ec1d04904907De0ED7b6839CcdD59c3716AC9") as StakingERC20;
+  const eefiToken = await hre.ethers.getContractAt("EEFIToken", "0xE91bfd2AfA045Ab2f47BEf565FC1deb7511D1AC6") as EEFIToken;
 
   while(true) {
     // jump 24 hours always
@@ -38,6 +42,8 @@ async function main() {
     } catch(err) {
       console.log(err);
     };
+    console.log("eefi:" + hre.ethers.utils.formatUnits((await vault.totalReward()).token,18));
+    console.log(await eefiToken.filters.Transfer(null, null, null));
     try{
       let pioneer1Ampl = hre.ethers.utils.formatUnits(await amplToken.balanceOf(pioneer1.address),9);
       console.log("pioneer ampl amount: " + pioneer1Ampl);
@@ -47,7 +53,7 @@ async function main() {
     } catch(err) {
 
     };
-    await delay(10*1000);
+    await delay(2*60*1000);
   }
   
 }
