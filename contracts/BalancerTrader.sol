@@ -42,7 +42,8 @@ contract BalancerTrader is IBalancerTrader {
     }
 
     receive() external payable {
-
+        // make sure we accept only eth coming from unwrapping weth
+        require(msg.sender == address(wethToken),"BalancerTrader: Not accepting ETH");
     }
 
     /**
