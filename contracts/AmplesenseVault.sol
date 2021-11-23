@@ -188,7 +188,7 @@ Event Definitions:
         _ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
-        uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
+        uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // send some EEFI to pioneer vault 2 (kMPL stakers) upon initial mint 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 90 days without positive rebase do not mint EEFI
