@@ -116,6 +116,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         if(address(reward_token) != address(0)) {
             if(amount == 0) return;
             reward_token.safeTransferFrom(from, address(this), amount);
+            require(msg.value == 0, "Distribute: Illegal distribution");
         } else {
             amount = msg.value;
         }
