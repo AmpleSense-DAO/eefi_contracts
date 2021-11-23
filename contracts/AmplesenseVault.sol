@@ -295,7 +295,7 @@ Event Definitions:
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
-            eefi_token.burn(address(this), to_burn);
+            eefi_token.burn(to_burn);
             emit Burn(to_burn);
             // buy eth and distribute to vaults
             trader.sellAMPLForEth(for_eth);
