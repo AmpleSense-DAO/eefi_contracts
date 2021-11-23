@@ -5,6 +5,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol";
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 /**
@@ -91,7 +92,7 @@ contract Distribute is Ownable, ReentrancyGuard {
             reward_token.safeTransfer(account, to_reward);
         }
         else {
-            account.transfer(to_reward);
+            Address.sendValue(account, to_reward);
         }
     }
 
