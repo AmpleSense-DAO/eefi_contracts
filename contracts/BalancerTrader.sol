@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import "@balancer-labs/v2-vault/contracts/interfaces/IVault.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol";
 import "./interfaces/IBalancerTrader.sol";
 
 interface IPoolV1 {
@@ -51,7 +52,7 @@ contract BalancerTrader is IBalancerTrader {
         require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
         (ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_UINT);
         wethToken.withdraw(ethAmount);
-        msg.sender.transfer(ethAmount);
+        Address.sendValue(msg.sender, ethAmount);
         emit Sale_ETH(amount, ethAmount);
     }
 
