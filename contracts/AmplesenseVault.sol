@@ -5,6 +5,7 @@ pragma solidity 0.7.6;
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
 
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
@@ -313,7 +314,7 @@ Event Definitions:
             pioneer_vault1.distribute(for_pioneer1);
 
             // distribute the remainder of purchased ETH (5%) to the DAO treasury
-            treasury.transfer(address(this).balance);
+            Address.sendValue(treasury, address(this).balance);
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
