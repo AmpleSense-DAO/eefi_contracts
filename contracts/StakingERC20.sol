@@ -75,9 +75,11 @@ contract StakingERC20 is IERC900  {
 
      /**
         @dev Withdraws rewards (basically unstake then restake)
-        @param amount Amount of ERC20 token to remove from the stake
+        @param amount Amount of ERC20 token to remove from the stake. If amount if 0, then we claim all the rewards
     */
     function withdraw(uint256 amount) external {
+        if(amount == 0) //If amount if 0, then we claim all the rewards
+            amount = totalStakedFor(msg.sender);
         staking_contract_eth.withdrawFrom(msg.sender, amount);
         staking_contract_token.withdrawFrom(msg.sender,amount);
     }
