@@ -105,6 +105,8 @@ contract StakingERC721  {
         @param amount Amount of token to remove from the stake
     */
     function withdraw(uint256 amount) external {
+        if(amount == 0) //If amount if 0, then we claim all the rewards
+            amount = totalStakedFor(msg.sender);
         stakingContractEth.withdrawFrom(msg.sender, amount);
     }
 
