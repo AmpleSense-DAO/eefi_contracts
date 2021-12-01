@@ -211,16 +211,26 @@ Event Definitions:
         @dev Withdraw an amount of AMPL from vault 
         Shares are auto computed
         @param amount Amount of AMPL to withdraw
+        @param minimalExpectedAmount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
-    function withdrawAMPL(uint256 amount) external {
-        uint256 shares = amount.mul(rewards_eefi.totalStaked()).divDown(_ampl_token.balanceOf(address(this)));
-        require(shares <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
+    function withdrawAMPL(uint256 amount, uint256 minimalExpectedAmount) external {
+        uint256 amplBalance = _ampl_token.balanceOf(address(this));
+        uint256 totalStaked = rewards_eefi.totalStaked();
+        uint256 shares = amount.mul(totalStaked).divDown(amplBalance);
+        uint256 minimalShares = minimalExpectedAmount.mul(totalStaked).divDown(amplBalance);
+
+        require(minimalShares <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
         uint256 to_withdraw = shares;
         // make sure the assets aren't time locked
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
-            require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "AmplesenseVault: No unlocked deposits found");
+            if(deposit.timestamp > block.timestamp.sub(LOCK_TIME)) {
+                //we used all withdrawable chunks
+                //if we havent reached the minimalShares, we throw an error
+                require(to_withdraw <= shares.sub(minimalShares), "AmplesenseVault: No unlocked deposits found");
+                break; // exit the loop
+            }
             if(deposit.amount > to_withdraw) {
                 deposit.amount = deposit.amount.sub(to_withdraw);
                 to_withdraw = 0;
@@ -229,12 +239,16 @@ Event Definitions:
                 _popDeposit();
             }
         }
-        _ampl_token.safeTransfer(msg.sender, amount);
+        // compute the final amount of shares that we managed to withdraw
+        uint256 amountOfSharesWithdrawn = shares.sub(to_withdraw);
+        // compute the current ampl count representing user shares
+        uint256 ampl_amount = amplBalance.mul(amountOfSharesWithdrawn).divDown(rewards_eefi.totalStaked());
+        _ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
-        rewards_eefi.unstakeFrom(msg.sender, shares);
-        rewards_eth.unstakeFrom(msg.sender, shares);
-        emit Withdrawal(msg.sender, amount,_deposits[msg.sender].length);
+        rewards_eefi.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
+        rewards_eth.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
+        emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 
