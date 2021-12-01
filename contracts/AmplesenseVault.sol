@@ -63,7 +63,7 @@ Parameter Definitions:
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 90 days;
     uint256 constant public INITIAL_MINT = 100000 ether;
-    uint256 constant public REBASE_REWARD = 0.1 ether;
+    uint256 constant public REBASE_REWARD = 0.65 ether;
 
 /* 
 Event Definitions:
