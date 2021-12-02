@@ -187,6 +187,7 @@ Event Definitions:
         @param amount Amount of AMPL to take from the user
     */
     function depositFor(address account, uint256 amount) public {
+        require(account == msg.sender, "AmplesenseVault: Depositing for another wallet is not allowed");
         _ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
