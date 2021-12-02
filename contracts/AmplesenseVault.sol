@@ -89,10 +89,7 @@ Event Definitions:
     }
 
     mapping(address => DepositChunk[]) private _deposits;
-    // Test mint function: only used during testing.
-    function TESTMINT(uint256 amount, address who) external onlyOwner() {
-        eefi_token.mint(who, amount);
-    }
+    
 // Only contract can mint new EEFI, and distribute ETH and EEFI rewards     
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)

@@ -9,7 +9,7 @@ import { FakeERC721 } from '../typechain/FakeERC721';
 import { MockTrader } from '../typechain/MockTrader';
 import { StakingERC20 } from '../typechain/StakingERC20';
 import { StakingERC721 } from '../typechain/StakingERC721';
-import { AmplesenseVault } from '../typechain/AmplesenseVault';
+import { TestAmplesenseVault } from '../typechain/TestAmplesenseVault';
 import { FakeAMPL } from '../typechain/FakeAMPL';
 
 chai.use(solidity);
@@ -18,7 +18,7 @@ const { expect } = chai;
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
-async function getInfo(vault: AmplesenseVault, account: string) {
+async function getInfo(vault: TestAmplesenseVault, account: string) {
   // Promise.all can handle only 10 promise max
   const [
     pioneer_vault1,
@@ -81,7 +81,7 @@ async function getInfo(vault: AmplesenseVault, account: string) {
 
 
 describe('AmplesenseVault Contract', () => {
-  let vault : AmplesenseVault;
+  let vault : TestAmplesenseVault;
 
   let owner : string;
   let treasury : string;
@@ -105,7 +105,7 @@ describe('AmplesenseVault Contract', () => {
   beforeEach(async () => {
     const erc20Factory = await ethers.getContractFactory('FakeERC20');
     const erc721Factory = await ethers.getContractFactory('FakeERC721');
-    const vaultFactory = await ethers.getContractFactory('AmplesenseVault');
+    const vaultFactory = await ethers.getContractFactory('TestAmplesenseVault');
     const stakingerc20Factory = await ethers.getContractFactory('StakingERC20');
     const stakingerc721Factory = await ethers.getContractFactory('StakingERC721');
     const traderFactory = await ethers.getContractFactory('MockTrader');
@@ -120,7 +120,7 @@ describe('AmplesenseVault Contract', () => {
     nft1 = await erc721Factory.deploy() as FakeERC721;
     nft2 = await erc721Factory.deploy() as FakeERC721;
     
-    vault = await vaultFactory.deploy(amplToken.address) as AmplesenseVault;
+    vault = await vaultFactory.deploy(amplToken.address) as TestAmplesenseVault;
     
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt('FakeERC20', eefiTokenAddress) as FakeERC20;
