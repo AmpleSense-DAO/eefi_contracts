@@ -20,6 +20,7 @@ contract StakingERC721  {
     event Staked(address indexed account, uint256 amount, uint256 total);
     event Unstaked(address indexed account, uint256 amount, uint256 total);
     event StakeChanged(uint256 total, uint256 timestamp);
+    event Claimed(address indexed account, uint256 eth);
 
     constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _token) {
         tokenA = _tokenA;
@@ -108,6 +109,7 @@ contract StakingERC721  {
         if(amount == 0) //If amount if 0, then we claim all the rewards
             amount = totalStakedFor(msg.sender);
         stakingContractEth.withdrawFrom(msg.sender, amount);
+        emit Claimed(msg.sender, getReward(msg.sender) * amount / totalStakedFor(msg.sender));
     }
 
     /**
