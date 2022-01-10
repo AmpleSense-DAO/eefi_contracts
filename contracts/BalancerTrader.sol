@@ -63,7 +63,7 @@ contract BalancerTrader is IBalancerTrader {
      */
     function sellAMPLForEEFI(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 eefiAmount) {
         require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
-        (uint256 ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_INT);
+        (uint256 ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_UINT);
         wethToken.approve(address(vault), ethAmount);
         eefiAmount = vault.swap(
         IVault.SingleSwap(
