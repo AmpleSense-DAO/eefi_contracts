@@ -135,6 +135,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         
         uint256 temp_to_distribute = to_distribute + amount;
         uint256 total_bonds = _total_staked / PRECISION;
+
         uint256 bond_increase = temp_to_distribute / total_bonds;
         uint256 distributed_total = total_bonds.mul(bond_increase);
         bond_value += bond_increase;

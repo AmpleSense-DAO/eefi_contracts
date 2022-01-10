@@ -19,10 +19,11 @@ contract StakingERC20 is IERC900  {
     event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);
     event StakeChanged(uint256 total, uint256 timestamp);
+    event Claimed(address indexed account, uint256 eth, uint256 token);
 
     constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
         _token = stake_token;
-        staking_contract_eth = new Distribute(decimals, IERC20(address(0)));
+        staking_contract_eth = new Distribute(1, IERC20(address(0)));
         staking_contract_token = new Distribute(decimals, reward_token);
     }
 
@@ -75,11 +76,15 @@ contract StakingERC20 is IERC900  {
 
      /**
         @dev Withdraws rewards (basically unstake then restake)
-        @param amount Amount of ERC20 token to remove from the stake
+        @param amount Amount of ERC20 token to remove from the stake. If amount if 0, then we claim all the rewards
     */
     function withdraw(uint256 amount) external {
+        if(amount == 0) //If amount if 0, then we claim all the rewards
+            amount = totalStakedFor(msg.sender);
+        (uint256 ethR, uint256 tokenR) = getReward(msg.sender);
         staking_contract_eth.withdrawFrom(msg.sender, amount);
         staking_contract_token.withdrawFrom(msg.sender,amount);
+        emit Claimed(msg.sender, ethR * amount / totalStakedFor(msg.sender), tokenR * amount / totalStakedFor(msg.sender));
     }
 
     /**

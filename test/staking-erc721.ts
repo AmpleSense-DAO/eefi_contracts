@@ -265,7 +265,7 @@ describe('StackingERC721 Contract', () => {
       expect(beforeBalanceStacking).to.be.equal(0);
       expect(afterBalanceStacking).to.be.equal(200);
 
-      expect(tx).to.have.emit(staking, 'ReceivedAMPL').withArgs(
+      expect(tx).to.have.emit(staking, 'ReceivedToken').withArgs(
         BigNumber.from(200),
       );
 

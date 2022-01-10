@@ -424,7 +424,7 @@ describe('AmplesenseVault Contract', () => {
         expect(tx).to.emit(balancerTrader, 'Sale_EEFI').withArgs(4800, 4800);
         expect(tx).to.emit(balancerTrader, 'Sale_ETH').withArgs(2000, 2000);
         expect(tx).to.emit(vault, 'Burn').withArgs(toBurn);
-        expect(tx).to.emit(pioneer1, 'ReceivedAMPL').withArgs(for_pioneer1);
+        expect(tx).to.emit(pioneer1, 'ReceivedToken').withArgs(for_pioneer1);
 
         // pioneer2 and staking pool should get eth
         expect(tx).to.emit(pioneer2, 'ProfitEth').withArgs(expectedEthProfit);
@@ -521,6 +521,8 @@ describe('AmplesenseVault Contract', () => {
         ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
         await vault.makeDeposit(10000*10**9);
+        // add a deposit for another user because we didnt see the critical claiming issue before
+        await vault.depositFor(treasury, 10000*10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);

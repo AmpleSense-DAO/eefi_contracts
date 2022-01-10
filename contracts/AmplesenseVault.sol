@@ -12,7 +12,6 @@ import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
 import './interfaces/IBalancerTrader.sol';
-import 'hardhat/console.sol';
 
 contract AmplesenseVault is AMPLRebaser, Ownable {
     using SafeERC20 for IERC20;
@@ -65,7 +64,7 @@ Parameter Definitions:
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 90 days;
     uint256 constant public INITIAL_MINT = 100000 ether;
-    uint256 constant public REBASE_REWARD = 0.1 ether;
+    uint256 constant public REBASE_REWARD = 0.65 ether;
 
 /* 
 Event Definitions:
@@ -96,7 +95,7 @@ Event Definitions:
     Ownable() {
         eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
-        rewards_eth = new Distribute(9, IERC20(0));
+        rewards_eth = new Distribute(1, IERC20(0));
     }
 
     receive() external payable { }
@@ -188,7 +187,7 @@ Event Definitions:
         _ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
-        uint256 to_mint = amount / EEFI_DEPOSIT_RATE;
+        uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // send some EEFI to pioneer vault 2 (kMPL stakers) upon initial mint 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 90 days without positive rebase do not mint EEFI
@@ -303,6 +302,7 @@ Event Definitions:
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
             trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
+
            // 10% of purchased EEFI is sent to the DAO Treasury. The remaining 90% is burned. 
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
@@ -330,17 +330,17 @@ Event Definitions:
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
-                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE);
+                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE) * 10**9; /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
                 eefi_token.mint(address(this), to_mint);
 
-/* 
-EEFI Reward Distribution Overview: 
+                /* 
+                EEFI Reward Distribution Overview: 
 
-- Trade Positive Rewards_100: Upon neutral/negative rebase, send 45% of EEFI rewards to users staking AMPL in vault 
-- Trade Positive Pioneer2_100: Upon neutral/negative rebase, send 10% of EEFI rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
-- Trade Positive Pioneer3_100: Upon neutral/negative rebase, send 5% of EEFI rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
-- Trade Positive LP Staking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/ETH) 
-*/
+                - Trade Positive Rewards_100: Upon neutral/negative rebase, send 45% of EEFI rewards to users staking AMPL in vault 
+                - Trade Positive Pioneer2_100: Upon neutral/negative rebase, send 10% of EEFI rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
+                - Trade Positive Pioneer3_100: Upon neutral/negative rebase, send 5% of EEFI rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) 
+                - Trade Positive LP Staking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/ETH) 
+                */
 
 
                 uint256 to_rewards = to_mint.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
@@ -352,6 +352,7 @@ EEFI Reward Distribution Overview:
                 eefi_token.increaseAllowance(address(pioneer_vault2.staking_contract_token()), to_pioneer2);
                 eefi_token.increaseAllowance(address(pioneer_vault3.staking_contract_token()), to_pioneer3);
                 eefi_token.increaseAllowance(address(staking_pool.staking_contract_token()), to_lp_staking);
+
                 rewards_eefi.distribute(to_rewards, address(this));
                 pioneer_vault2.distribute(to_pioneer2);
                 pioneer_vault3.distribute(to_pioneer3);
