@@ -17,11 +17,11 @@ abstract contract AMPLRebaser is AccessControl {
 
     uint256 public last_rebase_call;
 
-    IERC20 public _ampl_token;
+    IERC20 public ampl_token;
 
-    constructor(IERC20 ampl_token) {
-        require(address(ampl_token) != address(0), "AMPLRebaser: Invalid ampl token address");
-        _ampl_token = ampl_token;
+    constructor(IERC20 _ampl_token) {
+        require(address(_ampl_token) != address(0), "AMPLRebaser: Invalid ampl token address");
+        ampl_token = _ampl_token;
         last_ampl_supply = _ampl_token.totalSupply();
         last_rebase_call = block.timestamp;
 
@@ -35,7 +35,7 @@ abstract contract AMPLRebaser is AccessControl {
         //require timestamp to exceed 24 hours in order to execute function; tested to ensure call is not manipulable by sending ampl
         require(block.timestamp - 24 hours > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
         last_rebase_call = block.timestamp;
-        uint256 new_supply = _ampl_token.totalSupply();
+        uint256 new_supply = ampl_token.totalSupply();
         _rebase(last_ampl_supply, new_supply, minimalExpectedEEFI, minimalExpectedETH);
         emit Rebase(last_ampl_supply, new_supply);
         last_ampl_supply = new_supply;

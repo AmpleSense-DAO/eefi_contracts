@@ -119,7 +119,7 @@ Event Definitions:
     */
     function totalClaimableBy(address account) public view returns (uint256 total) {
         if(rewards_eefi.totalStaked() == 0) return 0;
-        uint256 ampl_balance = _ampl_token.balanceOf(address(this));
+        uint256 ampl_balance = ampl_token.balanceOf(address(this));
         for(uint i = 0; i < _deposits[account].length; i++) {
             if(_deposits[account][i].timestamp < block.timestamp.sub(LOCK_TIME)) {
                 total += _deposits[account][i].amount;
@@ -135,7 +135,7 @@ Event Definitions:
     */
     function balanceOf(address account) public view returns(uint256 ampl) {
         if(rewards_eefi.totalStaked() == 0) return 0;
-        uint256 ampl_balance = _ampl_token.balanceOf(address(this));
+        uint256 ampl_balance = ampl_token.balanceOf(address(this));
         ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)).divDown(rewards_eefi.totalStaked());
     }
 
@@ -184,7 +184,7 @@ Event Definitions:
     */
     function depositFor(address account, uint256 amount) public {
         require(account == msg.sender, "AmplesenseVault: Depositing for another wallet is not allowed");
-        _ampl_token.safeTransferFrom(msg.sender, address(this), amount);
+        ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
@@ -211,7 +211,7 @@ Event Definitions:
         @param minimalExpectedAmount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
     function withdrawAMPL(uint256 amount, uint256 minimalExpectedAmount) external {
-        uint256 amplBalance = _ampl_token.balanceOf(address(this));
+        uint256 amplBalance = ampl_token.balanceOf(address(this));
         uint256 totalStaked = rewards_eefi.totalStaked();
         uint256 shares = amount.mul(totalStaked).divDown(amplBalance);
         uint256 minimalShares = minimalExpectedAmount.mul(totalStaked).divDown(amplBalance);
@@ -240,7 +240,7 @@ Event Definitions:
         uint256 amountOfSharesWithdrawn = shares.sub(to_withdraw);
         // compute the current ampl count representing user shares
         uint256 ampl_amount = amplBalance.mul(amountOfSharesWithdrawn).divDown(rewards_eefi.totalStaked());
-        _ampl_token.safeTransfer(msg.sender, ampl_amount);
+        ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
@@ -271,8 +271,8 @@ Event Definitions:
             }
         }
         // compute the current ampl count representing user shares
-        uint256 ampl_amount = _ampl_token.balanceOf(address(this)).mul(amount).divDown(rewards_eefi.totalStaked());
-        _ampl_token.safeTransfer(msg.sender, ampl_amount);
+        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount).divDown(rewards_eefi.totalStaked());
+        ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
@@ -282,7 +282,7 @@ Event Definitions:
     }
 //Functions called depending on AMPL rebase status
     function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedETH) internal override {
-        uint256 new_balance = _ampl_token.balanceOf(address(this));
+        uint256 new_balance = ampl_token.balanceOf(address(this));
 
         if(new_supply > old_supply) {
             // This is a positive AMPL rebase and initates trading and distribuition of AMPL according to parameters (see parameters definitions)
@@ -299,7 +299,7 @@ Event Definitions:
             // 30% ampl remains in vault after positive rebase
             // use rebased AMPL to buy and burn eefi
             
-            _ampl_token.approve(address(trader), for_eefi.add(for_eth));
+            ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
             trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
 
@@ -322,7 +322,7 @@ Event Definitions:
             staking_pool.distribute_eth{value: to_lp_staking}();
 
             // distribute ampl to pioneer 1
-            _ampl_token.approve(address(pioneer_vault1), for_pioneer1);
+            ampl_token.approve(address(pioneer_vault1), for_pioneer1);
             pioneer_vault1.distribute(for_pioneer1);
 
             // distribute the remainder of purchased ETH (5%) to the DAO treasury

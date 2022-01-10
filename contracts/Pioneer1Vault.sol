@@ -44,24 +44,24 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
 
     function _rebase(uint256 old_supply, uint256 new_supply, uint256, uint256 minimalExpectedETH) internal override {
         require(address(trader) != address(0), "Pioneer1Vault: trader not set");
-        uint256 new_balance = _ampl_token.balanceOf(address(this));
+        uint256 new_balance = ampl_token.balanceOf(address(this));
         require(new_balance > SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet"); //needs to be checked or else _toSell fails
         if(new_supply > old_supply) {
             //only for positive rebases
             uint256 change_ratio_18digits = old_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(change_ratio_18digits).divDown(10**18));
             uint256 to_sell = _toSell(surplus);
-            _ampl_token.approve(address(trader), to_sell);
+            ampl_token.approve(address(trader), to_sell);
 
             trader.sellAMPLForEth(to_sell, minimalExpectedETH);
             //this checks that after the sale we're still above threshold
-            require(_ampl_token.balanceOf(address(this)) >= SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet");
+            require(ampl_token.balanceOf(address(this)) >= SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet");
             stakingContractEth.distribute{value : address(this).balance}(0, address(this));
         }
     }
 
     function _toSell(uint256 amount) internal view returns (uint256) {
-        uint256 ampl_balance = _ampl_token.balanceOf(address(this));
+        uint256 ampl_balance = ampl_token.balanceOf(address(this));
         uint256 percentage = (END_PERCENT - START_PERCENT).mul(Math.min(ampl_balance, CAP).sub(SELL_THRESHOLD)).divDown(CAP.sub(SELL_THRESHOLD)) + START_PERCENT;
         return percentage.mul(amount).divDown(100);
     }
