@@ -64,7 +64,7 @@ describe('Pioneer1Vault Contract', () => {
   it('Should have been deployed correctly', async () => {
 
     const traderAddress = await pioneer.trader();
-    const amplAddress = await pioneer.ampl();
+    const amplAddress = await pioneer.ampl_token();
     const tokenAAddress = await pioneer.tokenA();
     const tokenBAddress = await pioneer.tokenB();
     const lastAmplSupply = await pioneer.last_ampl_supply();

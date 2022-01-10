@@ -17,7 +17,7 @@ abstract contract AMPLRebaser is AccessControl {
 
     uint256 public last_rebase_call;
 
-    IERC20 public ampl_token;
+    IERC20 immutable public ampl_token;
 
     constructor(IERC20 _ampl_token) {
         require(address(_ampl_token) != address(0), "AMPLRebaser: Invalid ampl token address");

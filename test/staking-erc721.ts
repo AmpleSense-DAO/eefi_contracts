@@ -22,7 +22,6 @@ async function getInfo(stacking: StakingERC721, userAddress: string) {
   const [
     tokenAAddress,
     tokenBAddress,
-    amplAddress,
     stackingTokenContract,
     userTotalStake,
     totalStake,
@@ -30,7 +29,6 @@ async function getInfo(stacking: StakingERC721, userAddress: string) {
   ] = await Promise.all([
     stacking.tokenA(),
     stacking.tokenB(),
-    stacking.ampl(),
     stacking.stakingContractEth(),
     stacking.totalStakedFor(userAddress),
     stacking.totalStaked(),
@@ -39,7 +37,6 @@ async function getInfo(stacking: StakingERC721, userAddress: string) {
   return {
     tokenAAddress,
     tokenBAddress,
-    amplAddress,
     stackingTokenContract,
     userTotalStake,
     totalStake,
@@ -85,7 +82,6 @@ describe('StackingERC721 Contract', () => {
 
     expect(info.tokenAAddress).to.be.equal(tokenA.address);
     expect(info.tokenBAddress).to.be.equal(tokenB.address);
-    expect(info.amplAddress).to.be.equal(amplToken.address);
     expect(info.userTotalStake).to.be.equal(0);
     expect(info.totalStake).to.be.equal(0);
     expect(info.userReward).to.be.equal(0);
