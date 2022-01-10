@@ -282,7 +282,7 @@ Event Definitions:
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 //Functions called depending on AMPL rebase status
-    function _rebase(uint256 old_supply, uint256 new_supply) internal override {
+    function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedETH) internal override {
         uint256 new_balance = _ampl_token.balanceOf(address(this));
 
         if(new_supply > old_supply) {
@@ -302,7 +302,7 @@ Event Definitions:
             
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
 
-            trader.sellAMPLForEEFI(for_eefi);
+            trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
            // 10% of purchased EEFI is sent to the DAO Treasury. The remaining 90% is burned. 
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
@@ -310,7 +310,7 @@ Event Definitions:
             eefi_token.burn(to_burn);
             emit Burn(to_burn);
             // buy eth and distribute to vaults
-            trader.sellAMPLForEth(for_eth);
+            trader.sellAMPLForEth(for_eth, minimalExpectedETH);
  
             uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
             uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);

@@ -98,7 +98,7 @@ describe('Pioneer1Vault Contract', () => {
   describe('Rebase', () => {
 
     it('Should revert (less than 24h)', async () => {
-      await expect(pioneer.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
+      await expect(pioneer.rebase(0, 0)).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
     });
 
     it('Should revert (invalid trader)', async () => {
@@ -107,14 +107,14 @@ describe('Pioneer1Vault Contract', () => {
       // increase ampl total balance
       await amplToken.rebase(0, BigNumber.from(10_000_000));
 
-      await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: trader not set');
+      await expect(pioneer.rebase(0, 0)).to.be.revertedWith('Pioneer1Vault: trader not set');
     });
 
     it('Should work as intended (no supply increase)', async () => {
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
       await pioneer.setTrader(trader.address);//need to have a trader set
       await amplToken.transfer(pioneer.address, "50000000000000"); //need to be above threshold
-      const tx = await pioneer.rebase();
+      const tx = await pioneer.rebase(0, 0);
       
       expect(tx).to.have.emit(pioneer, 'Rebase').withArgs(
         BigNumber.from(initialTokenBalance),
@@ -129,7 +129,7 @@ describe('Pioneer1Vault Contract', () => {
 
       await amplToken.rebase(0, BigNumber.from(10_000_000));
 
-      await expect(pioneer.rebase()).to.be.revertedWith('Pioneer1Vault: Threshold isnt reached yet');
+      await expect(pioneer.rebase(0, 0)).to.be.revertedWith('Pioneer1Vault: Threshold isnt reached yet');
     });
 
     it('After an AMPL rebase, vault rebasing should distribute ETH', async () => {
@@ -165,7 +165,7 @@ describe('Pioneer1Vault Contract', () => {
       const toSell = surplus * percentage / 100;
       const toSellBN = BigNumber.from(Math.floor(toSell * 10**5)).mul(10**4);
       
-      const tx = await pioneer.rebase();
+      const tx = await pioneer.rebase(0, 0);
 
       expect(tx).to.have.emit(pioneer, 'Rebase').withArgs(
         amplTokenInitialSupply,
@@ -185,7 +185,7 @@ describe('Pioneer1Vault Contract', () => {
       const amplTokenNewSupply2 = await amplToken.totalSupply();
 
       await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
-      const tx2 = await pioneer.rebase();
+      const tx2 = await pioneer.rebase(0, 0);
 
       expect(tx2).to.have.emit(pioneer, 'Rebase').withArgs(
         amplTokenNewSupply,
@@ -218,7 +218,7 @@ describe('Pioneer1Vault Contract', () => {
         const amplTokenNewSupply2 = await amplToken.totalSupply();
 
         await network.provider.send('evm_increaseTime', [ 60 * 60 * 25 ]); // time travel 25 hours in the future
-        const tx2 = await pioneer.rebase();
+        const tx2 = await pioneer.rebase(0, 0);
 
         expect(tx2).to.have.emit(pioneer, 'Rebase').withArgs(
           previousSupply,

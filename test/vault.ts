@@ -281,7 +281,7 @@ describe('AmplesenseVault Contract', () => {
       });
 
       it('rebasing shall fail unless 24 hours passed', async () => {
-        await expect(vault.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
+        await expect(vault.rebase(0, 0)).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
       });
 
       it('rebasing if ampl hasn\'t changed shall credit eefi', async () => {
@@ -303,7 +303,7 @@ describe('AmplesenseVault Contract', () => {
 
         const balanceTreasury = await eefiToken.balanceOf(treasury);
 
-        const tx = await vault.rebase();
+        const tx = await vault.rebase(0, 0);
 
         expect(tx).to.have.emit(pioneer2, "ProfitToken").withArgs(to_pioneer2);
         expect(tx).to.have.emit(pioneer3, "ProfitToken").withArgs(to_pioneer3);
@@ -344,7 +344,7 @@ describe('AmplesenseVault Contract', () => {
 
         const before = await getInfo(vault, owner);
 
-        const tx = await vault.rebase();
+        const tx = await vault.rebase(0, 0);
 
         const after = await getInfo(vault, owner);
 
@@ -418,7 +418,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
 
-        const tx = await vault.rebase();
+        const tx = await vault.rebase(0, 0);
         const reward = await vault.getReward(owner);
         
         expect(tx).to.emit(balancerTrader, 'Sale_EEFI').withArgs(4800, 4800);
@@ -454,7 +454,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
 
-        await vault.rebase();
+        await vault.rebase(0, 0);
       });
   
       it('unstaking of shares shall fail if higher than balance', async () => {
@@ -485,7 +485,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
+        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), 0)).to.be.revertedWith('AmplesenseVault: Not enough balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {
@@ -497,8 +497,8 @@ describe('AmplesenseVault Contract', () => {
 
         const before = await amplToken.balanceOf(owner);
 
-        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000));
-        const tx2 = await vault.withdrawAMPL(1000);
+        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000), 0);
+        const tx2 = await vault.withdrawAMPL(1000, 0);
 
         const after = await amplToken.balanceOf(owner);
         console.log(""+after.sub(before));
@@ -526,7 +526,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
 
-        await vault.rebase();
+        await vault.rebase(0, 0);
         
         await amplToken.rebase(0, 500 * 10**9);
 
@@ -534,7 +534,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
         
-        await vault.rebase();
+        await vault.rebase(0, 0);
       });
 
       it('should work as expected', async () => {

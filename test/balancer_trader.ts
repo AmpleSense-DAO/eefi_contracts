@@ -28,7 +28,8 @@ describe('BalancerTrader Contract', () => {
     ]);
 
     owner = accounts[0].address;
-    trader = await traderFactory.deploy() as BalancerTrader;
+    //give random args to balancer trader for deploy
+    trader = await traderFactory.deploy(accounts[0].address, formatBytes32String("0x")) as BalancerTrader;
     
   });
 

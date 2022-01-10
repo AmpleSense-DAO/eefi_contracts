@@ -48,10 +48,12 @@ contract BalancerTrader is IBalancerTrader {
 
     /**
     * @dev Caller must transfer the right amount of tokens to the trader
+    * @param amount Amount of AMPL to sell
+    * @param minimalExpectedAmount The minimal expected amount of eth
      */
-    function sellAMPLForEth(uint256 amount) external override returns (uint256 ethAmount) {
+    function sellAMPLForEth(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ethAmount) {
         require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
-        (ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), 0, MAX_UINT);
+        (ethAmount,) = amplEth.swapExactAmountIn(address(amplToken), amount, address(wethToken), minimalExpectedAmount, MAX_UINT);
         wethToken.withdraw(ethAmount);
         Address.sendValue(msg.sender, ethAmount);
         emit Sale_ETH(amount, ethAmount);
@@ -59,8 +61,10 @@ contract BalancerTrader is IBalancerTrader {
 
     /**
     * @dev Caller must transfer the right amount of tokens to the trader (USDC will be replaced with ETH)
+    * @param amount Amount of AMPL to sell
+    * @param minimalExpectedAmount The minimal expected amount of EEFI
      */
-    function sellAMPLForEEFI(uint256 amount) external override returns (uint256 eefiAmount) {
+    function sellAMPLForEEFI(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 eefiAmount) {
         require(amplToken.transferFrom(msg.sender, address(this), amount),"BalancerTrader: transferFrom failed");
         (uint256 usdcAmount,) = amplUsdc.swapExactAmountIn(address(amplToken), amount, address(usdcToken), 0, MAX_UINT);
         eefiAmount = vault.swap(IVault.SingleSwap(
@@ -76,6 +80,9 @@ contract BalancerTrader is IBalancerTrader {
             msg.sender,
             false),
             0, block.timestamp);
+        if(eefiAmount < minimalExpectedAmount) {
+            revert("BalancerTrader: minimalExpectedAmount not acquired");
+        }
         emit Sale_EEFI(amount, eefiAmount);
     }
 }

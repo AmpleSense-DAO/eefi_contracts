@@ -28,7 +28,7 @@ contract MockTrader is IBalancerTrader {
     /**
     * @dev Caller must allow the right amount of tokens to the trader
      */
-    function sellAMPLForEth(uint256 amount) external override returns (uint256 ethAmount) {
+    function sellAMPLForEth(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ethAmount) {
         ampl_token.transferFrom(msg.sender, address(this), amount);
         ethAmount = amount * ratio_eth / 1 ether;
         msg.sender.transfer(ethAmount);
@@ -38,7 +38,7 @@ contract MockTrader is IBalancerTrader {
     /**
     * @dev Caller must allow the right amount of tokens to the trader
      */
-    function sellAMPLForEEFI(uint256 amount) external override returns (uint256 eefiAmount) {
+    function sellAMPLForEEFI(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 eefiAmount) {
         ampl_token.transferFrom(msg.sender, address(this), amount);
         eefiAmount = amount * ratio_eefi / 1 ether;
         eefi_token.safeTransfer(msg.sender, eefiAmount);
