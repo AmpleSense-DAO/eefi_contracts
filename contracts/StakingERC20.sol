@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import "./Distribute.sol";
@@ -13,8 +13,8 @@ contract StakingERC20 is IERC900  {
 
     /// @dev handle to access ERC20 token token contract to make transfers
     IERC20 private _token;
-    Distribute public staking_contract_eth;
-    Distribute public staking_contract_token;
+    Distribute immutable public staking_contract_eth;
+    Distribute immutable public staking_contract_token;
 
     event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
@@ -19,10 +19,10 @@ Definitions and explanations:
 contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
     using Math for uint256;
 
-    uint256 constant SELL_THRESHOLD = 40000 * 10**9;
-    uint256 constant START_PERCENT = 25;
-    uint256 constant END_PERCENT = 80;
-    uint256 constant CAP = 800000 * 10**9;
+    uint256 public constant SELL_THRESHOLD = 40000 * 10**9;
+    uint256 public constant START_PERCENT = 25;
+    uint256 public constant END_PERCENT = 80;
+    uint256 public constant CAP = 800000 * 10**9;
     IBalancerTrader public trader;
 
     constructor(
@@ -42,7 +42,7 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
         trader = _trader;
     }
 
-    function _rebase(uint256 old_supply, uint256 new_supply) internal override {
+    function _rebase(uint256 old_supply, uint256 new_supply, uint256, uint256 minimalExpectedETH) internal override {
         require(address(trader) != address(0), "Pioneer1Vault: trader not set");
         uint256 new_balance = _ampl_token.balanceOf(address(this));
         require(new_balance > SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet"); //needs to be checked or else _toSell fails
@@ -53,7 +53,7 @@ contract Pioneer1Vault is StakingERC721, AMPLRebaser, Ownable {
             uint256 to_sell = _toSell(surplus);
             _ampl_token.approve(address(trader), to_sell);
 
-            trader.sellAMPLForEth(to_sell);
+            trader.sellAMPLForEth(to_sell, minimalExpectedETH);
             //this checks that after the sale we're still above threshold
             require(_ampl_token.balanceOf(address(this)) >= SELL_THRESHOLD, "Pioneer1Vault: Threshold isnt reached yet");
             stakingContractEth.distribute{value : address(this).balance}(0, address(this));

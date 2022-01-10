@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 // Contract requirements 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
 
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
@@ -22,8 +23,8 @@ contract AmplesenseVault is AMPLRebaser, Ownable {
     IStakingERC20 public staking_pool;
     IBalancerTrader public trader;
     EEFIToken public eefi_token;
-    Distribute public rewards_eefi;
-    Distribute public rewards_eth;
+    Distribute immutable public rewards_eefi;
+    Distribute immutable public rewards_eth;
     address payable treasury;
     uint256 public last_positive = block.timestamp;
 /* 
@@ -87,10 +88,7 @@ Event Definitions:
     }
 
     mapping(address => DepositChunk[]) private _deposits;
-    // Test mint function: only used during testing.
-    function TESTMINT(uint256 amount, address who) external onlyOwner() {
-        eefi_token.mint(who, amount);
-    }
+    
 // Only contract can mint new EEFI, and distribute ETH and EEFI rewards     
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
@@ -185,6 +183,7 @@ Event Definitions:
         @param amount Amount of AMPL to take from the user
     */
     function depositFor(address account, uint256 amount) public {
+        require(account == msg.sender, "AmplesenseVault: Depositing for another wallet is not allowed");
         _ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         _deposits[account].push(DepositChunk(amount, block.timestamp));
 
@@ -209,16 +208,26 @@ Event Definitions:
         @dev Withdraw an amount of AMPL from vault 
         Shares are auto computed
         @param amount Amount of AMPL to withdraw
+        @param minimalExpectedAmount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
-    function withdrawAMPL(uint256 amount) external {
-        uint256 shares = amount.mul(rewards_eefi.totalStaked()).divDown(_ampl_token.balanceOf(address(this)));
-        require(shares <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
+    function withdrawAMPL(uint256 amount, uint256 minimalExpectedAmount) external {
+        uint256 amplBalance = _ampl_token.balanceOf(address(this));
+        uint256 totalStaked = rewards_eefi.totalStaked();
+        uint256 shares = amount.mul(totalStaked).divDown(amplBalance);
+        uint256 minimalShares = minimalExpectedAmount.mul(totalStaked).divDown(amplBalance);
+
+        require(minimalShares <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
         uint256 to_withdraw = shares;
         // make sure the assets aren't time locked
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
-            require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "AmplesenseVault: No unlocked deposits found");
+            if(deposit.timestamp > block.timestamp.sub(LOCK_TIME)) {
+                //we used all withdrawable chunks
+                //if we havent reached the minimalShares, we throw an error
+                require(to_withdraw <= shares.sub(minimalShares), "AmplesenseVault: No unlocked deposits found");
+                break; // exit the loop
+            }
             if(deposit.amount > to_withdraw) {
                 deposit.amount = deposit.amount.sub(to_withdraw);
                 to_withdraw = 0;
@@ -227,12 +236,16 @@ Event Definitions:
                 _popDeposit();
             }
         }
-        _ampl_token.safeTransfer(msg.sender, amount);
+        // compute the final amount of shares that we managed to withdraw
+        uint256 amountOfSharesWithdrawn = shares.sub(to_withdraw);
+        // compute the current ampl count representing user shares
+        uint256 ampl_amount = amplBalance.mul(amountOfSharesWithdrawn).divDown(rewards_eefi.totalStaked());
+        _ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
-        rewards_eefi.unstakeFrom(msg.sender, shares);
-        rewards_eth.unstakeFrom(msg.sender, shares);
-        emit Withdrawal(msg.sender, amount,_deposits[msg.sender].length);
+        rewards_eefi.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
+        rewards_eth.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
+        emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 
@@ -268,7 +281,7 @@ Event Definitions:
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 //Functions called depending on AMPL rebase status
-    function _rebase(uint256 old_supply, uint256 new_supply) internal override {
+    function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedETH) internal override {
         uint256 new_balance = _ampl_token.balanceOf(address(this));
 
         if(new_supply > old_supply) {
@@ -287,15 +300,17 @@ Event Definitions:
             // use rebased AMPL to buy and burn eefi
             
             _ampl_token.approve(address(trader), for_eefi.add(for_eth));
-            trader.sellAMPLForEEFI(for_eefi);
+
+            trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
+
            // 10% of purchased EEFI is sent to the DAO Treasury. The remaining 90% is burned. 
             uint256 balance = eefi_token.balanceOf(address(this));
             IERC20(address(eefi_token)).safeTransfer(treasury, balance.mul(TREASURY_EEFI_100).divDown(100));
             uint256 to_burn = eefi_token.balanceOf(address(this));
-            eefi_token.burn(address(this), to_burn);
+            eefi_token.burn(to_burn);
             emit Burn(to_burn);
             // buy eth and distribute to vaults
-            trader.sellAMPLForEth(for_eth);
+            trader.sellAMPLForEth(for_eth, minimalExpectedETH);
  
             uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
             uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
@@ -311,7 +326,7 @@ Event Definitions:
             pioneer_vault1.distribute(for_pioneer1);
 
             // distribute the remainder of purchased ETH (5%) to the DAO treasury
-            treasury.transfer(address(this).balance);
+            Address.sendValue(treasury, address(this).balance);
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
@@ -344,7 +359,7 @@ Event Definitions:
                 staking_pool.distribute(to_lp_staking);
 
                 // distribute the remainder (5%) of EEFI to the treasury
-                require(eefi_token.transfer(treasury, eefi_token.balanceOf(address(this))), "AmplesenseVault: Treasury transfer failed");
+                IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
             }
         }
 

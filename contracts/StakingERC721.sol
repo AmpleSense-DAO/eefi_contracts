@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.7.6;
 
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import "./Distribute.sol";
@@ -8,10 +8,11 @@ contract StakingERC721  {
     using SafeERC20 for IERC20;
 
     /// @dev handle to access ERC721 token contract to make transfers
-    IERC721 public tokenA;
-    IERC721 public tokenB;
-    IERC20 public token;
-    Distribute public stakingContractEth;
+    IERC721 immutable public tokenA;
+    IERC721 immutable public tokenB;
+    IERC20 immutable public token;
+    Distribute immutable public stakingContractEth;
+
     mapping(address => uint256[]) public tokenOwnershipA;
     mapping(address => uint256[]) public tokenOwnershipB;
 
@@ -83,18 +84,22 @@ contract StakingERC721  {
         stakingContractEth.unstakeFrom(msg.sender, amount);
 
         uint256[] storage tokens;
-        if(isTokenA)
+        IERC721 token;
+        if(isTokenA) {
             tokens = tokenOwnershipA[msg.sender];
-        else
+            token = tokenA;
+        }
+        else {
             tokens = tokenOwnershipB[msg.sender];
+            token = tokenB;
+        }
+
+        require(amount <= tokens.length, "StakingERC721: Not enough tokens of this type");
 
         for(uint i = 0; i < amount; i++) {
             uint256 id = tokens[tokens.length - 1];
             tokens.pop();
-            if(isTokenA)
-                tokenA.transferFrom(address(this), msg.sender, id);
-            else
-                tokenB.transferFrom(address(this), msg.sender, id);
+            token.transferFrom(address(this), msg.sender, id);
         }
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
