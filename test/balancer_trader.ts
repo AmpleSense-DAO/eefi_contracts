@@ -7,7 +7,7 @@ import { formatBytes32String } from 'ethers/lib/utils';
 
 import { FakeERC20 } from '../typechain/FakeERC20';
 import { BalancerTrader } from '../typechain/BalancerTrader';
-import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { TestAmplesenseVault } from "../typechain/TestAmplesenseVault";
 import { EEFIToken } from "../typechain/EEFIToken";
 import { WeightedPool2TokensFactory } from "../typechain/WeightedPool2TokensFactory";
 import { WeightedPool2Tokens } from "../typechain/WeightedPool2Tokens";
@@ -47,7 +47,7 @@ describe('BalancerTrader Contract', () => {
       ethers.getSigners(),
     ]);
 
-    const vault = await deploy("AmplesenseVault",ampl_address) as AmplesenseVault;
+    const vault = await deploy("TestAmplesenseVault",ampl_address) as TestAmplesenseVault;
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
 
@@ -106,7 +106,7 @@ describe('BalancerTrader Contract', () => {
     await router.swapETHForExactTokens("5000000000000", [wethAddress, ampl_address], accounts[0].address, 999999999999, {value: ethers.utils.parseUnits("600", "ether")});
     await ampl.approve(trader.address, "5000000000000");
     const balance = await accounts[0].getBalance();
-    await trader.sellAMPLForEth("5000000000000");
+    await trader.sellAMPLForEth("5000000000000", 0);
     const balance2 = await accounts[0].getBalance();
     const eth = ethers.utils.formatEther(balance2.sub(balance));
     expect(parseFloat(eth)).to.be.gt(1);
@@ -122,9 +122,13 @@ describe('BalancerTrader Contract', () => {
     await router.swapETHForExactTokens("50000000000", [wethAddress, ampl_address], accounts[0].address, 999999999999, {value: ethers.utils.parseUnits("600", "ether")});
     await ampl.approve(trader.address, "50000000000");
     const balance = await eefiToken.balanceOf(accounts[0].address);
-    await trader.sellAMPLForEEFI("50000000000");
+    await trader.sellAMPLForEEFI("50000000000", 0);
     const balance2 = await eefiToken.balanceOf(accounts[0].address);
     const eefi = ethers.utils.formatEther(balance2.sub(balance));
     expect(parseFloat(eefi)).to.be.gt(0);
+  });
+
+  it('checking slippage arguments', async () => {
+    expect(false);
   });
 });
