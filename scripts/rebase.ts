@@ -37,7 +37,7 @@ async function main() {
     console.log("rebase amount " + rebaseAmount.toString());
     const res = await amplToken.connect(ampleMonetaryPolicy).rebase(0, rebaseAmount.mul(10**9));
     try{
-      const tx = await vault.rebase();
+      const tx = await vault.rebase(0,0);
       console.log(""+tx.gasLimit, ""+tx.gasPrice!);
     } catch(err) {
       console.log(err);
@@ -48,7 +48,7 @@ async function main() {
       let pioneer1Ampl = hre.ethers.utils.formatUnits(await amplToken.balanceOf(pioneer1.address),9);
       console.log("pioneer ampl amount: " + pioneer1Ampl);
       if(pioneer1Ampl >= 40000) {
-        await pioneer1.rebase();
+        await pioneer1.rebase(0,0);
       }
     } catch(err) {
 
