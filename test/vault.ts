@@ -485,7 +485,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), 0)).to.be.revertedWith('AmplesenseVault: Not enough balance');
+        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {
@@ -497,8 +497,8 @@ describe('AmplesenseVault Contract', () => {
 
         const before = await amplToken.balanceOf(owner);
 
-        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000), 0);
-        const tx2 = await vault.withdrawAMPL(1000, 0);
+        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000), totalClaimableAMPLFor.sub(1000));
+        const tx2 = await vault.withdrawAMPL(1000, 1000);
 
         const after = await amplToken.balanceOf(owner);
         console.log(""+after.sub(before));
@@ -517,12 +517,14 @@ describe('AmplesenseVault Contract', () => {
         await amplToken.increaseAllowance(vault.address, 999999*10**9);
 
         await vault.TESTMINT(99999*10**9, balancerTrader.address);
-        const [ ownerAccount ] = await ethers.getSigners();
+        const [ ownerAccount, secondAccount ] = await ethers.getSigners();
         ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
         await vault.makeDeposit(10000*10**9);
         // add a deposit for another user because we didnt see the critical claiming issue before
-        await vault.depositFor(treasury, 10000*10**9);
+        await amplToken.transfer(secondAccount.address, 10000*10**9);
+        await amplToken.connect(secondAccount).increaseAllowance(vault.address, 10000*10**9);
+        await vault.connect(secondAccount).makeDeposit(10000*10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
