@@ -201,6 +201,7 @@ Event Definitions:
         @param minimalExpectedAmount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
     function withdrawAMPL(uint256 amount, uint256 minimalExpectedAmount) external {
+        require(minimalExpectedAmount > 0, "AmplesenseVault: Minimal expected amount must be higher than zero");
         uint256 amplBalance = ampl_token.balanceOf(address(this));
         uint256 totalStaked = rewards_eefi.totalStaked();
         uint256 shares = amount.mul(totalStaked).divDown(amplBalance);
