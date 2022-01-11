@@ -174,18 +174,8 @@ Event Definitions:
         @param amount Amount of AMPL to take from the user
     */
     function makeDeposit(uint256 amount) external {
-        depositFor(msg.sender, amount);
-    }
-
-    /**
-        @dev Deposits AMPL into the contract for a specific address
-        @param account Account on which to credit the deposit
-        @param amount Amount of AMPL to take from the user
-    */
-    function depositFor(address account, uint256 amount) public {
-        require(account == msg.sender, "AmplesenseVault: Depositing for another wallet is not allowed");
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
-        _deposits[account].push(DepositChunk(amount, block.timestamp));
+        _deposits[msg.sender].push(DepositChunk(amount, block.timestamp));
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -198,9 +188,9 @@ Event Definitions:
         }
         
         // stake the shares also in the rewards pool
-        rewards_eefi.stakeFor(account, amount);
-        rewards_eth.stakeFor(account, amount);
-        emit Deposit(account, amount, _deposits[account].length);
+        rewards_eefi.stakeFor(msg.sender, amount);
+        rewards_eth.stakeFor(msg.sender, amount);
+        emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
 
