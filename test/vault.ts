@@ -326,10 +326,6 @@ describe('AmplesenseVault Contract', () => {
         expect(after.totalRewardToken).to.be.equal(0);
         expect(after.totalRewardEth).to.be.equal(45000);
         expect(after.totalStaked).to.be.equal(10**9);
-
-        //plus send reward eefi to the caller
-        const afterEEFICallerBalance = await eefiToken.balanceOf(owner);
-        expect(afterEEFICallerBalance.sub(beforeEEFICallerBalance)).to.be.equal(await vault.REBASE_REWARD());
       });
 
       it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
