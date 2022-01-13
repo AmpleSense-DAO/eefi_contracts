@@ -94,7 +94,7 @@ Event Definitions:
     Ownable() {
         eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
-        rewards_eth = new Distribute(1, IERC20(0));
+        rewards_eth = new Distribute(9, IERC20(0));
     }
 
     receive() external payable { }
@@ -306,6 +306,7 @@ Event Definitions:
             uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
             uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
             uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+            
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
             pioneer_vault3.distribute_eth{value: to_pioneer3}();

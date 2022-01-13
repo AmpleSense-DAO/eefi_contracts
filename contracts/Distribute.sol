@@ -19,9 +19,7 @@ contract Distribute is Ownable, ReentrancyGuard {
      @dev This value is very important because if the number of bonds is too great
      compared to the distributed value, then the bond increase will be zero
      therefore this value depends on the number of decimals
-     of the distributed token and I suggest it to be the same
-     For example if the token has 18 decimals, then the precision should also have 18 decimals
-
+     of the staked token.
     */
     uint256 immutable public PRECISION;
 
@@ -121,8 +119,10 @@ contract Distribute is Ownable, ReentrancyGuard {
             amount = msg.value;
         }
 
-        if(_total_staked == 0) {
-            // no stakes yet, put into temp pool
+        uint256 total_bonds = _total_staked / PRECISION;
+
+        if(total_bonds == 0) {
+            // not enough staked to compute bonds account, put into temp pool
             _temp_pool = _temp_pool.add(amount);
             return;
         }
@@ -134,11 +134,10 @@ contract Distribute is Ownable, ReentrancyGuard {
         }
         
         uint256 temp_to_distribute = to_distribute + amount;
-        uint256 total_bonds = _total_staked / PRECISION;
-
         uint256 bond_increase = temp_to_distribute / total_bonds;
         uint256 distributed_total = total_bonds.mul(bond_increase);
         bond_value += bond_increase;
+        
         //collect the dust because of the PRECISION used for bonds
         //it will be reinjected into the next distribution
         to_distribute = temp_to_distribute - distributed_total;
