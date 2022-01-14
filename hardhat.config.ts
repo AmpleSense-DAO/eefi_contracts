@@ -22,11 +22,17 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
+      chainId : 1337,
       forking: {
         enabled: true,
         url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
         blockNumber: 13235981,
       }
+    },
+    localhost: {
+      url: "http://127.0.0.1:8586",
+      chainId: 1337,
+      timeout: 0
     }
   },
   etherscan: {

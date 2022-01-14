@@ -8,23 +8,25 @@ contract StakingERC721  {
     using SafeERC20 for IERC20;
 
     /// @dev handle to access ERC721 token contract to make transfers
-    IERC721 public tokenA;
-    IERC721 public tokenB;
-    IERC20 public ampl;
-    Distribute public stakingContractEth;
+    IERC721 immutable public tokenA;
+    IERC721 immutable public tokenB;
+    IERC20 immutable public token;
+    Distribute immutable public stakingContractEth;
+
     mapping(address => uint256[]) public tokenOwnershipA;
     mapping(address => uint256[]) public tokenOwnershipB;
 
     event ProfitEth(uint256 amount);
-    event ReceivedAMPL(uint256 amount);
+    event ReceivedToken(uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 total);
     event Unstaked(address indexed account, uint256 amount, uint256 total);
     event StakeChanged(uint256 total, uint256 timestamp);
+    event Claimed(address indexed account, uint256 eth);
 
-    constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _ampl) {
+    constructor(IERC721 _tokenA, IERC721 _tokenB, IERC20 _token) {
         tokenA = _tokenA;
         tokenB = _tokenB;
-        ampl = _ampl;
+        token = _token;
         stakingContractEth = new Distribute(0, IERC20(address(0)));
     }
 
@@ -34,8 +36,8 @@ contract StakingERC721  {
     }
 
     function distribute(uint256 amount) external {
-        ampl.safeTransferFrom(msg.sender, address(this), amount);
-        emit ReceivedAMPL(amount);
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        emit ReceivedToken(amount);
     }
     
     /**
@@ -82,18 +84,22 @@ contract StakingERC721  {
         stakingContractEth.unstakeFrom(msg.sender, amount);
 
         uint256[] storage tokens;
-        if(isTokenA)
+        IERC721 token;
+        if(isTokenA) {
             tokens = tokenOwnershipA[msg.sender];
-        else
+            token = tokenA;
+        }
+        else {
             tokens = tokenOwnershipB[msg.sender];
+            token = tokenB;
+        }
+
+        require(amount <= tokens.length, "StakingERC721: Not enough tokens of this type");
 
         for(uint i = 0; i < amount; i++) {
             uint256 id = tokens[tokens.length - 1];
             tokens.pop();
-            if(isTokenA)
-                tokenA.transferFrom(address(this), msg.sender, id);
-            else
-                tokenB.transferFrom(address(this), msg.sender, id);
+            token.transferFrom(address(this), msg.sender, id);
         }
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
@@ -105,7 +111,10 @@ contract StakingERC721  {
         @param amount Amount of token to remove from the stake
     */
     function withdraw(uint256 amount) external {
+        if(amount == 0) //If amount if 0, then we claim all the rewards
+            amount = totalStakedFor(msg.sender);
         stakingContractEth.withdrawFrom(msg.sender, amount);
+        emit Claimed(msg.sender, getReward(msg.sender) * amount / totalStakedFor(msg.sender));
     }
 
     /**
@@ -115,6 +124,15 @@ contract StakingERC721  {
     */
     function totalStakedFor(address account) public view returns (uint256) {
         return stakingContractEth.totalStakedFor(account);
+    }
+
+    /**
+        @param account address owning the stake
+        @return tokenA Amount of tokenA staked by the account. tokenB Amount of tokenB staked by the account
+    */
+    function totalTokenStakedFor(address account) public view returns (uint256 tokenA, uint256 tokenB) {
+        tokenA = tokenOwnershipA[account].length;
+        tokenB = tokenOwnershipB[account].length;
     }
 
     /**

@@ -15,8 +15,4 @@ contract EEFIToken is ERC20Burnable, Ownable {
     function mint(address account, uint256 amount) public onlyOwner {
         _mint(account, amount);
     }
-
-    function burn(address account, uint256 amount) public onlyOwner {
-        _burn(account, amount);
-    }
 }

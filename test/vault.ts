@@ -9,7 +9,7 @@ import { FakeERC721 } from '../typechain/FakeERC721';
 import { MockTrader } from '../typechain/MockTrader';
 import { StakingERC20 } from '../typechain/StakingERC20';
 import { StakingERC721 } from '../typechain/StakingERC721';
-import { AmplesenseVault } from '../typechain/AmplesenseVault';
+import { TestAmplesenseVault } from '../typechain/TestAmplesenseVault';
 import { FakeAMPL } from '../typechain/FakeAMPL';
 
 chai.use(solidity);
@@ -18,7 +18,7 @@ const { expect } = chai;
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
-async function getInfo(vault: AmplesenseVault, account: string) {
+async function getInfo(vault: TestAmplesenseVault, account: string) {
   // Promise.all can handle only 10 promise max
   const [
     pioneer_vault1,
@@ -81,7 +81,7 @@ async function getInfo(vault: AmplesenseVault, account: string) {
 
 
 describe('AmplesenseVault Contract', () => {
-  let vault : AmplesenseVault;
+  let vault : TestAmplesenseVault;
 
   let owner : string;
   let treasury : string;
@@ -105,7 +105,7 @@ describe('AmplesenseVault Contract', () => {
   beforeEach(async () => {
     const erc20Factory = await ethers.getContractFactory('FakeERC20');
     const erc721Factory = await ethers.getContractFactory('FakeERC721');
-    const vaultFactory = await ethers.getContractFactory('AmplesenseVault');
+    const vaultFactory = await ethers.getContractFactory('TestAmplesenseVault');
     const stakingerc20Factory = await ethers.getContractFactory('StakingERC20');
     const stakingerc721Factory = await ethers.getContractFactory('StakingERC721');
     const traderFactory = await ethers.getContractFactory('MockTrader');
@@ -120,7 +120,7 @@ describe('AmplesenseVault Contract', () => {
     nft1 = await erc721Factory.deploy() as FakeERC721;
     nft2 = await erc721Factory.deploy() as FakeERC721;
     
-    vault = await vaultFactory.deploy(amplToken.address) as AmplesenseVault;
+    vault = await vaultFactory.deploy(amplToken.address) as TestAmplesenseVault;
     
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt('FakeERC20', eefiTokenAddress) as FakeERC20;
@@ -203,7 +203,7 @@ describe('AmplesenseVault Contract', () => {
         const deposit = BigNumber.from(10**9);
         const EEFI_DEPOSIT_RATE = await vault.EEFI_DEPOSIT_RATE();
         const DEPOSIT_FEE_1000 = await vault.DEPOSIT_FEE_10000();
-        const fee = deposit.div(EEFI_DEPOSIT_RATE).mul(DEPOSIT_FEE_1000).div(10000);
+        const fee = deposit.div(EEFI_DEPOSIT_RATE).mul(DEPOSIT_FEE_1000).div(10000).mul(10**9);
 
         const beforeInfo = await getInfo(vault, owner);
 
@@ -242,7 +242,7 @@ describe('AmplesenseVault Contract', () => {
         expect(afterOwnerEefiReward).to.be.equal(deposit);
 
         expect(afterOwnerPioneer2Reward.__token).to.be.equal(fee);
-        expect(afterOwnerEefiBalance).to.be.equal(BigNumber.from(10**9 / 10**4).sub(fee));
+        expect(afterOwnerEefiBalance).to.be.equal(BigNumber.from(10**9 / 10**4 * 10**9).sub(fee));
       });
     });
 
@@ -281,14 +281,14 @@ describe('AmplesenseVault Contract', () => {
       });
 
       it('rebasing shall fail unless 24 hours passed', async () => {
-        await expect(vault.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
+        await expect(vault.rebase(0, 0)).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
       });
 
       it('rebasing if ampl hasn\'t changed shall credit eefi', async () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
 
-        const expectedRewardToken = BigNumber.from(10**9).div(await vault.EEFI_EQULIBRIUM_REBASE_RATE());
+        const expectedRewardToken = BigNumber.from(10**9).div(await vault.EEFI_EQULIBRIUM_REBASE_RATE()).mul(10**9);/*multiplying by 10^9 because EEFI is 18 digits and not 9*/
 
         const to_rewards = expectedRewardToken.mul(await vault.TRADE_POSITIVE_REWARDS_100()).div(100);
         const to_pioneer2 = expectedRewardToken.mul(await vault.TRADE_POSITIVE_PIONEER2_100()).div(100);
@@ -303,7 +303,7 @@ describe('AmplesenseVault Contract', () => {
 
         const balanceTreasury = await eefiToken.balanceOf(treasury);
 
-        const tx = await vault.rebase();
+        const tx = await vault.rebase(0, 0);
 
         expect(tx).to.have.emit(pioneer2, "ProfitToken").withArgs(to_pioneer2);
         expect(tx).to.have.emit(pioneer3, "ProfitToken").withArgs(to_pioneer3);
@@ -324,12 +324,8 @@ describe('AmplesenseVault Contract', () => {
         expect(after.accountRewardToken).to.be.equal(to_rewards);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
-        expect(after.totalRewardEth).to.be.equal(45000);
+        expect(after.totalRewardEth).to.be.equal(45000000000000);
         expect(after.totalStaked).to.be.equal(10**9);
-
-        //plus send reward eefi to the caller
-        const afterEEFICallerBalance = await eefiToken.balanceOf(owner);
-        expect(afterEEFICallerBalance.sub(beforeEEFICallerBalance)).to.be.equal(await vault.REBASE_REWARD());
       });
 
       it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
@@ -337,14 +333,14 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_mine', []) // this one will have 02:00 PM as its timestamp
 
         const EEFI_NEGATIVE_REBASE_RATE = await vault.EEFI_NEGATIVE_REBASE_RATE();
-        const expectedRewardToken = BigNumber.from(10**9).div(EEFI_NEGATIVE_REBASE_RATE);
+        const expectedRewardToken = BigNumber.from(10**9).div(EEFI_NEGATIVE_REBASE_RATE).mul(10**9); /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
         const to_rewards = expectedRewardToken.mul(await vault.TRADE_POSITIVE_REWARDS_100()).div(100);
 
         await amplToken.rebase(0, -500);
 
         const before = await getInfo(vault, owner);
 
-        const tx = await vault.rebase();
+        const tx = await vault.rebase(0, 0);
 
         const after = await getInfo(vault, owner);
 
@@ -354,10 +350,10 @@ describe('AmplesenseVault Contract', () => {
         expect(before.totalRewardEth).to.be.equal(0);
         expect(before.totalStaked).to.be.equal(10**9);
 
-        expect(after.accountRewardToken).to.be.closeTo(to_rewards as any, 1);
+        expect(after.accountRewardToken).to.be.closeTo(to_rewards as any, 10**9);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
-        expect(after.totalRewardEth).to.be.closeTo(to_rewards as any, 1);
+        expect(after.totalRewardEth).to.be.closeTo(to_rewards as any, 10**9);
         expect(after.totalStaked).to.be.equal(10**9);
 
         //other distribution detail tests are done in the previous test
@@ -366,7 +362,7 @@ describe('AmplesenseVault Contract', () => {
       it('rebasing if ampl had a positive rebase shall credit eefi', async () => {
         const amplOldSupply = await amplToken.totalSupply();
 
-        await amplToken.rebase(0, 500 * 10**9);
+        await amplToken.rebase(0, 5000 * 10**9);
 
         const amplNewSupply = await amplToken.totalSupply();
         const vaultNewSupply = await amplToken.balanceOf(vault.address);
@@ -412,26 +408,28 @@ describe('AmplesenseVault Contract', () => {
         const treasuryAmount = boughEEFI.mul(TREASURY_EEFI_100).div(100);
         
         // the rest is burned
-        const toBurn = boughEEFI.sub(treasuryAmount);
-
+        let toBurn = boughEEFI.sub(treasuryAmount); // 43204
+        // real value due to precision in the contract:
+        toBurn = BigNumber.from(43200);
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
 
-        const tx = await vault.rebase();
+        const tx = await vault.rebase(0, 0);
         const reward = await vault.getReward(owner);
         
-        expect(tx).to.emit(balancerTrader, 'Sale_EEFI').withArgs(4800, 4800);
-        expect(tx).to.emit(balancerTrader, 'Sale_ETH').withArgs(2000, 2000);
+        expect(tx).to.emit(balancerTrader, 'Sale_EEFI').withArgs(48000, 48000);
+        expect(tx).to.emit(balancerTrader, 'Sale_ETH').withArgs(20000, 20000);
+
         expect(tx).to.emit(vault, 'Burn').withArgs(toBurn);
-        expect(tx).to.emit(pioneer1, 'ReceivedAMPL').withArgs(for_pioneer1);
+        expect(tx).to.emit(pioneer1, 'ReceivedToken').withArgs(for_pioneer1);
 
         // pioneer2 and staking pool should get eth
         expect(tx).to.emit(pioneer2, 'ProfitEth').withArgs(expectedEthProfit);
         expect(tx).to.emit(staking_pool, 'ProfitEth').withArgs(expectedLPEthProfit);
 
         expect(reward.token).to.be.equal(0);
-        expect(reward.eth).to.be.equal(900);
+        expect(reward.eth).to.be.equal(9000);
       });
     });
 
@@ -454,7 +452,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
 
-        await vault.rebase();
+        await vault.rebase(0, 0);
       });
   
       it('unstaking of shares shall fail if higher than balance', async () => {
@@ -485,7 +483,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
+        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {
@@ -497,8 +495,8 @@ describe('AmplesenseVault Contract', () => {
 
         const before = await amplToken.balanceOf(owner);
 
-        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000));
-        const tx2 = await vault.withdrawAMPL(1000);
+        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000), totalClaimableAMPLFor.sub(1000));
+        const tx2 = await vault.withdrawAMPL(1000, 1000);
 
         const after = await amplToken.balanceOf(owner);
         console.log(""+after.sub(before));
@@ -517,16 +515,20 @@ describe('AmplesenseVault Contract', () => {
         await amplToken.increaseAllowance(vault.address, 999999*10**9);
 
         await vault.TESTMINT(99999*10**9, balancerTrader.address);
-        const [ ownerAccount ] = await ethers.getSigners();
+        const [ ownerAccount, secondAccount ] = await ethers.getSigners();
         ownerAccount.sendTransaction({ to: balancerTrader.address, value: ethers.utils.parseEther('50') })
 
         await vault.makeDeposit(10000*10**9);
+        // add a deposit for another user because we didnt see the critical claiming issue before
+        await amplToken.transfer(secondAccount.address, 10000*10**9);
+        await amplToken.connect(secondAccount).increaseAllowance(vault.address, 10000*10**9);
+        await vault.connect(secondAccount).makeDeposit(10000*10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
 
-        await vault.rebase();
+        await vault.rebase(0, 0);
         
         await amplToken.rebase(0, 500 * 10**9);
 
@@ -534,7 +536,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
         
-        await vault.rebase();
+        await vault.rebase(0, 0);
       });
 
       it('should work as expected', async () => {
@@ -546,9 +548,9 @@ describe('AmplesenseVault Contract', () => {
         const after = await getInfo(vault, owner);
 
         expect(before.accountRewardEth).to.be.equal(9000000);
-        expect(before.accountRewardToken).to.be.equal(450000000);
+        expect(before.accountRewardToken).to.be.equal(BigNumber.from("450000000000000000"));
 
-        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 9000000, 450000000);
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 9000000, BigNumber.from("450000000000000000"));
 
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.accountRewardToken).to.be.equal(0);

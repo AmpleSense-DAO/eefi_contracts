@@ -1,5 +1,5 @@
 const hre = require("hardhat");
-import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { TestAmplesenseVault } from "../typechain/TestAmplesenseVault";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
 import { EEFIToken } from "../typechain/EEFIToken";
@@ -21,7 +21,7 @@ async function main() {
 
   console.log("deploying vault " + tokens.ampl.address)
 
-  let [p1, vault] = await deployVerify("AmplesenseVault",tokens.ampl.address) as [any, AmplesenseVault];
+  let [p1, vault] = await deployVerify("TestAmplesenseVault",tokens.ampl.address) as [any, TestAmplesenseVault];
 
   console.log("Deployed vault");
 

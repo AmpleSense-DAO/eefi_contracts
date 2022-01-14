@@ -231,7 +231,7 @@ describe('StackingERC20 Contract', () => {
       const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
       const before = await getInfo(staking, userA.address);
       
-      const tx = await staking.distribute_eth({ value: BigNumber.from(100) });
+      const tx = await staking.distribute_eth({ value: BigNumber.from(10**9) });
       
       const afterBalance = await stakingToken.balanceOf(owner);
       const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
@@ -244,7 +244,7 @@ describe('StackingERC20 Contract', () => {
       expect(stakingAfterBalance).to.be.equal(100);
 
       expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
-        BigNumber.from(100),
+        BigNumber.from(10**9),
       );
       
       expect(before.totalStake).to.be.equal(100);
@@ -254,7 +254,7 @@ describe('StackingERC20 Contract', () => {
       expect(after.userTotalStake).to.be.equal(100);
 
       expect(before.userEthReward).to.be.equal(0);
-      expect(after.userEthReward).to.be.equal(100);
+      expect(after.userEthReward).to.be.equal(10**9);
 
       expect(before.userTokenReward).to.be.equal(0);
       expect(after.userTokenReward).to.be.equal(0);
