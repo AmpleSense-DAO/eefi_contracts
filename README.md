@@ -11,7 +11,7 @@ During Neutral Rebases/Equilibrium: The vault mints EEFI (based on how much AMPL
 
 During positive rebases, 68% of the new AMPL supply is sold for ETH and EEFI. 90% of purchased EEFI is burned. ETH purchaed is distributed to stakers and vaults (as outlined above).  
 
-The rebase function is to be called after each AMPL rebase and provides a small EEFI reward (.0.1 EEFI) to the address succesfully calling the rebase function. 
+The rebase function is called after each AMPL rebase, which either mints new EEFI (and distributes it) or buys and burns EEFI, and purchaes ETH for distribution to stakers. 
 
 The contract inherits from AMPLRebaser which adds the rebase public function and tracks the supply changes in AMPL to compute the percentage of currently owed AMPL tokens by the contract that is coming from AMPL rebase cycles.
 
