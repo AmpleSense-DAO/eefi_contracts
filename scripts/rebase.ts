@@ -162,11 +162,6 @@ async function main() {
     const tradePositiveEEFI = await vault.TRADE_POSITIVE_EEFI_100();
     const tradePositiveETH = await vault.TRADE_POSITIVE_ETH_100();
 
-    // for testing
-    let temp = lastSupply;
-    lastSupply = newSupply;
-    newSupply = temp;
-
     if(newSupply.gt(lastSupply)) {
       console.log(`positive rebase: ${newSupply} > ${lastSupply}`);
       const digits18 = BigNumber.from(10).pow(18);
