@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@balancer-labs/sdk": "^0.1.4",
     "@balancer-labs/v2-pool-utils": "^2.0.1",
     "@balancer-labs/v2-pool-weighted": "^2.0.1",
     "@balancer-labs/v2-solidity-utils": "^2.0.0",
@@ -14,10 +15,13 @@
     "@types/node": "^14.14.22",
     "@uniswap/v2-core": "https://github.com/Uniswap/uniswap-v2-core",
     "@uniswap/v2-periphery": "https://github.com/Uniswap/uniswap-v2-periphery",
+    "axios": "^0.26.1",
     "chai": "^4.2.0",
+    "dotenv": "^16.0.0",
     "ethereum-waffle": "^3.2.2",
     "ethers": "^5.0.26",
     "hardhat": "^2.6.2",
+    "hardhat-deploy": "^0.10.5",
     "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "^0.3.4",
     "mocca": "^1.0.3",
@@ -32,12 +36,13 @@
     "test": "npx hardhat test",
     "build": "npx hardhat compile",
     "coverage": "npx hardhat coverage",
-    "deploy": "npx hardhat run scripts/deploy_fork.ts --network localhost",
+    "deploy-local": "npx hardhat deploy --report-gas --network localhost",
+    "deploy": "npx hardhat run scripts/deploy.ts --network localhost",
     "deploy-rinkeby": "npx hardhat run scripts/deploy_rinkeby.ts --network rinkeby",
-    "deploy-fork": "npx hardhat run scripts/deploy_fork.ts --network hardhat",
+    "deploy-fork": "npx hardhat run scripts/deploy_fork.ts --network localhost",
     "start": "npx hardhat node",
-    "forknode": "npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy --fork-block-number 13645000 --port 8586",
-    "rebase": "npx hardhat run scripts/rebase.ts --network localhost",
+    "forknode": "npx hardhat node --no-deploy --fork https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy --fork-block-number 13648000 --port 8586",
+    "rebase": "npx hardhat run scripts/rebase.ts --network mainnet",
     "move": "npx hardhat run scripts/increase_time.ts --network localhost"
   }
 }
