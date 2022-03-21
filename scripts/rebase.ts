@@ -60,7 +60,7 @@ function prettyETH(amount: BigNumber) : string {
 
 async function fetchGasPrice() {
   let res = -1;
-  return axios.get(`https://data-api.defipulse.com/api/v1/egs/api/ethgasAPI.json?api-key=${ETH_GAS_API_KEY}`)
+  return axios.get(`https://ethgasstation.info/api/ethgasAPI.json`)
       .then((ethGasStationResponse : any) => {
         res = Math.floor(ethGasStationResponse.data.fastest / 10);
         return res;
@@ -147,7 +147,7 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
     const ethSlippage100 = BigNumber.from((parseFloat(ETH_SLIPPAGE!) * 100).toString());
     const expectedEEFIWithSlippage = expectedEEFI.mul(eefiSlippage100).div(BigNumber.from("100"));
     const expectedETHWithSlippage = expectedETH.mul(ethSlippage100).div(BigNumber.from("100"));
-    const tx = await vault.rebase(expectedEEFIWithSlippage, expectedETHWithSlippage, {gasPrice: gasPriceFast});
+    const tx = await vault.rebase(expectedEEFIWithSlippage, expectedETHWithSlippage, {gasPrice: BigNumber.from(gasPriceFast.toString()).mul(10**9)});
     console.log("transaction hash:" + tx.hash);
     console.log("waiting confirmation...");
     await tx.wait(3); //wait for 3 confirmations
@@ -214,7 +214,10 @@ async function main() {
       const EEFI_NEGATIVE_REBASE_RATE = BigNumber.from(100000);
       const eefi = amplBalance.div(isEquilibrium? EEFI_EQULIBRIUM_REBASE_RATE : EEFI_NEGATIVE_REBASE_RATE).mul(BigNumber.from(10**9));
       console.log(`going to mint ${prettyETH(eefi)} eefi`);
-
+      const res = await rebase(BigNumber.from("0"), BigNumber.from("0"), vault);
+      if(!res) {
+        console.log("error executing rebase");
+      }
     }
 
     await delay(10000); //retry the whole process in 10 seconds
