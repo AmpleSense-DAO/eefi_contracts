@@ -12,6 +12,8 @@ dotenvConfig({ path: resolve(__dirname, "./.env") });
 const ALCHEMY_API_KEY: string | undefined = process.env.ALCHEMY_API_KEY;
 const ETH_GAS_API_KEY: string | undefined = process.env.ETH_GAS_API_KEY;
 const MAX_GAS_PRICE: string | undefined = process.env.MAX_GAS_PRICE;
+const EEFI_SLIPPAGE: string | undefined = process.env.EEFI_SLIPPAGE;
+const ETH_SLIPPAGE: string | undefined = process.env.ETH_SLIPPAGE;
 if (!ALCHEMY_API_KEY) {
   throw new Error("Please set your ALCHEMY_API_KEY in a .env file");
 }
@@ -20,6 +22,12 @@ if (!ETH_GAS_API_KEY) {
 }
 if (!MAX_GAS_PRICE) {
   throw new Error("Please set your MAX_GAS_PRICE in a .env file");
+}
+if (!EEFI_SLIPPAGE) {
+  throw new Error("Please set your EEFI_SLIPPAGE in a .env file");
+}
+if (!ETH_SLIPPAGE) {
+  throw new Error("Please set your ETH_SLIPPAGE in a .env file");
 }
 
 const axios = require("axios");
@@ -125,11 +133,15 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
   }
   console.log(`Using gas price: ${gasPriceFast}`);
   try {
-    // const tx = await vault.rebase(expectedEEFI, expectedETH, {gasPrice: gasPriceFast});
-    // console.log("transaction hash:" + tx.hash);
-    // console.log("waiting confirmation...");
-    // await tx.wait(3); //wait for 3 confirmations
-    // console.log("tx confirmed");
+    const eefiSlippage100 = BigNumber.from((parseFloat(EEFI_SLIPPAGE!) * 100).toString());
+    const ethSlippage100 = BigNumber.from((parseFloat(ETH_SLIPPAGE!) * 100).toString());
+    const expectedEEFIWithSlippage = expectedEEFI.mul(eefiSlippage100).div(BigNumber.from("100"));
+    const expectedETHWithSlippage = expectedETH.mul(ethSlippage100).div(BigNumber.from("100"));
+    const tx = await vault.rebase(expectedEEFIWithSlippage, expectedETHWithSlippage, {gasPrice: gasPriceFast});
+    console.log("transaction hash:" + tx.hash);
+    console.log("waiting confirmation...");
+    await tx.wait(3); //wait for 3 confirmations
+    console.log("tx confirmed");
     return true;
   } catch(err) {
     console.log("error rebase", err);
