@@ -1,3 +1,11 @@
+/*  This script performs the following functions: 
+1. Performs the rebase call for the AmpleSenseVault (determines whether EEFI is minted, or purchased and burned)
+2. Calculates slippage arguments for trades
+3. Has several fail-safes, including reverts if the transation will require too much gas (.env.MAX_GAS_PRICE) using Fast gas price, 
+or the computed amount of AMPL to sell for EEFI is too small (<.25% new AMPL supply). 
+4. This script utilizes the wallet approved to call the rebase function by the AmpleSenseVault contract
+*/
+
 const hre = require("hardhat");
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
 import { UFragments } from "../typechain/UFragments";
@@ -69,6 +77,7 @@ const balancerAmplETHPooLAbi = [
   "function getSwapFee() view returns (uint256)"
 ]
 
+// Determine how much ETH will be acquired post-AMPL sale
 async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, ethDelta : BigNumber) : Promise<BigNumber> {
   const balancerAmplEthVault = await hre.ethers.getContractAt(balancerAmplETHPooLAbi, "0xa751A143f8fe0a108800Bfb915585E4255C2FE80");
   const swapFee = await balancerAmplEthVault.getSwapFee();
@@ -86,6 +95,7 @@ async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, et
   }
 }
 
+//Determine how much EEFI will be acquired post ETH sale
 async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,BigNumber]> {
   console.log(`selling ${prettyAMPL(amplAmount)}`)
   const expectedETH = await computeSellAMPLForEth(amplAmount, BigNumber.from(0), BigNumber.from(0));
