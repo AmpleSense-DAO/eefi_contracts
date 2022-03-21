@@ -1,6 +1,6 @@
 const hre = require("hardhat");
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
-import { FakeAMPL } from "../typechain/FakeAMPL";
+import { UFragments } from "../typechain/UFragments";
 import { BalancerSDK, BalancerSdkConfig, Network, SwapType, BatchSwapStep } from '@balancer-labs/sdk';
 import { resolve } from "path";
 import { config as dotenvConfig } from "dotenv";
@@ -125,11 +125,11 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
   }
   console.log(`Using gas price: ${gasPriceFast}`);
   try {
-    const tx = await vault.rebase(expectedEEFI, expectedETH, {gasPrice: gasPriceFast});
-    console.log("transaction hash:" + tx.hash);
-    console.log("waiting confirmation...");
-    await tx.wait(3); //wait for 3 confirmations
-    console.log("tx confirmed");
+    // const tx = await vault.rebase(expectedEEFI, expectedETH, {gasPrice: gasPriceFast});
+    // console.log("transaction hash:" + tx.hash);
+    // console.log("waiting confirmation...");
+    // await tx.wait(3); //wait for 3 confirmations
+    // console.log("tx confirmed");
     return true;
   } catch(err) {
     console.log("error rebase", err);
@@ -142,7 +142,7 @@ async function main() {
   const accounts = await hre.ethers.getSigners();
 
   const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x5f9A579C795e665Fb00032523140e386Edcb99ee", accounts[0]) as AmplesenseVault;
-  const amplToken = await hre.ethers.getContractAt("FakeAMPL", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as FakeAMPL;
+  const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as UFragments;
 
   while(true) {
     console.log("starting rebase attempt");
@@ -187,6 +187,12 @@ async function main() {
 
     } else {
       console.log(`negative rebase: ${newSupply} < ${lastSupply}`);
+      const isEquilibrium = newSupply.eq(lastSupply);
+      const EEFI_EQULIBRIUM_REBASE_RATE = BigNumber.from(10000);
+      const EEFI_NEGATIVE_REBASE_RATE = BigNumber.from(100000);
+      const eefi = amplBalance.div(isEquilibrium? EEFI_EQULIBRIUM_REBASE_RATE : EEFI_NEGATIVE_REBASE_RATE).mul(BigNumber.from(10**9));
+      console.log(`going to mint ${prettyETH(eefi)} eefi`);
+
     }
 
     await delay(10000); //retry the whole process in 10 seconds

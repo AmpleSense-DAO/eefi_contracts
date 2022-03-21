@@ -1,0 +1,102 @@
+const hre = require("hardhat");
+import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { StakingERC20 } from "../typechain/StakingERC20";
+import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
+import { EEFIToken } from "../typechain/EEFIToken";
+import { UniswapV2Router02 } from "../typechain/UniswapV2Router02";
+import { WeightedPool2TokensFactory } from "../typechain/WeightedPool2TokensFactory";
+import { IVault } from "../typechain/IVault";
+import { deploy } from "./utils/deploy";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+
+async function main() {
+  const accounts : SignerWithAddress[] = await hre.ethers.getSigners();
+
+  const ampl_address = "0xd46ba6d942050d489dbd938a2c909a5d5039a161";
+  const nft1_address = "0x2a99792F7C310874F3C24860c06322E26D162c6B";
+  const nft2_address = "0x74ee0c3882b97d3d2a04c81c72d16878876329e4";
+  const kmpl_address = "0xe8d17542dfe79ff4fbd4b850f2d39dc69c4489a2";
+  const router_address = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+  const weithed_pool_factory_address = "0xA5bf2ddF098bb0Ef6d120C98217dD6B141c74EE0";
+  const balancer_vault_address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8";
+  const kmpl_eth_pool_address = "0xF00819f1AbeC513A565880a4708596E8dC838027";
+  const treasury_address = "0xf950a86013bAA227009771181a885E369e158da3";
+
+  console.log("deploying vault");
+
+  const vault = await deploy("AmplesenseVault",ampl_address) as AmplesenseVault;
+
+  console.log("Deployed vault");
+
+  let eefiTokenAddress = await vault.eefi_token();
+  let eefiToken = await hre.ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
+  const router = await hre.ethers.getContractAt("UniswapV2Router02", router_address) as UniswapV2Router02;
+  const poolFactory = await hre.ethers.getContractAt("WeightedPool2TokensFactory", weithed_pool_factory_address) as WeightedPool2TokensFactory;
+  const balancerVault = await hre.ethers.getContractAt("IVault", balancer_vault_address) as IVault;
+  const kmpl = await hre.ethers.getContractAt("EEFIToken", kmpl_address) as EEFIToken;
+
+  const wethAddress = await router.WETH();
+
+  let weth = await hre.ethers.getContractAt("EEFIToken", wethAddress) as EEFIToken;
+  
+  // create EEFI/ETH pool
+  //sort tokens by address
+
+  let token1 = wethAddress;
+  let token2 = eefiTokenAddress;
+  // if(hre.ethers.BigNumber.from(token1) > hre.ethers.BigNumber.from(token2)) {
+  //   token1 = eefiTokenAddress;
+  //   token2 = wethAddress;
+  // }
+
+  let tx = await poolFactory.create("eefi pool", "eefipool", [token1, token2], ["900000000000000001", "99999999999999999"], 1e12, false, accounts[0].address);
+  const poolCreationEvents = await poolFactory.queryFilter(poolFactory.filters.PoolCreated(null), tx.blockHash);
+  const poolAddr = poolCreationEvents[poolCreationEvents.length - 1].args?.pool;
+  
+  const poolRegisterEvents = await balancerVault.queryFilter(balancerVault.filters.PoolRegistered(null, poolAddr, null));
+
+  const poolID = poolRegisterEvents[0].args?.poolId;
+  console.log("poolAddr", poolAddr, poolID);
+
+  const pioneer1 = await deploy("Pioneer1Vault",nft1_address, nft2_address, ampl_address) as Pioneer1Vault;
+  console.log("pioneer1");
+  const pioneer2 = await deploy("StakingERC20",kmpl_address, eefiTokenAddress, 9) as StakingERC20;
+  console.log("pioneer2");
+  const pioneer3 = await deploy("StakingERC20",kmpl_eth_pool_address, eefiTokenAddress, 9) as StakingERC20;
+  console.log("pioneer3");
+  const staking_pool = await deploy("StakingERC20",poolAddr, eefiTokenAddress, 9) as StakingERC20;
+  console.log("staking pool");
+
+  await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury_address);
+  console.log("vault initialized");
+
+  const trader = await deploy("BalancerTrader",eefiTokenAddress, poolID) as Pioneer1Vault;
+  await vault.setTrader(trader.address);
+  await pioneer1.setTrader(trader.address);
+
+  console.log("EEFI deployed to " + eefiToken.address);
+  console.log("AMPL deployed to " + ampl_address);
+  console.log("KMPL deployed to " + kmpl_address);
+  console.log("EEFIETHLP deployed to " + poolAddr);
+  console.log("KMPLETHLP deployed to " + kmpl_eth_pool_address);
+  console.log("Vault deployed to:", vault.address);
+  console.log("Pioneer1 deployed to:", pioneer1.address);
+  console.log("Pioneer2 deployed to:", pioneer2.address);
+  console.log("Pioneer3 deployed to:", pioneer3.address);
+  console.log("LPStaking deployed to:", staking_pool.address);
+  console.log("NFT1 deployed to " + nft1_address);
+  console.log("NFT2 deployed to " + nft2_address);
+
+  
+
+
+}
+
+// We recommend this pattern to be able to use async/await everywhere
+// and properly handle errors.
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
