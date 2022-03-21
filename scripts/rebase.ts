@@ -1,8 +1,8 @@
 /*  This script performs the following functions: 
 1. Performs the rebase call for the AmpleSenseVault (determines whether EEFI is minted, or purchased and burned)
 2. Calculates slippage arguments for trades
-3. Has several fail-safes, including reverts if the transation will require too much gas (.env.MAX_GAS_PRICE) using Fast gas price, 
-or the computed amount of AMPL to sell for EEFI is too small (<.25% new AMPL supply). 
+3. Has s fail-safe, including causing a revert if the transation will require too much gas (.env.MAX_GAS_PRICE) using Fast gas price, 
+or the computed amount of AMPL to sell for EEFI is calculated incorrectly. 
 4. This script utilizes the wallet approved to call the rebase function by the AmpleSenseVault contract
 */
 
