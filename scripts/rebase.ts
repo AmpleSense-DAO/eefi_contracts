@@ -22,6 +22,8 @@ const ETH_GAS_API_KEY: string | undefined = process.env.ETH_GAS_API_KEY;
 const MAX_GAS_PRICE: string | undefined = process.env.MAX_GAS_PRICE;
 const EEFI_SLIPPAGE: string | undefined = process.env.EEFI_SLIPPAGE;
 const ETH_SLIPPAGE: string | undefined = process.env.ETH_SLIPPAGE;
+const LISTEN_AMPL_REBASE: string | undefined = process.env.LISTEN_AMPL_REBASE;
+
 if (!ALCHEMY_API_KEY) {
   throw new Error("Please set your ALCHEMY_API_KEY in a .env file");
 }
@@ -36,6 +38,9 @@ if (!EEFI_SLIPPAGE) {
 }
 if (!ETH_SLIPPAGE) {
   throw new Error("Please set your ETH_SLIPPAGE in a .env file");
+}
+if (!LISTEN_AMPL_REBASE) {
+  throw new Error("Please set your LISTEN_AMPL_REBASE in a .env file");
 }
 
 const axios = require("axios");
@@ -131,16 +136,7 @@ async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,Big
 }
 
 async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseVault) : Promise<boolean> {
-  let gasPriceFast = -1;
-  while(true) { //loop through gas fetching because api fails
-    gasPriceFast = await fetchGasPrice();
-    if(gasPriceFast > parseInt(MAX_GAS_PRICE!)) {
-      console.log(`gas price is higher than allowed amount: ${gasPriceFast}>${parseInt(MAX_GAS_PRICE!)} retrying...`);
-      return false;
-    }
-    if(gasPriceFast > 0) break;
-    await delay(2000);
-  }
+  let gasPriceFast = await fetchGasPrice();
   console.log(`Using gas price: ${gasPriceFast}`);
   try {
     const eefiSlippage100 = BigNumber.from((parseFloat(EEFI_SLIPPAGE!) * 100).toString());
@@ -160,6 +156,15 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
   
 }
 
+async function waitRebase() {
+  const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as UFragments;
+  return new Promise((resolve,reject) => {
+    amplToken.once("LogRebase", () => {
+      resolve("");
+    });
+  });
+}
+
 async function main() {
   const accounts = await hre.ethers.getSigners();
 
@@ -167,9 +172,15 @@ async function main() {
   const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as UFragments;
 
   while(true) {
-    console.log("starting rebase attempt");
-    const lastRebaseCall = (await vault.last_rebase_call()).toNumber();
+    console.log("starting new rebase call");
     const currentTimestamp = Math.floor(Date.now() / 1000);
+    if(parseInt(LISTEN_AMPL_REBASE!) == 1) {
+      console.log("Awaiting ampl rebase event");
+      await waitRebase();
+    }
+    
+    const lastRebaseCall = (await vault.last_rebase_call()).toNumber();
+    
     const nexRebaseCall = lastRebaseCall + 24*3600;
     if(nexRebaseCall > currentTimestamp) {
       const time = nexRebaseCall - currentTimestamp;
@@ -214,7 +225,7 @@ async function main() {
       const EEFI_NEGATIVE_REBASE_RATE = BigNumber.from(100000);
       const eefi = amplBalance.div(isEquilibrium? EEFI_EQULIBRIUM_REBASE_RATE : EEFI_NEGATIVE_REBASE_RATE).mul(BigNumber.from(10**9));
       console.log(`going to mint ${prettyETH(eefi)} eefi`);
-      const res = await rebase(BigNumber.from("0"), BigNumber.from("0"), vault);
+      const res = await rebase(BigNumber.from(ethers.constants.MaxUint256), BigNumber.from(ethers.constants.MaxUint256), vault);
       if(!res) {
         console.log("error executing rebase");
       }
