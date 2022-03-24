@@ -172,10 +172,10 @@ async function main() {
   const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as UFragments;
 
   while(true) {
-    console.log("starting new rebase call");
+    console.log(`${new Date().toUTCString()}: starting new rebase call`);
     const currentTimestamp = Math.floor(Date.now() / 1000);
     if(parseInt(LISTEN_AMPL_REBASE!) == 1) {
-      console.log("Awaiting ampl rebase event");
+      console.log(`${new Date().toUTCString()}: awaiting ampl rebase event`);
       await waitRebase();
     }
     
@@ -184,7 +184,7 @@ async function main() {
     const nexRebaseCall = lastRebaseCall + 24*3600;
     if(nexRebaseCall > currentTimestamp) {
       const time = nexRebaseCall - currentTimestamp;
-      console.log(`cant call rebase yet, waiting for ${(time/3600).toFixed(1)} hours`)
+      console.log(`${new Date().toUTCString()}: cant call rebase yet, waiting for ${(time/3600).toFixed(1)} hours`)
       await delay(time * 1000); //wait until we can call
     }
 
