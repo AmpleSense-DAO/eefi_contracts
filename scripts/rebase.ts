@@ -8,6 +8,7 @@ or the computed amount of AMPL to sell for EEFI is too small (<.25% new AMPL sup
 
 const hre = require("hardhat");
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { BalancerTrader } from "../typechain/BalancerTrader"
 import { UFragments } from "../typechain/UFragments";
 import { BalancerSDK, BalancerSdkConfig, Network, SwapType, BatchSwapStep } from '@balancer-labs/sdk';
 import { resolve } from "path";
@@ -128,7 +129,7 @@ async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,Big
       swaps,
       assets,
     });
-    return [BigNumber.from(deltas[1]), expectedETH];
+    return [BigNumber.from(deltas[1]).abs(), expectedETH];
   } catch(err) {
     console.log("error computeSellAMPLForEEFI", err);
     return [BigNumber.from("0"),BigNumber.from("0")];
@@ -143,6 +144,16 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
     const ethSlippage100 = BigNumber.from((parseFloat(ETH_SLIPPAGE!) * 100).toString());
     const expectedEEFIWithSlippage = expectedEEFI.mul(eefiSlippage100).div(BigNumber.from("100"));
     const expectedETHWithSlippage = expectedETH.mul(ethSlippage100).div(BigNumber.from("100"));
+    console.log("minEEFI: "+expectedEEFIWithSlippage, "minETH: "+expectedETHWithSlippage);
+
+    const trader = await hre.ethers.getContractAt("BalancerTrader", "0xCB569E7Ca72FE970cf08610Bf642f55aD616880C") as BalancerTrader;
+    trader.once("Sale_ETH", (amount, ethAmount) => {
+      console.log("Sale_ETH: " + amount + "=>" + ethAmount);
+    });
+    trader.once("Sale_EEFI", (amount, eefiAmount) => {
+      console.log("Sale_EEFI: " + amount + "=>" + eefiAmount);
+    });
+
     const tx = await vault.rebase(expectedEEFIWithSlippage, expectedETHWithSlippage, {gasPrice: BigNumber.from(gasPriceFast.toString()).mul(10**9)});
     console.log("transaction hash:" + tx.hash);
     console.log("waiting confirmation...");
@@ -168,15 +179,39 @@ async function waitRebase() {
 async function main() {
   const accounts = await hre.ethers.getSigners();
 
-  const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x5f9A579C795e665Fb00032523140e386Edcb99ee", accounts[0]) as AmplesenseVault;
-  const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as UFragments;
+  // await hre.network.provider.request({
+  //   method: "hardhat_impersonateAccount",
+  //   params: ["0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea"],
+  // });
+  // await hre.network.provider.request({
+  //   method: "hardhat_impersonateAccount",
+  //   params: ["0x695375090C1E9ca67f1495528162f055eD7630c5"],
+  // });
+  // await hre.network.provider.send("hardhat_setBalance", [
+  //   "0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea",
+  //   "0x3635c9adc5dea00000"
+  // ]);
+  // const signer = await hre.ethers.getSigner("0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea");
+  // const signer2 = await hre.ethers.getSigner("0x695375090C1E9ca67f1495528162f055eD7630c5");
+
+  const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x5f9A579C795e665Fb00032523140e386Edcb99ee", /*signer2*/accounts[0]) as AmplesenseVault;
+  const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161"/*, signer*/) as UFragments;
+
+  // await hre.ethers.provider.send('evm_increaseTime', [3600*16]);
+  // await hre.ethers.provider.send('evm_mine', []);
 
   while(true) {
     console.log(`${new Date().toUTCString()}: starting new rebase call`);
-    const currentTimestamp = Math.floor(Date.now() / 1000);
+    
+    const currentTimestamp = Math.floor(Date.now() / 1000)/* + 16*3600*/;
+
     if(parseInt(LISTEN_AMPL_REBASE!) == 1) {
       console.log(`${new Date().toUTCString()}: awaiting ampl rebase event`);
-      await waitRebase();
+      let promise = waitRebase();
+      // await delay(1000);
+      // const totalSupply = await amplToken.totalSupply();
+      // amplToken.rebase(0, totalSupply.mul(8).div(1000));
+      await promise;
     }
     
     const lastRebaseCall = (await vault.last_rebase_call()).toNumber();
