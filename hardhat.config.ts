@@ -36,8 +36,7 @@ const config: HardhatUserConfig = {
       chainId : 1337,
       forking: {
         enabled: true,
-        url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
-        blockNumber: 13235981,
+        url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`
       }
     },
     localhost: {
@@ -46,7 +45,7 @@ const config: HardhatUserConfig = {
       timeout: 0
     },
     mainnet: {
-      url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
+      url: `https://eth-mainnet.gateway.pokt.network/v1/lb/6203e99dcbab27003989bceb`,
       gasPrice: 65000000000,
       accounts: [pk]
     }
