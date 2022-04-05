@@ -266,7 +266,7 @@ async function main() {
       }
     }
 
-    await delay(10000); //retry the whole process in 10 seconds
+    await delay(60000); //retry the whole process in 60 seconds
   }
   
 }
