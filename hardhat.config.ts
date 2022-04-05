@@ -46,7 +46,6 @@ const config: HardhatUserConfig = {
     },
     mainnet: {
       url: `https://eth-mainnet.gateway.pokt.network/v1/lb/6203e99dcbab27003989bceb`,
-      gasPrice: 65000000000,
       accounts: [pk]
     }
   },
