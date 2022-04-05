@@ -65,9 +65,9 @@ function prettyETH(amount: BigNumber) : string {
 
 async function fetchGasPrice() {
   let res = -1;
-  return axios.get(`https://ethgasstation.info/api/ethgasAPI.json`)
-      .then((ethGasStationResponse : any) => {
-        res = Math.floor(ethGasStationResponse.data.fastest / 10);
+  return axios.get(`https://api.etherscan.io/api?module=gastracker&action=gasoracle`)
+      .then((response : any) => {
+        res = Math.floor(response.data.result.FastGasPrice);
         return res;
       })
       .catch((err : any) => {
