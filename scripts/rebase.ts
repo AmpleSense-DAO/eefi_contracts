@@ -247,6 +247,8 @@ async function main() {
         const res = await rebase(expectedEEFI, expectedETH, vault);
         if(!res) {
           console.log("error executing rebase");
+        } else {
+          await delay(10*60*1000); //wait for 10 minutes to be sure the tx is validated
         }
       } else {
         console.log("an error occured computing ETH and EEFI expected values, aborting");
@@ -262,6 +264,8 @@ async function main() {
       const res = await rebase(BigNumber.from(ethers.constants.MaxUint256), BigNumber.from(ethers.constants.MaxUint256), vault);
       if(!res) {
         console.log("error executing rebase");
+      } else {
+        await delay(10*60*1000); //wait for 10 minutes to be sure the tx is validated
       }
     }
 
