@@ -47,7 +47,7 @@ const axios = require("axios");
 
 const config: BalancerSdkConfig = {
   network: Network.MAINNET,
-  rpcUrl: `https://eth-mainnet.gateway.pokt.network/v1/lb/${ALCHEMY_API_KEY}`
+  rpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`
 } 
 const balancer = new BalancerSDK(config);
 
