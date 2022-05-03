@@ -136,7 +136,10 @@ async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,Big
 }
 
 async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseVault) : Promise<boolean> {
-  let gasPriceFast = await fetchGasPrice();
+  let gasPriceFast = 0;
+  let gasMax = parseFloat(MAX_GAS_PRICE!);
+  while(gasPriceFast == 0 || gasPriceFast > gasMax)
+    gasPriceFast = await fetchGasPrice();
   console.log(`Using gas price: ${gasPriceFast}`);
   try {
     const eefiSlippage100 = BigNumber.from((parseFloat(EEFI_SLIPPAGE!) * 100).toString());
