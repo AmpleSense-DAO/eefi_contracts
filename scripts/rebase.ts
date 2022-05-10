@@ -5,14 +5,16 @@
 4. This script utilizes the wallet approved to call the rebase function by the AmpleSenseVault contract
 */
 
-const hre = require("hardhat");
 import { AmplesenseVault } from "../typechain/AmplesenseVault";
 import { BalancerTrader } from "../typechain/BalancerTrader"
 import { UFragments } from "../typechain/UFragments";
 import { BalancerSDK, BalancerSdkConfig, Network, SwapType, BatchSwapStep } from '@balancer-labs/sdk';
 import { resolve } from "path";
 import { config as dotenvConfig } from "dotenv";
-import {BigNumber, ethers} from "ethers";
+import {BigNumber, ethers, Wallet} from "ethers";
+const balancerTraderJson = require("../artifacts/contracts/interfaces/IBalancerTrader.sol/IBalancerTrader.json");
+const fragmentsJson = require("../artifacts/uFragments/contracts/UFragments.sol/UFragments.json");
+const amplesensevaultJson = require("../artifacts/contracts/AmplesenseVault.sol/AmplesenseVault.json");
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
@@ -23,6 +25,7 @@ const MAX_GAS_PRICE: string | undefined = process.env.MAX_GAS_PRICE;
 const EEFI_SLIPPAGE: string | undefined = process.env.EEFI_SLIPPAGE;
 const ETH_SLIPPAGE: string | undefined = process.env.ETH_SLIPPAGE;
 const LISTEN_AMPL_REBASE: string | undefined = process.env.LISTEN_AMPL_REBASE;
+const PRIVATE_KEY: string | undefined = process.env.PRIVATE_KEY;
 
 if (!ALCHEMY_API_KEY) {
   throw new Error("Please set your ALCHEMY_API_KEY in a .env file");
@@ -42,6 +45,9 @@ if (!ETH_SLIPPAGE) {
 if (!LISTEN_AMPL_REBASE) {
   throw new Error("Please set your LISTEN_AMPL_REBASE in a .env file");
 }
+if (!PRIVATE_KEY) {
+  throw new Error("Please set your PRIVATE_KEY in a .env file");
+}
 
 const axios = require("axios");
 
@@ -50,6 +56,8 @@ const config: BalancerSdkConfig = {
   rpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`
 } 
 const balancer = new BalancerSDK(config);
+
+const signer = new Wallet(PRIVATE_KEY,new ethers.providers.JsonRpcProvider(config.rpcUrl, "homestead"));
 
 function delay(ms: number) {
   return new Promise( resolve => setTimeout(resolve, ms) );
@@ -84,7 +92,7 @@ const balancerAmplETHPooLAbi = [
 
 // Determine how much ETH will be acquired post-AMPL sale
 async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, ethDelta : BigNumber) : Promise<BigNumber> {
-  const balancerAmplEthVault = await hre.ethers.getContractAt(balancerAmplETHPooLAbi, "0xa751A143f8fe0a108800Bfb915585E4255C2FE80");
+  const balancerAmplEthVault = new ethers.Contract("0xa751A143f8fe0a108800Bfb915585E4255C2FE80", balancerAmplETHPooLAbi, signer);
   const swapFee = await balancerAmplEthVault.getSwapFee();
   const weightAMPL = await balancerAmplEthVault.getDenormalizedWeight("0xD46bA6D942050d489DBd938a2C909A5d5039A161");
   const weightETH = await balancerAmplEthVault.getDenormalizedWeight("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
@@ -148,7 +156,7 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
     const expectedETHWithSlippage = expectedETH.mul(ethSlippage100).div(BigNumber.from("100"));
     console.log("minEEFI: "+expectedEEFIWithSlippage, "minETH: "+expectedETHWithSlippage);
 
-    const trader = await hre.ethers.getContractAt("BalancerTrader", "0xCB569E7Ca72FE970cf08610Bf642f55aD616880C") as BalancerTrader;
+    const trader = new ethers.Contract("0xCB569E7Ca72FE970cf08610Bf642f55aD616880C",balancerTraderJson.abi, signer) as unknown as BalancerTrader;
     trader.once("Sale_ETH", (amount, ethAmount) => {
       console.log("Sale_ETH: " + amount + "=>" + ethAmount);
     });
@@ -170,7 +178,7 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseV
 }
 
 async function waitRebase() {
-  const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161") as UFragments;
+  const amplToken = new ethers.Contract("0xd46ba6d942050d489dbd938a2c909a5d5039a161", fragmentsJson.abi, signer) as unknown as UFragments;
   return new Promise((resolve,reject) => {
     amplToken.once("LogRebase", () => {
       resolve("");
@@ -179,28 +187,8 @@ async function waitRebase() {
 }
 
 async function main() {
-  const accounts = await hre.ethers.getSigners();
-
-  // await hre.network.provider.request({
-  //   method: "hardhat_impersonateAccount",
-  //   params: ["0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea"],
-  // });
-  // await hre.network.provider.request({
-  //   method: "hardhat_impersonateAccount",
-  //   params: ["0x695375090C1E9ca67f1495528162f055eD7630c5"],
-  // });
-  // await hre.network.provider.send("hardhat_setBalance", [
-  //   "0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea",
-  //   "0x3635c9adc5dea00000"
-  // ]);
-  // const signer = await hre.ethers.getSigner("0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea");
-  // const signer2 = await hre.ethers.getSigner("0x695375090C1E9ca67f1495528162f055eD7630c5");
-
-  const vault = await hre.ethers.getContractAt("AmplesenseVault", "0x5f9A579C795e665Fb00032523140e386Edcb99ee", /*signer2*/accounts[0]) as AmplesenseVault;
-  const amplToken = await hre.ethers.getContractAt("UFragments", "0xd46ba6d942050d489dbd938a2c909a5d5039a161"/*, signer*/) as UFragments;
-
-  // await hre.ethers.provider.send('evm_increaseTime', [3600*16]);
-  // await hre.ethers.provider.send('evm_mine', []);
+  const vault = new ethers.Contract("0x5f9A579C795e665Fb00032523140e386Edcb99ee", amplesensevaultJson.abi, signer) as unknown as AmplesenseVault;
+  const amplToken = await new ethers.Contract("0xd46ba6d942050d489dbd938a2c909a5d5039a161", fragmentsJson.abi, signer) as unknown as UFragments;
 
   while(true) {
     console.log(`${new Date().toUTCString()}: starting new rebase call`);
@@ -210,9 +198,6 @@ async function main() {
     if(parseInt(LISTEN_AMPL_REBASE!) == 1) {
       console.log(`${new Date().toUTCString()}: awaiting ampl rebase event`);
       let promise = waitRebase();
-      // await delay(1000);
-      // const totalSupply = await amplToken.totalSupply();
-      // amplToken.rebase(0, totalSupply.mul(8).div(1000));
       await promise;
     }
     
