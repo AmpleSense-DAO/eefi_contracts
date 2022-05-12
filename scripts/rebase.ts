@@ -55,9 +55,8 @@ const config: BalancerSdkConfig = {
   network: Network.MAINNET,
   rpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`
 } 
-const balancer = new BalancerSDK(config);
 
-const signer = new Wallet(PRIVATE_KEY,new ethers.providers.JsonRpcProvider(config.rpcUrl, "homestead"));
+const signer = new Wallet(PRIVATE_KEY,new ethers.providers.StaticJsonRpcProvider(config.rpcUrl, "homestead"));
 
 function delay(ms: number) {
   return new Promise( resolve => setTimeout(resolve, ms) );
@@ -131,6 +130,7 @@ async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,Big
     '0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3' //eefi
   ];
   try {
+    const balancer = new BalancerSDK(config);
     const deltas = await balancer.swaps.queryBatchSwap({
       kind: swapType,
       swaps,
