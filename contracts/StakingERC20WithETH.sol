@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: NONE
 pragma solidity 0.7.6;
 
-import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
 import "./Distribute.sol";
 import "./interfaces/IERC900.sol";
 
 /**
  * An IERC900 staking contract
  */
-contract StakingERC20 is IERC900  {
+contract StakingERC20WithETH is IERC900  {
     using SafeERC20 for IERC20;
 
     /// @dev handle to access ERC20 token token contract to make transfers
@@ -19,7 +18,6 @@ contract StakingERC20 is IERC900  {
     event ProfitToken(uint256 amount);
     event ProfitEth(uint256 amount);
     event StakeChanged(uint256 total, uint256 timestamp);
-    event Claimed(address indexed account, uint256 eth, uint256 token);
 
     constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
         _token = stake_token;
@@ -27,14 +25,34 @@ contract StakingERC20 is IERC900  {
         staking_contract_token = new Distribute(decimals, reward_token);
     }
 
+    /**
+        @dev Sends ETH to the eth reward pool of the staking contract
+    */
     function distribute_eth() payable external {
         staking_contract_eth.distribute{value : msg.value}(0, msg.sender);
         emit ProfitEth(msg.value);
     }
 
+    /**
+        @dev Takes token from sender and puts it in the reward pool
+        @param amount Amount of token to add to rewards
+    */
     function distribute(uint256 amount) external {
         staking_contract_token.distribute(amount, msg.sender);
         emit ProfitToken(amount);
+    }
+
+    /**
+        @dev Sends any reward token mistakingly sent to the main contract to the reward pool
+    */
+    function forward() external {
+        IERC20 rewardToken = IERC20(staking_contract_token.reward_token());
+        uint256 balance = rewardToken.balanceOf(address(this));
+        if(balance > 0) {
+            rewardToken.approve(address(staking_contract_token), balance);
+            staking_contract_token.distribute(balance, address(this));
+            emit ProfitToken(balance);
+        }
     }
     
     /**
@@ -67,8 +85,8 @@ contract StakingERC20 is IERC900  {
         @param data Additional data as per the EIP900
     */
     function unstake(uint256 amount, bytes calldata data) external override {
-        staking_contract_eth.unstakeFrom(msg.sender, amount);
-        staking_contract_token.unstakeFrom(msg.sender, amount);
+        staking_contract_eth.unstakeFrom(payable(msg.sender), amount);
+        staking_contract_token.unstakeFrom(payable(msg.sender), amount);
         _token.safeTransfer(msg.sender, amount);
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), data);
         emit StakeChanged(staking_contract_eth.totalStaked(), block.timestamp);
@@ -76,15 +94,11 @@ contract StakingERC20 is IERC900  {
 
      /**
         @dev Withdraws rewards (basically unstake then restake)
-        @param amount Amount of ERC20 token to remove from the stake. If amount if 0, then we claim all the rewards
+        @param amount Amount of ERC20 token to remove from the stake
     */
     function withdraw(uint256 amount) external {
-        if(amount == 0) //If amount if 0, then we claim all the rewards
-            amount = totalStakedFor(msg.sender);
-        (uint256 ethR, uint256 tokenR) = getReward(msg.sender);
-        staking_contract_eth.withdrawFrom(msg.sender, amount);
-        staking_contract_token.withdrawFrom(msg.sender,amount);
-        emit Claimed(msg.sender, ethR * amount / totalStakedFor(msg.sender), tokenR * amount / totalStakedFor(msg.sender));
+        staking_contract_eth.withdrawFrom(payable(msg.sender), amount);
+        staking_contract_token.withdrawFrom(payable(msg.sender),amount);
     }
 
     /**
@@ -107,9 +121,9 @@ contract StakingERC20 is IERC900  {
     /**
         @dev returns the total rewards stored for token and eth
     */
-    function totalReward() external view returns (uint256 token, uint256 eth) {
-        token = staking_contract_token.getTotalReward();
-        eth = staking_contract_eth.getTotalReward();
+    function totalReward() external view returns (uint256 tokenReward, uint256 ethReward) {
+        tokenReward = staking_contract_token.getTotalReward();
+        ethReward = staking_contract_eth.getTotalReward();
     }
 
     /**

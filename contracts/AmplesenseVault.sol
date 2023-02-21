@@ -2,22 +2,19 @@
 pragma solidity 0.7.6;
 
 // Contract requirements 
-import '@openzeppelin/contracts/access/Ownable.sol';
-import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
-import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
-import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
-
 import './Distribute.sol';
 import './interfaces/IStakingERC20.sol';
 import './EEFIToken.sol';
 import './AMPLRebaser.sol';
+import './Wrapper.sol';
 import './interfaces/IBalancerTrader.sol';
 
-contract AmplesenseVault is AMPLRebaser, Ownable {
+import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
+
+contract AmplesenseVault is AMPLRebaser, Wrapper, Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
-    IStakingERC20 public pioneer_vault1;
     IStakingERC20 public pioneer_vault2;
     IStakingERC20 public pioneer_vault3;
     IStakingERC20 public staking_pool;
@@ -91,6 +88,7 @@ Event Definitions:
 // Only contract can mint new EEFI, and distribute ETH and EEFI rewards     
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
+    Wrapper(ampl_token)
     Ownable() {
         eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
@@ -114,43 +112,38 @@ Event Definitions:
     }
 
     /**
-        @return total The total amount of AMPL claimable by a user (accounting for rebases) 
+        @return total The total amount of AMPL claimable by a user
     */
     function totalClaimableBy(address account) public view returns (uint256 total) {
         if(rewards_eefi.totalStaked() == 0) return 0;
-        uint256 ampl_balance = ampl_token.balanceOf(address(this));
         for(uint i = 0; i < _deposits[account].length; i++) {
             if(_deposits[account][i].timestamp < block.timestamp.sub(LOCK_TIME)) {
                 total += _deposits[account][i].amount;
             }
         }
-        return ampl_balance.mul(total).divDown(rewards_eefi.totalStaked());
+        return _wampleToAmple(total);
     }
 
     /**
         @dev Current amount of AMPL owned by the user
-        Can vary on token rebases
         @param account Account to check the balance of
     */
     function balanceOf(address account) public view returns(uint256 ampl) {
         if(rewards_eefi.totalStaked() == 0) return 0;
-        uint256 ampl_balance = ampl_token.balanceOf(address(this));
-        ampl = ampl_balance.mul(rewards_eefi.totalStakedFor(account)).divDown(rewards_eefi.totalStaked());
+        ampl = _wampleToAmple(rewards_eefi.totalStakedFor(account));
     }
 
     /**
         @dev Called only once by the owner; this function sets up the vaults
-        @param _pioneer_vault1 Address of the pioneer1 vault (NFT vault: Zeus/Apollo)
         @param _pioneer_vault2 Address of the pioneer2 vault (kMPL staker vault)
         @param _pioneer_vault3 Address of the pioneer3 vault (kMPL/ETH LP token staking vault) 
         @param _staking_pool Address of the LP staking pool (EEFI/ETH LP token staking pool)
         @param _treasury Address of the treasury (Address of Amplesense DAO Treasury)
     */
-    function initialize(IStakingERC20 _pioneer_vault1, IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external
+    function initialize(IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external
     onlyOwner() 
     {
-        require(address(pioneer_vault1) == address(0), "AmplesenseVault: contract already initialized");
-        pioneer_vault1 = _pioneer_vault1;
+        require(address(staking_pool) == address(0), "AmplesenseVault: contract already initialized");
         pioneer_vault2 = _pioneer_vault2;
         pioneer_vault3 = _pioneer_vault3;
         staking_pool = _staking_pool;
@@ -174,7 +167,8 @@ Event Definitions:
     */
     function makeDeposit(uint256 amount) external {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
-        _deposits[msg.sender].push(DepositChunk(amount, block.timestamp));
+        uint256 wampl = _ampleToWample(amount);
+        _deposits[msg.sender].push(DepositChunk(wampl, block.timestamp));
 
         uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -187,8 +181,8 @@ Event Definitions:
         }
         
         // stake the shares also in the rewards pool
-        rewards_eefi.stakeFor(msg.sender, amount);
-        rewards_eth.stakeFor(msg.sender, amount);
+        rewards_eefi.stakeFor(msg.sender, wampl);
+        rewards_eth.stakeFor(msg.sender, wampl);
         emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
@@ -197,25 +191,27 @@ Event Definitions:
         @dev Withdraw an amount of AMPL from vault 
         Shares are auto computed
         @param amount Amount of AMPL to withdraw
-        @param minimalExpectedAmount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
+        @param minimal_expected_amount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
-    function withdrawAMPL(uint256 amount, uint256 minimalExpectedAmount) external {
-        require(minimalExpectedAmount > 0, "AmplesenseVault: Minimal expected amount must be higher than zero");
-        uint256 amplBalance = ampl_token.balanceOf(address(this));
-        uint256 totalStaked = rewards_eefi.totalStaked();
-        uint256 shares = amount.mul(totalStaked).divDown(amplBalance);
-        uint256 minimalShares = minimalExpectedAmount.mul(totalStaked).divDown(amplBalance);
-
-        require(minimalShares <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
-        uint256 to_withdraw = shares;
+    function withdrawAMPL(uint256 amount, uint256 minimal_expected_amount) external {
+        require(minimal_expected_amount > 0, "AmplesenseVault: Minimal expected amount must be higher than zero");
+        require(minimal_expected_amount <= amount, "AmplesenseVault: Minimal expected amount must be lower or equal to amount");
+        uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
+        uint256 total_staked_user_ampl = _wampleToAmple(total_staked_user);
+        require(amount <= total_staked_user_ampl, "AmplesenseVault: Insufficient AMPL balance");
+        // compute the amount of wampl that we need to unstake to get the amount of AMPL
+        uint256 share_wampl = amount.mul(10**9).divDown(total_staked_user_ampl).mul(total_staked_user).divDown(10**9);
+        // compute the minimal amount of wampl to unstake to reach minimal expected amount
+        uint256 minimal_shares_wampl = _ampleToWample(minimal_expected_amount);
+        uint256 to_withdraw = share_wampl;
         // make sure the assets aren't time locked
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
             if(deposit.timestamp > block.timestamp.sub(LOCK_TIME)) {
                 //we used all withdrawable chunks
-                //if we havent reached the minimalShares, we throw an error
-                require(to_withdraw <= shares.sub(minimalShares), "AmplesenseVault: No unlocked deposits found");
+                //if we havent reached the minimal_shares_wampl, we throw an error
+                require(to_withdraw <= share_wampl.sub(minimal_shares_wampl), "AmplesenseVault: No unlocked deposits found");
                 break; // exit the loop
             }
             if(deposit.amount > to_withdraw) {
@@ -227,14 +223,14 @@ Event Definitions:
             }
         }
         // compute the final amount of shares that we managed to withdraw
-        uint256 amountOfSharesWithdrawn = shares.sub(to_withdraw);
+        uint256 amount_shares_withdrawn = share_wampl.sub(to_withdraw);
         // compute the current ampl count representing user shares
-        uint256 ampl_amount = amplBalance.mul(amountOfSharesWithdrawn).divDown(rewards_eefi.totalStaked());
+        uint256 ampl_amount = _wampleToAmple(amount_shares_withdrawn);
         ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
-        rewards_eefi.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
-        rewards_eth.unstakeFrom(msg.sender, amountOfSharesWithdrawn);
+        rewards_eefi.unstakeFrom(msg.sender, amount_shares_withdrawn);
+        rewards_eth.unstakeFrom(msg.sender, amount_shares_withdrawn);
         emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
         emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
     }
@@ -242,10 +238,11 @@ Event Definitions:
     /**
         @dev Withdraw an amount of shares
         @param amount Amount of shares to withdraw
-        !!! This isnt the amount of AMPL the user will get because the amount of AMPL provided depends on the rebase and distribution of rebased AMPL during positive AMPL rebases
+        !!! This isnt the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
     function withdraw(uint256 amount) public {
-        require(amount <= totalStakedFor(msg.sender), "AmplesenseVault: Not enough balance");
+        uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
+        require(amount <= total_staked_user, "AmplesenseVault: Not enough balance");
         uint256 to_withdraw = amount;
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
@@ -261,7 +258,7 @@ Event Definitions:
             }
         }
         // compute the current ampl count representing user shares
-        uint256 ampl_amount = ampl_token.balanceOf(address(this)).mul(amount).divDown(rewards_eefi.totalStaked());
+        uint256 ampl_amount = _wampleToAmple(amount);
         ampl_token.safeTransfer(msg.sender, ampl_amount);
         
         // unstake the shares also from the rewards pool
@@ -306,15 +303,15 @@ Event Definitions:
             uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
             uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
             uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
-            
+
             rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
             pioneer_vault2.distribute_eth{value: to_pioneer2}();
             pioneer_vault3.distribute_eth{value: to_pioneer3}();
             staking_pool.distribute_eth{value: to_lp_staking}();
 
             // distribute ampl to pioneer 1
-            ampl_token.approve(address(pioneer_vault1), for_pioneer1);
-            pioneer_vault1.distribute(for_pioneer1);
+            //ampl_token.approve(address(pioneer_vault1), for_pioneer1);
+            //pioneer_vault1.distribute(for_pioneer1);
 
             // distribute the remainder of purchased ETH (5%) to the DAO treasury
             Address.sendValue(treasury, address(this).balance);
@@ -374,7 +371,7 @@ Event Definitions:
     }
 
     /**
-        @return current staked
+        @return current total amount of stakes
     */
     function totalStaked() external view returns (uint256) {
         return rewards_eth.totalStaked();

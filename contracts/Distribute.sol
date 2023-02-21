@@ -2,11 +2,10 @@
 pragma solidity 0.7.6;
 
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol';
-import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol";
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol';
 
 /**
  * staking contract for ERC20 tokens or ETH
@@ -19,7 +18,9 @@ contract Distribute is Ownable, ReentrancyGuard {
      @dev This value is very important because if the number of bonds is too great
      compared to the distributed value, then the bond increase will be zero
      therefore this value depends on the number of decimals
-     of the staked token.
+     of the distributed token and I suggest it to be the same
+     For example if the token has 18 decimals, then the precision should also have 18 decimals
+
     */
     uint256 immutable public PRECISION;
 
@@ -132,12 +133,11 @@ contract Distribute is Ownable, ReentrancyGuard {
             amount = amount.add(_temp_pool);
             _temp_pool = 0;
         }
-        
+
         uint256 temp_to_distribute = to_distribute + amount;
         uint256 bond_increase = temp_to_distribute / total_bonds;
         uint256 distributed_total = total_bonds.mul(bond_increase);
         bond_value += bond_increase;
-        
         //collect the dust because of the PRECISION used for bonds
         //it will be reinjected into the next distribution
         to_distribute = temp_to_distribute - distributed_total;

@@ -6,7 +6,7 @@ import { solidity } from 'ethereum-waffle';
 import { formatBytes32String } from 'ethers/lib/utils';
 
 import { FakeERC20 } from '../typechain/FakeERC20';
-import { StakingERC20 } from '../typechain/StakingERC20';
+import { StakingERC20WithETH } from '../typechain/StakingERC20WithETH';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 chai.use(solidity);
@@ -16,7 +16,7 @@ const { expect } = chai;
 const initialTokenBalance = BigNumber.from('0xE35FA931A000');
 const initialEthBalance = BigNumber.from('0x21E19E0C9BAB2400000');
 
-async function getInfo(stacking: StakingERC20, userAddress: string) {
+async function getInfo(stacking: StakingERC20WithETH, userAddress: string) {
   const [
     distributeEthContract,
     distributeTokenContract,
@@ -47,11 +47,11 @@ async function getInfo(stacking: StakingERC20, userAddress: string) {
 }
 
 
-describe('StackingERC20 Contract', () => {
+describe('StackingERC20WithETH Contract', () => {
 
   let rewardToken: FakeERC20;
   let stakingToken: FakeERC20;
-  let staking: StakingERC20;
+  let staking: StakingERC20WithETH;
   let owner: string;
   let userA: SignerWithAddress;
   let userB: SignerWithAddress;
@@ -60,7 +60,7 @@ describe('StackingERC20 Contract', () => {
 
     const [ erc20Factory, stackingFactory, accounts ] = await Promise.all([
       ethers.getContractFactory('FakeERC20'),
-      ethers.getContractFactory('StakingERC20'),
+      ethers.getContractFactory('StakingERC20WithETH'),
       ethers.getSigners(),
     ]);
 
@@ -73,7 +73,7 @@ describe('StackingERC20 Contract', () => {
       erc20Factory.deploy('9') as Promise<FakeERC20>,
     ]);
 
-    staking = await stackingFactory.deploy(stakingToken.address, rewardToken.address, '0') as StakingERC20;
+    staking = await stackingFactory.deploy(stakingToken.address, rewardToken.address, '0') as StakingERC20WithETH;
   });
 
   it('Should have been deployed correctly', async () => {
@@ -231,7 +231,7 @@ describe('StackingERC20 Contract', () => {
       const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
       const before = await getInfo(staking, userA.address);
       
-      const tx = await staking.distribute_eth({ value: BigNumber.from(10**9) });
+      const tx = await staking.distribute_eth({ value: BigNumber.from(100) });
       
       const afterBalance = await stakingToken.balanceOf(owner);
       const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
@@ -244,7 +244,7 @@ describe('StackingERC20 Contract', () => {
       expect(stakingAfterBalance).to.be.equal(100);
 
       expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
-        BigNumber.from(10**9),
+        BigNumber.from(100),
       );
       
       expect(before.totalStake).to.be.equal(100);
@@ -254,11 +254,23 @@ describe('StackingERC20 Contract', () => {
       expect(after.userTotalStake).to.be.equal(100);
 
       expect(before.userEthReward).to.be.equal(0);
-      expect(after.userEthReward).to.be.equal(10**9);
+      expect(after.userEthReward).to.be.equal(100);
 
       expect(before.userTokenReward).to.be.equal(0);
       expect(after.userTokenReward).to.be.equal(0);
 
+    });
+
+    it('Should be able to forward wrongfully sent reward tokens', async () => {
+
+      await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
+
+      await rewardToken.transfer(staking.address, BigNumber.from(200));
+      const tx = await staking.forward();
+
+      expect(tx).to.have.emit(staking, 'ProfitToken').withArgs(
+        BigNumber.from(200),
+      );
     });
 
 

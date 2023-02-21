@@ -7,8 +7,7 @@ import { solidity } from 'ethereum-waffle';
 import { FakeERC20 } from '../typechain/FakeERC20';
 import { FakeERC721 } from '../typechain/FakeERC721';
 import { MockTrader } from '../typechain/MockTrader';
-import { StakingERC20 } from '../typechain/StakingERC20';
-import { StakingERC721 } from '../typechain/StakingERC721';
+import { StakingERC20WithETH as StakingERC20 } from '../typechain/StakingERC20WithETH';
 import { TestAmplesenseVault } from '../typechain/TestAmplesenseVault';
 import { FakeAMPL } from '../typechain/FakeAMPL';
 
@@ -21,7 +20,6 @@ const zeroAddress = '0x0000000000000000000000000000000000000000';
 async function getInfo(vault: TestAmplesenseVault, account: string) {
   // Promise.all can handle only 10 promise max
   const [
-    pioneer_vault1,
     pioneer_vault2,
     pioneer_vault3,
     staking_pool,
@@ -32,7 +30,6 @@ async function getInfo(vault: TestAmplesenseVault, account: string) {
     last_positive,
     accountTotalStaked,
   ] = await Promise.all([
-    vault.pioneer_vault1(),
     vault.pioneer_vault2(),
     vault.pioneer_vault3(),
     vault.staking_pool(),
@@ -59,7 +56,6 @@ async function getInfo(vault: TestAmplesenseVault, account: string) {
   ]);
 
   return {
-    pioneer_vault1,
     pioneer_vault2,
     pioneer_vault3,
     staking_pool,
@@ -90,8 +86,6 @@ describe('AmplesenseVault Contract', () => {
   let kmplToken: FakeERC20;
   let eefiToken: FakeERC20;
   
-  let pioneer1 : StakingERC721;
-  
   let pioneer2 : StakingERC20;
   let pioneer3 : StakingERC20;
   
@@ -106,8 +100,7 @@ describe('AmplesenseVault Contract', () => {
     const erc20Factory = await ethers.getContractFactory('FakeERC20');
     const erc721Factory = await ethers.getContractFactory('FakeERC721');
     const vaultFactory = await ethers.getContractFactory('TestAmplesenseVault');
-    const stakingerc20Factory = await ethers.getContractFactory('StakingERC20');
-    const stakingerc721Factory = await ethers.getContractFactory('StakingERC721');
+    const stakingerc20Factory = await ethers.getContractFactory('StakingERC20WithETH');
     const traderFactory = await ethers.getContractFactory('MockTrader');
     const amplFactory = await ethers.getContractFactory('FakeAMPL');
 
@@ -125,8 +118,6 @@ describe('AmplesenseVault Contract', () => {
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt('FakeERC20', eefiTokenAddress) as FakeERC20;
     
-    
-    pioneer1 = await stakingerc721Factory.deploy(nft1.address, nft2.address, amplToken.address) as StakingERC721;
     pioneer2 = await stakingerc20Factory.deploy(kmplToken.address, eefiTokenAddress, 9) as StakingERC20;
     pioneer3 = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
     staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
@@ -139,7 +130,6 @@ describe('AmplesenseVault Contract', () => {
 
     const deployBlock = await ethers.provider.getBlock(vault.deployTransaction.blockHash!);
 
-    expect(info.pioneer_vault1).to.be.equal(zeroAddress);
     expect(info.pioneer_vault2).to.be.equal(zeroAddress);
     expect(info.pioneer_vault3).to.be.equal(zeroAddress);
     expect(info.staking_pool).to.be.equal(zeroAddress);
@@ -164,14 +154,13 @@ describe('AmplesenseVault Contract', () => {
   describe('Require initialization', async() => {
 
     beforeEach(async () => {
-      await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, treasury);
+      await vault.initialize(pioneer2.address, pioneer3.address, staking_pool.address, treasury);
     });
 
     describe('initialize()', () => {
       it('should be initialized correctly', async () => {
         const info = await getInfo(vault, owner);
 
-        expect(info.pioneer_vault1).to.be.equal(pioneer1.address);
         expect(info.pioneer_vault2).to.be.equal(pioneer2.address);
         expect(info.pioneer_vault3).to.be.equal(pioneer3.address);
         expect(info.staking_pool).to.be.equal(staking_pool.address);
@@ -184,7 +173,6 @@ describe('AmplesenseVault Contract', () => {
       it('should be initialized only once', async () => {
         await expect(
           vault.initialize(
-            pioneer1.address,
             pioneer2.address,
             pioneer3.address,
             staking_pool.address,
@@ -218,6 +206,7 @@ describe('AmplesenseVault Contract', () => {
         await amplToken.increaseAllowance(vault.address, 10**9);
         await kmplToken.increaseAllowance(pioneer2.address, 10**9);
         await pioneer2.stake(10**9, '0x');
+        const wamplDeposit = deposit.mul(await vault.MAX_WAMPL_SUPPLY()).div(await amplToken.totalSupply())
         const tx = await vault.makeDeposit(deposit);
 
         const afterInfo = await getInfo(vault, owner);
@@ -235,11 +224,11 @@ describe('AmplesenseVault Contract', () => {
         expect(beforeOwnerPioneer2Reward.__token).to.be.equal(0);
         expect(beforeOwnerEefiBalance).to.be.equal(0);
 
-        expect(afterInfo.accountTotalStaked).to.be.equal(deposit);
+        expect(afterInfo.accountTotalStaked).to.be.equal(wamplDeposit);
         expect(afterInfo.accountBalance).to.be.equal(deposit);
 
-        expect(afterOwnerEthReward).to.be.equal(deposit);
-        expect(afterOwnerEefiReward).to.be.equal(deposit);
+        expect(afterOwnerEthReward).to.be.equal(wamplDeposit);
+        expect(afterOwnerEefiReward).to.be.equal(wamplDeposit);
 
         expect(afterOwnerPioneer2Reward.__token).to.be.equal(fee);
         expect(afterOwnerEefiBalance).to.be.equal(BigNumber.from(10**9 / 10**4 * 10**9).sub(fee));
@@ -319,13 +308,14 @@ describe('AmplesenseVault Contract', () => {
         expect(before.accountRewardEth).to.be.equal(0);
         expect(before.totalRewardToken).to.be.equal(0);
         expect(before.totalRewardEth).to.be.equal(0);
-        expect(before.totalStaked).to.be.equal(10**9);
+        const wamplDeposit = BigNumber.from(10**9).mul(await vault.MAX_WAMPL_SUPPLY()).div(await amplToken.totalSupply())
+        expect(before.totalStaked).to.be.equal(wamplDeposit);
 
         expect(after.accountRewardToken).to.be.equal(to_rewards);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
         expect(after.totalRewardEth).to.be.equal(45000000000000);
-        expect(after.totalStaked).to.be.equal(10**9);
+        expect(after.totalStaked).to.be.equal(wamplDeposit);
       });
 
       it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
@@ -348,13 +338,13 @@ describe('AmplesenseVault Contract', () => {
         expect(before.accountRewardEth).to.be.equal(0);
         expect(before.totalRewardToken).to.be.equal(0);
         expect(before.totalRewardEth).to.be.equal(0);
-        expect(before.totalStaked).to.be.equal(10**9);
+        expect(before.totalStaked).to.be.equal("200000000000");
 
         expect(after.accountRewardToken).to.be.closeTo(to_rewards as any, 10**9);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
         expect(after.totalRewardEth).to.be.closeTo(to_rewards as any, 10**9);
-        expect(after.totalStaked).to.be.equal(10**9);
+        expect(after.totalStaked).to.be.equal("200000000000");
 
         //other distribution detail tests are done in the previous test
       });
@@ -396,7 +386,6 @@ describe('AmplesenseVault Contract', () => {
 
         const for_eefi = surplus.mul(TRADE_POSITIVE_EEFI_100).div(100);
         const for_eth = surplus.mul(TRADE_POSITIVE_ETH_100).div(100);
-        const for_pioneer1 = surplus.mul(TRADE_POSITIVE_PIONEER1_100).div(100);
 
         // check how much eefi & eth the mock trader is supposed to send for the for_eefi & for_eth ampl
         const boughEEFI = for_eefi.mul(TRADER_RATIO_EEFI.div(10**10)).div(10**8);
@@ -422,7 +411,6 @@ describe('AmplesenseVault Contract', () => {
         expect(tx).to.emit(balancerTrader, 'Sale_ETH').withArgs(20000, 20000);
 
         expect(tx).to.emit(vault, 'Burn').withArgs(toBurn);
-        expect(tx).to.emit(pioneer1, 'ReceivedToken').withArgs(for_pioneer1);
 
         // pioneer2 and staking pool should get eth
         expect(tx).to.emit(pioneer2, 'ProfitEth').withArgs(expectedEthProfit);
@@ -475,15 +463,15 @@ describe('AmplesenseVault Contract', () => {
         const tx = await vault.withdraw(totalStakedFor.sub(1000));
         const tx2 = await vault.withdraw(1000);
 
-        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '999999000', 1);
-        expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '1000', 0);
+        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '999999995', 1);
+        expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '5', 0);
       });
 
       it('unstaking of AMPL shall fail if higher than claimable AMPL', async () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
+        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Insufficient AMPL balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {
@@ -499,7 +487,6 @@ describe('AmplesenseVault Contract', () => {
         const tx2 = await vault.withdrawAMPL(1000, 1000);
 
         const after = await amplToken.balanceOf(owner);
-        console.log(""+after.sub(before));
 
         expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '999999000', 1);
         expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '1000', 0);
@@ -547,10 +534,10 @@ describe('AmplesenseVault Contract', () => {
         
         const after = await getInfo(vault, owner);
 
-        expect(before.accountRewardEth).to.be.equal(9000000);
+        expect(before.accountRewardEth).to.be.equal(8000000);
         expect(before.accountRewardToken).to.be.equal(BigNumber.from("450000000000000000"));
 
-        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 9000000, BigNumber.from("450000000000000000"));
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 8000000, BigNumber.from("450000000000000000"));
 
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.accountRewardToken).to.be.equal(0);

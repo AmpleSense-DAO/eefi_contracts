@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: NONE
-pragma solidity ^0.7.0;
+pragma solidity 0.8.4;
 
 import 'uFragments/contracts/UFragments.sol';
 

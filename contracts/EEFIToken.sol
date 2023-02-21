@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: NONE
 pragma solidity 0.7.6;
 
-import '@openzeppelin/contracts/access/Ownable.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
 
 //Note: Only the Amplesense vault contract (AmplesenseVault.sol) is authorized to mint or burn EEFI 
