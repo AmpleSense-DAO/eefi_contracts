@@ -1,11 +1,11 @@
 /*  This script performs the following functions: 
-1. Performs the rebase call for the AmpleSenseVault (determines whether EEFI is minted, or purchased and burned)
+1. Performs the rebase call for the ElasticVault (determines whether EEFI is minted, or purchased and burned)
 2. Calculates slippage arguments for trades
 3. Has several fail-safes, including reverts if the transation will require too much gas (.env.MAX_GAS_PRICE) using Fast gas price. 
-4. This script utilizes the wallet approved to call the rebase function by the AmpleSenseVault contract
+4. This script utilizes the wallet approved to call the rebase function by the ElasticVault contract
 */
 
-import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { ElasticVault } from "../typechain/ElasticVault";
 import { BalancerTrader } from "../typechain/BalancerTrader"
 import { UFragments } from "../typechain/UFragments";
 import { BalancerSDK, BalancerSdkConfig, Network, SwapType, BatchSwapStep } from '@balancer-labs/sdk';
@@ -14,7 +14,7 @@ import { config as dotenvConfig } from "dotenv";
 import {BigNumber, ethers, Wallet} from "ethers";
 const balancerTraderJson = require("../artifacts/contracts/interfaces/IBalancerTrader.sol/IBalancerTrader.json");
 const fragmentsJson = require("../artifacts/uFragments/contracts/UFragments.sol/UFragments.json");
-const amplesensevaultJson = require("../artifacts/contracts/AmplesenseVault.sol/AmplesenseVault.json");
+const ElasticVaultJson = require("../artifacts/contracts/ElasticVault.sol/ElasticVault.json");
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
@@ -143,7 +143,7 @@ async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,Big
   }
 }
 
-async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseVault) : Promise<boolean> {
+async function rebase(expectedEEFI : any, expectedETH : any, vault : ElasticVault) : Promise<boolean> {
   let gasPriceFast = 0;
   let gasMax = parseFloat(MAX_GAS_PRICE!);
   while(gasPriceFast == 0 || gasPriceFast > gasMax)
@@ -187,7 +187,7 @@ async function waitRebase() {
 }
 
 async function main() {
-  const vault = new ethers.Contract("0x5f9A579C795e665Fb00032523140e386Edcb99ee", amplesensevaultJson.abi, signer) as unknown as AmplesenseVault;
+  const vault = new ethers.Contract("0x5f9A579C795e665Fb00032523140e386Edcb99ee", ElasticVaultJson.abi, signer) as unknown as ElasticVault;
   const amplToken = await new ethers.Contract("0xd46ba6d942050d489dbd938a2c909a5d5039a161", fragmentsJson.abi, signer) as unknown as UFragments;
 
   while(true) {

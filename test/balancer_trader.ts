@@ -7,7 +7,7 @@ import { formatBytes32String } from 'ethers/lib/utils';
 
 import { FakeERC20 } from '../typechain/FakeERC20';
 import { BalancerTrader } from '../typechain/BalancerTrader';
-import { TestAmplesenseVault } from "../typechain/TestAmplesenseVault";
+import { TestElasticVault } from "../typechain/TestElasticVault";
 import { EEFIToken } from "../typechain/EEFIToken";
 import { WeightedPool2TokensFactory } from "../typechain/WeightedPool2TokensFactory";
 import { WeightedPool2Tokens } from "../typechain/WeightedPool2Tokens";
@@ -47,7 +47,7 @@ describe('BalancerTrader Contract', () => {
       ethers.getSigners(),
     ]);
 
-    const vault = await deploy("TestAmplesenseVault",ampl_address) as TestAmplesenseVault;
+    const vault = await deploy("TestElasticVault",ampl_address) as TestElasticVault;
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
 

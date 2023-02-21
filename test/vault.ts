@@ -8,7 +8,7 @@ import { FakeERC20 } from '../typechain/FakeERC20';
 import { FakeERC721 } from '../typechain/FakeERC721';
 import { MockTrader } from '../typechain/MockTrader';
 import { StakingERC20WithETH as StakingERC20 } from '../typechain/StakingERC20WithETH';
-import { TestAmplesenseVault } from '../typechain/TestAmplesenseVault';
+import { TestElasticVault } from '../typechain/TestElasticVault';
 import { FakeAMPL } from '../typechain/FakeAMPL';
 
 chai.use(solidity);
@@ -17,7 +17,7 @@ const { expect } = chai;
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
-async function getInfo(vault: TestAmplesenseVault, account: string) {
+async function getInfo(vault: TestElasticVault, account: string) {
   // Promise.all can handle only 10 promise max
   const [
     pioneer_vault2,
@@ -76,8 +76,8 @@ async function getInfo(vault: TestAmplesenseVault, account: string) {
 }
 
 
-describe('AmplesenseVault Contract', () => {
-  let vault : TestAmplesenseVault;
+describe('ElasticVault Contract', () => {
+  let vault : TestElasticVault;
 
   let owner : string;
   let treasury : string;
@@ -99,7 +99,7 @@ describe('AmplesenseVault Contract', () => {
   beforeEach(async () => {
     const erc20Factory = await ethers.getContractFactory('FakeERC20');
     const erc721Factory = await ethers.getContractFactory('FakeERC721');
-    const vaultFactory = await ethers.getContractFactory('TestAmplesenseVault');
+    const vaultFactory = await ethers.getContractFactory('TestElasticVault');
     const stakingerc20Factory = await ethers.getContractFactory('StakingERC20WithETH');
     const traderFactory = await ethers.getContractFactory('MockTrader');
     const amplFactory = await ethers.getContractFactory('FakeAMPL');
@@ -113,7 +113,7 @@ describe('AmplesenseVault Contract', () => {
     nft1 = await erc721Factory.deploy() as FakeERC721;
     nft2 = await erc721Factory.deploy() as FakeERC721;
     
-    vault = await vaultFactory.deploy(amplToken.address) as TestAmplesenseVault;
+    vault = await vaultFactory.deploy(amplToken.address) as TestElasticVault;
     
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt('FakeERC20', eefiTokenAddress) as FakeERC20;
@@ -178,7 +178,7 @@ describe('AmplesenseVault Contract', () => {
             staking_pool.address,
             treasury
           )
-        ).to.be.revertedWith('AmplesenseVault: contract already initialized');
+        ).to.be.revertedWith('ElasticVault: contract already initialized');
       });
     });
 
@@ -239,7 +239,7 @@ describe('AmplesenseVault Contract', () => {
 
       it('should revert if trader is the zero address', async () => {
         await expect(vault.setTrader(zeroAddress)).to.be.
-          revertedWith('AmplesenseVault: invalid trader');
+          revertedWith('ElasticVault: invalid trader');
       });
 
       it('should correctly set the trader', async () => {
@@ -445,12 +445,12 @@ describe('AmplesenseVault Contract', () => {
   
       it('unstaking of shares shall fail if higher than balance', async () => {
         const totalStakedFor = await vault.totalStakedFor(owner);
-        await expect(vault.withdraw(totalStakedFor.add(1))).to.be.revertedWith('AmplesenseVault: Not enough balance');
+        await expect(vault.withdraw(totalStakedFor.add(1))).to.be.revertedWith('ElasticVault: Not enough balance');
       });
   
       it('unstaking of shares shall fail if not enough time has passed since timelocked tokens', async () => {
         const totalStakedFor = await vault.totalStakedFor(owner);
-        await expect(vault.withdraw(totalStakedFor)).to.be.revertedWith('AmplesenseVault: No unlocked deposits found');
+        await expect(vault.withdraw(totalStakedFor)).to.be.revertedWith('ElasticVault: No unlocked deposits found');
       });
   
       it('unstaking of shares shall work with correct balance and 90 days passed since staking', async () => {
@@ -471,7 +471,7 @@ describe('AmplesenseVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('AmplesenseVault: Insufficient AMPL balance');
+        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('ElasticVault: Insufficient AMPL balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {

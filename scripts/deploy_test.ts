@@ -1,5 +1,5 @@
 const hre = require("hardhat");
-import { TestAmplesenseVault } from "../typechain/TestAmplesenseVault";
+import { TestElasticVault } from "../typechain/TestElasticVault";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
 import { EEFIToken } from "../typechain/EEFIToken";
@@ -9,7 +9,7 @@ import { deployTokens } from "./utils/deploy_tokens";
 async function main() {
   const accounts = await hre.ethers.getSigners();
 
-  const vaultFactory = await hre.ethers.getContractFactory("TestAmplesenseVault");
+  const vaultFactory = await hre.ethers.getContractFactory("TestElasticVault");
   const stakingerc20Factory = await hre.ethers.getContractFactory("StakingERC20");
   const stakingerc721Factory = await hre.ethers.getContractFactory("Pioneer1Vault");
   const traderFactory = await hre.ethers.getContractFactory("MockTrader");
@@ -20,7 +20,7 @@ async function main() {
 
   const tokens = await deployTokens();
 
-  let vault = await vaultFactory.deploy(tokens.ampl.address) as TestAmplesenseVault;
+  let vault = await vaultFactory.deploy(tokens.ampl.address) as TestElasticVault;
 
   let eefiTokenAddress = await vault.eefi_token();
   let eefiToken = await hre.ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;

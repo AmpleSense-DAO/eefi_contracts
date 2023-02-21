@@ -11,7 +11,7 @@ import './interfaces/IBalancerTrader.sol';
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
 
-contract AmplesenseVault is AMPLRebaser, Wrapper, Ownable {
+contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -143,7 +143,7 @@ Event Definitions:
     function initialize(IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external
     onlyOwner() 
     {
-        require(address(staking_pool) == address(0), "AmplesenseVault: contract already initialized");
+        require(address(staking_pool) == address(0), "ElasticVault: contract already initialized");
         pioneer_vault2 = _pioneer_vault2;
         pioneer_vault3 = _pioneer_vault3;
         staking_pool = _staking_pool;
@@ -157,7 +157,7 @@ Event Definitions:
         @param _trader Address of the trader contract
     */
     function setTrader(IBalancerTrader _trader) external onlyOwner() {
-        require(address(_trader) != address(0), "AmplesenseVault: invalid trader");
+        require(address(_trader) != address(0), "ElasticVault: invalid trader");
         trader = _trader;
     }
 
@@ -194,11 +194,11 @@ Event Definitions:
         @param minimal_expected_amount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
     function withdrawAMPL(uint256 amount, uint256 minimal_expected_amount) external {
-        require(minimal_expected_amount > 0, "AmplesenseVault: Minimal expected amount must be higher than zero");
-        require(minimal_expected_amount <= amount, "AmplesenseVault: Minimal expected amount must be lower or equal to amount");
+        require(minimal_expected_amount > 0, "ElasticVault: Minimal expected amount must be higher than zero");
+        require(minimal_expected_amount <= amount, "ElasticVault: Minimal expected amount must be lower or equal to amount");
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         uint256 total_staked_user_ampl = _wampleToAmple(total_staked_user);
-        require(amount <= total_staked_user_ampl, "AmplesenseVault: Insufficient AMPL balance");
+        require(amount <= total_staked_user_ampl, "ElasticVault: Insufficient AMPL balance");
         // compute the amount of wampl that we need to unstake to get the amount of AMPL
         uint256 share_wampl = amount.mul(10**9).divDown(total_staked_user_ampl).mul(total_staked_user).divDown(10**9);
         // compute the minimal amount of wampl to unstake to reach minimal expected amount
@@ -211,7 +211,7 @@ Event Definitions:
             if(deposit.timestamp > block.timestamp.sub(LOCK_TIME)) {
                 //we used all withdrawable chunks
                 //if we havent reached the minimal_shares_wampl, we throw an error
-                require(to_withdraw <= share_wampl.sub(minimal_shares_wampl), "AmplesenseVault: No unlocked deposits found");
+                require(to_withdraw <= share_wampl.sub(minimal_shares_wampl), "ElasticVault: No unlocked deposits found");
                 break; // exit the loop
             }
             if(deposit.amount > to_withdraw) {
@@ -242,13 +242,13 @@ Event Definitions:
     */
     function withdraw(uint256 amount) public {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
-        require(amount <= total_staked_user, "AmplesenseVault: Not enough balance");
+        require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
             DepositChunk storage deposit = _deposits[msg.sender][0];
-            require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "AmplesenseVault: No unlocked deposits found");
+            require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
             if(deposit.amount > to_withdraw) {
                 deposit.amount = deposit.amount.sub(to_withdraw);
                 to_withdraw = 0;
@@ -274,7 +274,7 @@ Event Definitions:
         if(new_supply > old_supply) {
             // This is a positive AMPL rebase and initates trading and distribuition of AMPL according to parameters (see parameters definitions)
             last_positive = block.timestamp;
-            require(address(trader) != address(0), "AmplesenseVault: trader not set");
+            require(address(trader) != address(0), "ElasticVault: trader not set");
 
             uint256 changeRatio18Digits = old_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));

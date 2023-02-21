@@ -1,6 +1,6 @@
 # Amplesense Vault contracts
 
-## AmplesenseVault.sol
+## ElasticVault.sol
 The main amplesense vault allowing users to stake AMPL and earn rewards in EEFI and ETH.
 
 The value is generated during every phase of the AMPL rebase cycle: positive, negative and neutral (equilibrium) rebases. 
@@ -21,7 +21,7 @@ We use the Distribute contract to handle ETH and EEFI rewards pools and their co
 
 ## EEFIToken.sol
 
-This is a simple erc20 token contract. Note that the token can be minted and burned. The AmplesenseVault.sol token is the only authorized minter and burner of EEFI. 
+This is a simple erc20 token contract. Note that the token can be minted and burned. The ElasticVault.sol token is the only authorized minter and burner of EEFI. 
 
 ## Pioneer1Vault.sol
 
@@ -29,7 +29,7 @@ This contract allows users to stake the already deployed NFT ANFT and ZNFT token
 
 It inherits from StakingERC721 to grant NFT staking capabilities and computing rewards, as well as from AMPLRebaser to add a rebase function selling the AMPL for ETH.
 
-The contract will only sell excess AMPL for ETH when the amount of AMPL in the contract exceeds 40,000 AMPL. The AmplesenseVault.sol contract deposits a small portion of new AMPL supply (2%) into the staking contract. Once deposited, AMPL cannot be removed from the vault. Additional AMPL can be added to the vault by third-party wallets. Stakers can remove their NFTs at any time. 
+The contract will only sell excess AMPL for ETH when the amount of AMPL in the contract exceeds 40,000 AMPL. The ElasticVault.sol contract deposits a small portion of new AMPL supply (2%) into the staking contract. Once deposited, AMPL cannot be removed from the vault. Additional AMPL can be added to the vault by third-party wallets. Stakers can remove their NFTs at any time. 
 
 ## StakingERC20.sol
 
