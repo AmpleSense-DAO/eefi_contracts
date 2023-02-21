@@ -206,7 +206,7 @@ describe('ElasticVault Contract', () => {
         await amplToken.increaseAllowance(vault.address, 10**9);
         await kmplToken.increaseAllowance(pioneer2.address, 10**9);
         await pioneer2.stake(10**9, '0x');
-        const wamplDeposit = deposit.mul(await vault.MAX_WAMPL_SUPPLY()).div(await amplToken.totalSupply())
+        const waamplDeposit = deposit.mul(await vault.MAX_waampl_SUPPLY()).div(await amplToken.totalSupply())
         const tx = await vault.makeDeposit(deposit);
 
         const afterInfo = await getInfo(vault, owner);
@@ -224,11 +224,11 @@ describe('ElasticVault Contract', () => {
         expect(beforeOwnerPioneer2Reward.__token).to.be.equal(0);
         expect(beforeOwnerEefiBalance).to.be.equal(0);
 
-        expect(afterInfo.accountTotalStaked).to.be.equal(wamplDeposit);
+        expect(afterInfo.accountTotalStaked).to.be.equal(waamplDeposit);
         expect(afterInfo.accountBalance).to.be.equal(deposit);
 
-        expect(afterOwnerEthReward).to.be.equal(wamplDeposit);
-        expect(afterOwnerEefiReward).to.be.equal(wamplDeposit);
+        expect(afterOwnerEthReward).to.be.equal(waamplDeposit);
+        expect(afterOwnerEefiReward).to.be.equal(waamplDeposit);
 
         expect(afterOwnerPioneer2Reward.__token).to.be.equal(fee);
         expect(afterOwnerEefiBalance).to.be.equal(BigNumber.from(10**9 / 10**4 * 10**9).sub(fee));
@@ -308,14 +308,14 @@ describe('ElasticVault Contract', () => {
         expect(before.accountRewardEth).to.be.equal(0);
         expect(before.totalRewardToken).to.be.equal(0);
         expect(before.totalRewardEth).to.be.equal(0);
-        const wamplDeposit = BigNumber.from(10**9).mul(await vault.MAX_WAMPL_SUPPLY()).div(await amplToken.totalSupply())
-        expect(before.totalStaked).to.be.equal(wamplDeposit);
+        const waamplDeposit = BigNumber.from(10**9).mul(await vault.MAX_waampl_SUPPLY()).div(await amplToken.totalSupply())
+        expect(before.totalStaked).to.be.equal(waamplDeposit);
 
         expect(after.accountRewardToken).to.be.equal(to_rewards);
         expect(after.accountRewardEth).to.be.equal(0);
         expect(after.totalRewardToken).to.be.equal(0);
         expect(after.totalRewardEth).to.be.equal(45000000000000);
-        expect(after.totalStaked).to.be.equal(wamplDeposit);
+        expect(after.totalStaked).to.be.equal(waamplDeposit);
       });
 
       it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
@@ -471,7 +471,7 @@ describe('ElasticVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('ElasticVault: Insufficient AMPL balance');
+        await expect(vault.withdrawaampl(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('ElasticVault: Insufficient AMPL balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {
@@ -483,8 +483,8 @@ describe('ElasticVault Contract', () => {
 
         const before = await amplToken.balanceOf(owner);
 
-        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000), totalClaimableAMPLFor.sub(1000));
-        const tx2 = await vault.withdrawAMPL(1000, 1000);
+        const tx = await vault.withdrawaampl(totalClaimableAMPLFor.sub(1000), totalClaimableAMPLFor.sub(1000));
+        const tx2 = await vault.withdrawaampl(1000, 1000);
 
         const after = await amplToken.balanceOf(owner);
 
