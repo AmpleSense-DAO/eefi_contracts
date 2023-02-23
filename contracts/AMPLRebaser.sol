@@ -30,16 +30,16 @@ abstract contract AMPLRebaser is AccessControl {
         _setRoleAdmin(REBASER_ROLE, DEFAULT_ADMIN_ROLE);
     }
 
-    function rebase(uint256 minimalExpectedEEFI, uint256 minimalExpectedETH) external {
+    function rebase(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external {
         require(hasRole(REBASER_ROLE, msg.sender), "AMPLRebaser: rebase can only be called by the REBASE manager");
         //require timestamp to exceed 24 hours in order to execute function; tested to ensure call is not manipulable by sending ampl
         require(block.timestamp - 24 hours > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
         last_rebase_call = block.timestamp;
         uint256 new_supply = ampl_token.totalSupply();
-        _rebase(last_ampl_supply, new_supply, minimalExpectedEEFI, minimalExpectedETH);
+        _rebase(last_ampl_supply, new_supply, minimalExpectedEEFI, minimalExpectedOHM);
         emit Rebase(last_ampl_supply, new_supply);
         last_ampl_supply = new_supply;
     }
 
-    function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedETH) internal virtual;
+    function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) internal virtual;
 }
