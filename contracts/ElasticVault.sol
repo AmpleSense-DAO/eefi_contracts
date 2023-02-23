@@ -21,9 +21,10 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     IBalancerTrader public trader;
     EEFIToken public eefi_token;
     Distribute immutable public rewards_eefi;
-    Distribute immutable public rewards_eth;
+    Distribute immutable public rewards_ohm;
     address payable treasury;
     uint256 public last_positive = block.timestamp;
+    IERC20 public constant ohmToken = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
 /* 
 
 Parameter Definitions: 
@@ -34,7 +35,7 @@ Parameter Definitions:
 - Deposit FEE_10000: .65% of EEFI minted to user upon initial deposit is delivered to kMPL Stakers 
 - Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
 - Trade Posiitve EEFI_100: Upon positive rebase 48% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
-- Trade Positive ETH_100: Upon positive rebase 20% of the new AMPL supply (based on total AMPL in vault) is sold for ETH
+- Trade Positive OHM_100: Upon positive rebase 20% of the new AMPL supply (based on total AMPL in vault) is sold for OHM
 - Trade Positive Pioneer1_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers)
 - Trade Positive Rewards_100: Upon positive rebase, send 45% of ETH rewards to users staking AMPL in vault 
 - Trade Positive Pioneer2_100: Upon positive rebase, send 10% of ETH rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers)
@@ -52,7 +53,7 @@ Parameter Definitions:
     uint256 constant public DEPOSIT_FEE_10000 = 65;
     uint256 constant public LOCK_TIME = 90 days;
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 48;
-    uint256 constant public TRADE_POSITIVE_ETH_100 = 20;
+    uint256 constant public TRADE_POSITIVE_OHM_100 = 20;
     uint256 constant public TRADE_POSITIVE_PIONEER1_100 = 2;
     uint256 constant public TRADE_POSITIVE_REWARDS_100 = 45;
     uint256 constant public TRADE_POSITIVE_PIONEER2_100 = 10;
@@ -85,14 +86,14 @@ Event Definitions:
 
     mapping(address => DepositChunk[]) private _deposits;
     
-// Only contract can mint new EEFI, and distribute ETH and EEFI rewards     
+// Only contract can mint new EEFI, and distribute OHM and EEFI rewards     
     constructor(IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Wrapper(ampl_token)
     Ownable() {
         eefi_token = new EEFIToken();
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
-        rewards_eth = new Distribute(9, IERC20(0));
+        rewards_ohm = new Distribute(9, ohmToken);
     }
 
     receive() external payable { }
@@ -137,15 +138,15 @@ Event Definitions:
         @dev Called only once by the owner; this function sets up the vaults
         @param _pioneer_vault2 Address of the pioneer2 vault (kMPL staker vault)
         @param _pioneer_vault3 Address of the pioneer3 vault (kMPL/ETH LP token staking vault) 
-        @param _staking_pool Address of the LP staking pool (EEFI/ETH LP token staking pool)
+        @param _staking_pool Address of the LP staking pool (EEFI/OHM LP token staking pool)
         @param _treasury Address of the treasury (Address of Amplesense DAO Treasury)
     */
     function initialize(IStakingERC20 _pioneer_vault2, IStakingERC20 _pioneer_vault3, IStakingERC20 _staking_pool, address payable _treasury) external
     onlyOwner() 
     {
-        require(address(staking_pool) == address(0), "ElasticVault: contract already initialized");
-        pioneer_vault2 = _pioneer_vault2;
-        pioneer_vault3 = _pioneer_vault3;
+        require(address(treasury) == address(0), "ElasticVault: contract already initialized");
+        // pioneer_vault2 = _pioneer_vault2;
+        // pioneer_vault3 = _pioneer_vault3;
         staking_pool = _staking_pool;
         treasury = _treasury;
         eefi_token.mint(treasury, INITIAL_MINT);
@@ -153,7 +154,7 @@ Event Definitions:
 
     /**
         @dev Contract owner can set and replace the contract used
-        for trading AMPL, ETH and EEFI - Note: this is the only admin permission on the vault and is included to account for changes in future AMPL liqudity distribution and does not impact EEFI minting or provide access to user funds or rewards)
+        for trading AMPL, OHM and EEFI - Note: this is the only admin permission on the vault and is included to account for changes in future AMPL liqudity distribution and does not impact EEFI minting or provide access to user funds or rewards)
         @param _trader Address of the trader contract
     */
     function setTrader(IBalancerTrader _trader) external onlyOwner() {
@@ -182,9 +183,9 @@ Event Definitions:
         
         // stake the shares also in the rewards pool
         rewards_eefi.stakeFor(msg.sender, waampl);
-        rewards_eth.stakeFor(msg.sender, waampl);
+        rewards_ohm.stakeFor(msg.sender, waampl);
         emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
-        emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
+        emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 
     /**
@@ -193,7 +194,7 @@ Event Definitions:
         @param amount Amount of AMPL to withdraw
         @param minimal_expected_amount Minimal amount of AMPL to withdraw if a rebase occurs before the transaction processes
     */
-    function withdrawaampl(uint256 amount, uint256 minimal_expected_amount) external {
+    function withdrawAMPL(uint256 amount, uint256 minimal_expected_amount) external {
         require(minimal_expected_amount > 0, "ElasticVault: Minimal expected amount must be higher than zero");
         require(minimal_expected_amount <= amount, "ElasticVault: Minimal expected amount must be lower or equal to amount");
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
@@ -230,9 +231,9 @@ Event Definitions:
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount_shares_withdrawn);
-        rewards_eth.unstakeFrom(msg.sender, amount_shares_withdrawn);
+        rewards_ohm.unstakeFrom(msg.sender, amount_shares_withdrawn);
         emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
-        emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
+        emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 
     /**
@@ -263,12 +264,12 @@ Event Definitions:
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
-        rewards_eth.unstakeFrom(msg.sender, amount);
+        rewards_ohm.unstakeFrom(msg.sender, amount);
         emit Withdrawal(msg.sender, ampl_amount,_deposits[msg.sender].length);
-        emit StakeChanged(rewards_eth.totalStaked(), block.timestamp);
+        emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 //Functions called depending on AMPL rebase status
-    function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedETH) internal override {
+    function _rebase(uint256 old_supply, uint256 new_supply, uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) internal override {
         uint256 new_balance = ampl_token.balanceOf(address(this));
 
         if(new_supply > old_supply) {
@@ -280,13 +281,12 @@ Event Definitions:
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
 
             uint256 for_eefi = surplus.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
-            uint256 for_eth = surplus.mul(TRADE_POSITIVE_ETH_100).divDown(100);
-            uint256 for_pioneer1 = surplus.mul(TRADE_POSITIVE_PIONEER1_100).divDown(100);
+            uint256 for_ohm = surplus.mul(TRADE_POSITIVE_OHM_100).divDown(100);
 
             // 30% ampl remains in vault after positive rebase
             // use rebased AMPL to buy and burn eefi
             
-            ampl_token.approve(address(trader), for_eefi.add(for_eth));
+            ampl_token.approve(address(trader), for_eefi.add(for_ohm));
 
             trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
 
@@ -296,25 +296,26 @@ Event Definitions:
             uint256 to_burn = eefi_token.balanceOf(address(this));
             eefi_token.burn(to_burn);
             emit Burn(to_burn);
-            // buy eth and distribute to vaults
-            trader.sellAMPLForEth(for_eth, minimalExpectedETH);
+            // buy ohm and distribute to vaults
+            trader.sellAMPLForOHM(for_ohm, minimalExpectedOHM);
  
             uint256 to_rewards = address(this).balance.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
-            uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
-            uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
+            // uint256 to_pioneer2 = address(this).balance.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
+            // uint256 to_pioneer3 = address(this).balance.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
             uint256 to_lp_staking = address(this).balance.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
 
-            rewards_eth.distribute{value: to_rewards}(to_rewards, address(this));
-            pioneer_vault2.distribute_eth{value: to_pioneer2}();
-            pioneer_vault3.distribute_eth{value: to_pioneer3}();
-            staking_pool.distribute_eth{value: to_lp_staking}();
+            // rewards_ohm.distribute(to_rewards, address(this));
+            // pioneer_vault2.distribute_eth{value: to_pioneer2}();
+            // pioneer_vault3.distribute_eth{value: to_pioneer3}();
+            ohmToken.approve(address(staking_pool), to_lp_staking);
+            staking_pool.distribute(to_lp_staking);
 
             // distribute ampl to pioneer 1
             //ampl_token.approve(address(pioneer_vault1), for_pioneer1);
             //pioneer_vault1.distribute(for_pioneer1);
 
-            // distribute the remainder of purchased ETH (5%) to the DAO treasury
-            Address.sendValue(treasury, address(this).balance);
+            // distribute the remainder of purchased OHM (5%) to the DAO treasury
+            ohmToken.safeTransfer(treasury, ohmToken.balanceOf(address(this)));
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 90 days without positive rebase do not mint
@@ -332,19 +333,19 @@ Event Definitions:
 
 
                 uint256 to_rewards = to_mint.mul(TRADE_POSITIVE_REWARDS_100).divDown(100);
-                uint256 to_pioneer2 = to_mint.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
-                uint256 to_pioneer3 = to_mint.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
-                uint256 to_lp_staking = to_mint.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+                // uint256 to_pioneer2 = to_mint.mul(TRADE_POSITIVE_PIONEER2_100).divDown(100);
+                // uint256 to_pioneer3 = to_mint.mul(TRADE_POSITIVE_PIONEER3_100).divDown(100);
+                // uint256 to_lp_staking = to_mint.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
 
                 eefi_token.increaseAllowance(address(rewards_eefi), to_rewards);
-                eefi_token.increaseAllowance(address(pioneer_vault2.staking_contract_token()), to_pioneer2);
-                eefi_token.increaseAllowance(address(pioneer_vault3.staking_contract_token()), to_pioneer3);
-                eefi_token.increaseAllowance(address(staking_pool.staking_contract_token()), to_lp_staking);
+                // eefi_token.increaseAllowance(address(pioneer_vault2.staking_contract_token()), to_pioneer2);
+                // eefi_token.increaseAllowance(address(pioneer_vault3.staking_contract_token()), to_pioneer3);
+                // eefi_token.increaseAllowance(address(staking_pool.staking_contract_token()), to_lp_staking);
 
                 rewards_eefi.distribute(to_rewards, address(this));
-                pioneer_vault2.distribute(to_pioneer2);
-                pioneer_vault3.distribute(to_pioneer3);
-                staking_pool.distribute(to_lp_staking);
+                // pioneer_vault2.distribute(to_pioneer2);
+                // pioneer_vault3.distribute(to_pioneer3);
+                // staking_pool.distribute(to_lp_staking);
 
                 // distribute the remainder (5%) of EEFI to the treasury
                 IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
@@ -354,35 +355,35 @@ Event Definitions:
 
     function claim() external {
         (uint256 eth, uint256 token) = getReward(msg.sender);
-        rewards_eth.withdrawFrom(msg.sender, rewards_eth.totalStakedFor(msg.sender));
+        rewards_ohm.withdrawFrom(msg.sender, rewards_ohm.totalStakedFor(msg.sender));
         rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStakedFor(msg.sender));
         emit Claimed(msg.sender, eth, token);
     }
 
     /**
-        @dev Returns how much ETH and EEFI the user can withdraw currently
+        @dev Returns how much OHM and EEFI the user can withdraw currently
         @param account Address of the user to check reward for
-        @return eth the amount of ETH the account will perceive if he unstakes now
-        @return token the amount of tokens the account will perceive if he unstakes now
+        @return ohm the amount of OHM the account will perceive if he unstakes now
+        @return eefi the amount of tokens the account will perceive if he unstakes now
     */
-    function getReward(address account) public view returns (uint256 eth, uint256 token) {
-        eth = rewards_eth.getReward(account);
-        token = rewards_eefi.getReward(account);
+    function getReward(address account) public view returns (uint256 ohm, uint256 eefi) {
+        ohm = rewards_ohm.getReward(account);
+        eefi = rewards_eefi.getReward(account);
     }
 
     /**
         @return current total amount of stakes
     */
     function totalStaked() external view returns (uint256) {
-        return rewards_eth.totalStaked();
+        return rewards_eefi.totalStaked();
     }
 
     /**
-        @dev returns the total rewards stored for token and eth
+        @dev returns the total rewards stored for eefi and ohm
     */
-    function totalReward() external view returns (uint256 token, uint256 eth) {
-        token = rewards_eefi.getTotalReward();
-        eth = rewards_eth.getTotalReward();
+    function totalReward() external view returns (uint256 ohm, uint256 eefi) {
+        ohm = rewards_ohm.getTotalReward();
+        eefi = rewards_eefi.getTotalReward();
     }
 
     function _popDeposit() internal {
