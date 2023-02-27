@@ -1,4 +1,4 @@
-# Amplesense Vault contracts
+# Elastic Protocol Vault contracts
 
 ## ElasticVault.sol
 The main amplesense vault allowing users to stake AMPL and earn rewards in EEFI and ETH.
