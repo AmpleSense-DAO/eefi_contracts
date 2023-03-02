@@ -77,7 +77,7 @@ contract BalancerTrader is IBalancerTrader {
     }
 
     /**
-    * @dev Caller must transfer the right amount of tokens to the trader (USDC will be replaced with ETH)
+    * @dev Caller must transfer the right amount of tokens to the trader
     * @param amount Amount of AMPL to sell
     * @param minimalExpectedAmount The minimal expected amount of EEFI
      */
