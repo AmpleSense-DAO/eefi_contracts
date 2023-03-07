@@ -27,7 +27,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     uint256 public last_positive = block.timestamp;
     IERC20 public constant ohmToken = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     IERC20 public constant sOHMToken = IERC20(00x04F2694C8fcee23e8Fd0dfEA1d4f5Bb8c352111F); //Scale: 10**9
-    IERC20 public constant sOHMToken = IERC20(0x0ab87046fBb341D058F17CBC4c1133F25a20a52f); //Scale: 10**18
+    IERC20 public constant gOHMToken = IERC20(0x0ab87046fBb341D058F17CBC4c1133F25a20a52f); //Scale: 10**18
     
 /* 
 
