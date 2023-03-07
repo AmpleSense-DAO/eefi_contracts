@@ -90,7 +90,7 @@ const balancerAmplETHPooLAbi = [
 ]
 
 // Determine how much ETH will be acquired post-AMPL sale
-async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, ethDelta : BigNumber) : Promise<BigNumber> {
+async function computesellAMPLForOHM(amplAmount : any, amplDelta : BigNumber, ethDelta : BigNumber) : Promise<BigNumber> {
   const balancerAmplEthVault = new ethers.Contract("0xa751A143f8fe0a108800Bfb915585E4255C2FE80", balancerAmplETHPooLAbi, signer);
   const swapFee = await balancerAmplEthVault.getSwapFee();
   const weightAMPL = await balancerAmplEthVault.getDenormalizedWeight("0xD46bA6D942050d489DBd938a2C909A5d5039A161");
@@ -102,7 +102,7 @@ async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, et
   try {
     return await balancerAmplEthVault.calcOutGivenIn(balanceAMPLWithDelta, weightAMPL, balanceETHWithDelta, weightETH, amplAmount, swapFee);
   } catch(err) {
-    console.log("error computeSellAMPLForEth:", err);
+    console.log("error computesellAMPLForOHM:", err);
     return BigNumber.from("0");
   }
 }
@@ -110,7 +110,7 @@ async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, et
 //Determine how much EEFI will be acquired post ETH sale
 async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,BigNumber]> {
   console.log(`selling ${prettyAMPL(amplAmount)}`)
-  const expectedETH = await computeSellAMPLForEth(amplAmount, BigNumber.from(0), BigNumber.from(0));
+  const expectedETH = await computesellAMPLForOHM(amplAmount, BigNumber.from(0), BigNumber.from(0));
   console.log(`got ${prettyETH(expectedETH)} ETH`);
   if(expectedETH.eq(0)) {
     return [BigNumber.from("0"),BigNumber.from("0")];
@@ -228,7 +228,7 @@ async function main() {
       let [expectedEEFI, expectedETH] = await computeSellAMPLForEEFI(forEEFI);
       console.log(`expecting ${prettyETH(expectedEEFI)} EEFI for ${prettyAMPL(forEEFI)} AMPL`);
 
-      expectedETH = await computeSellAMPLForEth(forETH, forEEFI, expectedETH);
+      expectedETH = await computesellAMPLForOHM(forETH, forEEFI, expectedETH);
       console.log(`expecting ${prettyETH(expectedETH)} ETH for ${prettyAMPL(forETH)} AMPL`);
 
       if(expectedETH.gt(0) && expectedEEFI.gt(0)) {

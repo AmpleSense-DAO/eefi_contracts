@@ -96,7 +96,7 @@ describe('BalancerTrader Contract', () => {
     
   });
 
-  it('sellAMPLForEth', async () => {
+  it('sellAMPLForOHM', async () => {
     const accounts = await ethers.getSigners();
     // buy ampl
     const ampl = await ethers.getContractAt("EEFIToken", ampl_address) as EEFIToken;
@@ -106,7 +106,7 @@ describe('BalancerTrader Contract', () => {
     await router.swapETHForExactTokens("5000000000000", [wethAddress, ampl_address], accounts[0].address, 999999999999, {value: ethers.utils.parseUnits("600", "ether")});
     await ampl.approve(trader.address, "5000000000000");
     const balance = await accounts[0].getBalance();
-    await trader.sellAMPLForEth("5000000000000", 0);
+    await trader.sellAMPLForOHM("5000000000000", 0);
     const balance2 = await accounts[0].getBalance();
     const eth = ethers.utils.formatEther(balance2.sub(balance));
     expect(parseFloat(eth)).to.be.gt(1);

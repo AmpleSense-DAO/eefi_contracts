@@ -26,7 +26,7 @@ async function getInfo(vault: TestElasticVault, account: string) {
     trader,
     eefi_token,
     rewards_eefi,
-    rewards_eth,
+    rewards_ohm,
     last_positive,
     accountTotalStaked,
   ] = await Promise.all([
@@ -36,7 +36,7 @@ async function getInfo(vault: TestElasticVault, account: string) {
     vault.trader(),
     vault.eefi_token(),
     vault.rewards_eefi(),
-    vault.rewards_eth(),
+    vault.rewards_ohm(),
     vault.last_positive(),
     vault.totalStakedFor(account),
   ]);
@@ -62,7 +62,7 @@ async function getInfo(vault: TestElasticVault, account: string) {
     trader,
     eefi_token,
     rewards_eefi,
-    rewards_eth,
+    rewards_ohm,
     last_positive,
     accountTotalStaked,
     accountTotalClaimable,
@@ -137,7 +137,7 @@ describe('ElasticVault Contract', () => {
 
     expect(info.eefi_token).to.not.be.equal(zeroAddress);
     expect(info.rewards_eefi).to.not.be.equal(zeroAddress);
-    expect(info.rewards_eth).to.not.be.equal(zeroAddress);
+    expect(info.rewards_ohm).to.not.be.equal(zeroAddress);
 
     expect(info.last_positive).to.be.equal(deployBlock.timestamp);
 
@@ -195,7 +195,7 @@ describe('ElasticVault Contract', () => {
 
         const beforeInfo = await getInfo(vault, owner);
 
-        const rewardsEth = await ethers.getContractAt('Distribute', beforeInfo.rewards_eth);
+        const rewardsEth = await ethers.getContractAt('Distribute', beforeInfo.rewards_ohm);
         const rewardsEefi = await ethers.getContractAt('Distribute', beforeInfo.rewards_eefi);
 
         const beforeOwnerEthReward = await rewardsEth.totalStakedFor(owner);
@@ -471,7 +471,7 @@ describe('ElasticVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24*90]); // increase time by 90 days
         await ethers.provider.send('evm_mine', []);
         const totalClaimableAMPLFor = await vault.totalClaimableBy(owner);
-        await expect(vault.withdrawaampl(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('ElasticVault: Insufficient AMPL balance');
+        await expect(vault.withdrawAMPL(totalClaimableAMPLFor.add(1), totalClaimableAMPLFor.add(1))).to.be.revertedWith('ElasticVault: Insufficient AMPL balance');
       });
 
       it('unstaking of AMPL shall work with correct balance and 90 days passed since staking', async () => {
@@ -483,8 +483,8 @@ describe('ElasticVault Contract', () => {
 
         const before = await amplToken.balanceOf(owner);
 
-        const tx = await vault.withdrawaampl(totalClaimableAMPLFor.sub(1000), totalClaimableAMPLFor.sub(1000));
-        const tx2 = await vault.withdrawaampl(1000, 1000);
+        const tx = await vault.withdrawAMPL(totalClaimableAMPLFor.sub(1000), totalClaimableAMPLFor.sub(1000));
+        const tx2 = await vault.withdrawAMPL(1000, 1000);
 
         const after = await amplToken.balanceOf(owner);
 
