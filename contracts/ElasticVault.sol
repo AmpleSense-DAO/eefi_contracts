@@ -30,22 +30,20 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
 
 Parameter Definitions: //See updated parameters below
 
-- EEFI Deposit: Depositors receive reward of .0001 EEFI * Amount of AMPL user deposited into vault // Keep [OK]
-- EEFI Negative Rebase rate: When AMPL supply declines mint EEFI at rate of .00001 EEFI * total AMPL deposited into vault // Keep [OK]
-- EEFI Equilibrium Rebase Rate: When AMPL supply is does not change (is at equilibrium) mint EEFI at a rate of .0001 EEFI * total AMPL deposited into vault // Keep [OK]
-- Deposit FEE_10000: .65% of EEFI minted to user upon initial deposit is delivered to kMPL Stakers //Send deposit fee to Treasury [OK]
-- Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit //Keep [OK]
-- Trade Posiitve EEFI_100: Upon positive rebase 48% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI //Update to 45% [OK]
-- Trade Positive OHM_100: Upon positive rebase 20% of the new AMPL supply (based on total AMPL in vault) is sold for OHM // Update to 22%  [OK]
-- Trade Positive Pioneer1_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers) // Send 2% to Treasury [OK]
-- Trade Positive Rewards_100: Upon positive rebase, send 45% of ETH rewards to users staking AMPL in vault // Increase to 55%; Change to gOHM [OK]
-- Trade Positive Pioneer2_100: Upon positive rebase, send 10% of ETH rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers) // Remove [OK]
-- Trade Positive Pioneer3_100: Upon positive rebase, send 5% of ETH rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) // Remove [OK]
-- Trade Positive LP Staking_100: Upon positive rebase, send 35% of ETH rewards to uses staking LP tokens (EEFI/ETH) // Update to EEFI/OHM, Decrease to 30% change to gOHM [OK]
-- Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 90 days, do not mint EEFI, or distribute rewards to stakers //Update to 45 days [OK]
-- Initial MINT: Amount of EEFI that will be minted at contract deployment // Update to 170,000 tokens [OK]
-- Rebase Reward: Amount of EEFI distributed to wallet address that successfully calls rebase function (.1 EEFI per successful call distributed to caller) //Keep if we are using the Gelato integration => [There is no rebase reward in current version]
-- Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury //Keep [OK]
+- EEFI Deposit Rate: Depositors receive reward of .0001 EEFI * Amount of AMPL user deposited into vault 
+- EEFI Negative Rebase Rate: When AMPL supply declines mint EEFI at rate of .00001 EEFI * total AMPL deposited into vault 
+- EEFI Equilibrium Rebase Rate: When AMPL supply is does not change (is at equilibrium) mint EEFI at a rate of .0001 EEFI * total AMPL deposited into vault 
+- Deposit FEE_10000: .65% of EEFI minted to user upon initial deposit is delivered to Treasury 
+- Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
+- Trade Posiitve EEFI_100: Upon positive rebase 45% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
+- Trade Positive OHM_100: Upon positive rebase 22% of the new AMPL supply (based on total AMPL in vault) is sold for OHM 
+- Trade Positive Treasury_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers) // Send 2% to Treasury [OK]
+- Trade Positive Rewards_100: Upon positive rebase, send 55% of OHM rewards to users staking AMPL in vault 
+- Trade Positive LP Staking_100: Upon positive rebase, send 30% of OHM rewards to users staking LP tokens (EEFI/OHM)
+- Trade Neutral/Negative LP Taking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
+- Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, or distribute rewards to stakers 
+- Initial MINT: Amount of EEFI that will be minted at contract deployment - 170,000 tokens 
+- Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
 */
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
@@ -138,10 +136,10 @@ Event Definitions:
     /**
         @dev Called only once by the owner; this function sets up the vaults
         @param _staking_pool Address of the LP staking pool (EEFI/OHM LP token staking pool)
-        @param _treasury Address of the treasury (Address of Amplesense DAO Treasury)
+        @param _treasury Address of the treasury (Address of Elastic Finance DAO Treasury)
     */
     function initialize(IStakingERC20 _staking_pool, address payable _treasury) external
-    onlyOwner() //Remove _pioneer_vault2, _pioneer_vault3 from params here. 
+    onlyOwner() 
     {
         require(address(treasury) == address(0), "ElasticVault: contract already initialized");
         staking_pool = _staking_pool;
@@ -314,10 +312,8 @@ Event Definitions:
                 /* 
                 EEFI Reward Distribution Overview: 
 
-                - Trade_Positive_Rewards_100: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault //Updated distribution to 55%; Suggest new constant here: TRADE_NEUTRAL_NEG_REWARDS_100 [OK]
-                - Trade Positive Pioneer2_100: Upon neutral/negative rebase, send 10% of EEFI rewards to users staking kMPL in Pioneer Vault II (kMPL Stakers) --Remove [OK]
-                - Trade Positive Pioneer3_100: Upon neutral/negative rebase, send 5% of EEFI rewards to users staking in Pioneer Vault III (kMPL/ETH LP Token Stakers) --Remove [OK]
-                - Trade_Positive_LP_Staking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/OHM)  //Updated distribution to 35%; Suggest new constant here: TRADE_NEUTRAL_NEG_LP_STAKING_100 [OK]
+                - TRADE_Neutral_Neg_Rewards_100: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault 
+                - Trade_Neutral_Neg_LPStaking_100: Upon neutral/negative rebase, send 35% of EEFI rewards to uses staking LP tokens (EEFI/OHM)  
                 */
 
 
@@ -325,10 +321,10 @@ Event Definitions:
                 uint256 to_lp_staking = to_mint.mul(TRADE_NEUTRAL_NEG_LPSTAKING_100).divDown(100);
 
                 eefi_token.approve(address(rewards_eefi), to_rewards);
-                eefi_token.approve(address(staking_pool.staking_contract_token()), to_lp_staking); // NOTE: Should this still be active? LPs are still receiving rewards [OK]
+                eefi_token.approve(address(staking_pool.staking_contract_token()), to_lp_staking); 
 
                 rewards_eefi.distribute(to_rewards, address(this));
-                staking_pool.distribute(to_lp_staking); // NOTE: Should this still be active? LPs are still receiving rewards [OK]
+                staking_pool.distribute(to_lp_staking); 
 
                 // distribute the remainder (10%) of EEFI to the treasury
                 IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
@@ -336,7 +332,7 @@ Event Definitions:
         }
     }
 
-    function claim() external { //Update to either burn gOHM for OHM or allow stakers to withdraw gOHM directly [no longer relevant]
+    function claim() external { 
         (uint256 ohm, uint256 eefi) = getReward(msg.sender);
         rewards_ohm.withdrawFrom(msg.sender, rewards_ohm.totalStakedFor(msg.sender));
         rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStakedFor(msg.sender));
@@ -350,7 +346,7 @@ Event Definitions:
         @return eefi the amount of tokens the account will perceive if he unstakes now
     */
     function getReward(address account) public view returns (uint256 ohm, uint256 eefi) { 
-        ohm = rewards_ohm.getReward(account); //Change to GOHM [no longer relevant]
+        ohm = rewards_ohm.getReward(account); 
         eefi = rewards_eefi.getReward(account);
     }
 
@@ -365,7 +361,7 @@ Event Definitions:
         @dev returns the total rewards stored for eefi and ohm
     */
     function totalReward() external view returns (uint256 ohm, uint256 eefi) {
-        ohm = rewards_ohm.getTotalReward(); //Change to gOHM [no longer relevant]
+        ohm = rewards_ohm.getTotalReward(); 
         eefi = rewards_eefi.getTotalReward();
     }
 
