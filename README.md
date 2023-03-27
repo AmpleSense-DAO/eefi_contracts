@@ -1,7 +1,7 @@
 # Elastic Protocol Vault contracts
 
 ## ElasticVault.sol
-The main Elastic Vault allowing users to stake AMPL and earn rewards in EEFI and OHM.
+The main Elastic Vault which enables users to stake AMPL and earn rewards in EEFI and OHM.
 
 The vault's operations are powered by tokens deposited into it that have three distinct rebase phases: positive, negative and neutral (equilibrium).  
 
@@ -13,7 +13,7 @@ During Neutral Rebases/Equilibrium: The vault mints EEFI (based on how much AMPL
 
 During positive rebases, 70% of the new AMPL supply is automatically sold for OHM and EEFI. 90% of purchased EEFI is burned. OHM purchaed is distributed to stakers and vaults (as outlined above).  
 
-The rebase function is called after each AMPL rebase, which either mints new EEFI (and distributes it) or buys and burns EEFI, and purchaes OHM for distribution to stakers. 
+The rebase function is called after each AMPL rebase, which either mints new EEFI (and distributes it) or buys and burns EEFI, and purchases OHM for distribution to stakers. 
 
 The contract inherits from AMPLRebaser which adds the rebase public function and tracks the supply changes in AMPL to compute the percentage of currently owed AMPL tokens by the contract that is coming from AMPL rebase cycles.
 
