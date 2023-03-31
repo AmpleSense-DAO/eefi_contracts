@@ -28,7 +28,7 @@ contract Distribute is Ownable, ReentrancyGuard {
 
     uint256 public bond_value = INITIAL_BOND_VALUE;
     //just for info
-    uint256 public investor_count;
+    uint256 public staker_count;
 
     uint256 private _total_staked;
     uint256 private _temp_pool;
@@ -60,7 +60,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         require(amount > 0, "Distribute: Amount must be greater than zero");
         _total_staked = _total_staked.add(amount);
         if(_stakes[account] == 0) {
-            investor_count++;
+            staker_count++;
         }
         uint256 accumulated_reward = getReward(account);
         _stakes[account] = _stakes[account].add(amount);
@@ -82,7 +82,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         _total_staked -= amount;
         _stakes[account] -= amount;
         if(_stakes[account] == 0) {
-            investor_count--;
+            staker_count--;
         }
 
         if(to_reward == 0) return;

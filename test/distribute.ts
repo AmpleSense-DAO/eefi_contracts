@@ -28,7 +28,7 @@ async function getInfo(distribute: Distribute, userAddress: string) {
     distribute.totalStaked(),
     distribute.reward_token(),
     distribute.to_distribute(),
-    distribute.investor_count(),
+    distribute.staker_count(),
     distribute.getReward(userAddress),
     distribute.totalStakedFor(userAddress),
   ]);
