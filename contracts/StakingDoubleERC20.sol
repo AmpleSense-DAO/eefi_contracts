@@ -3,55 +3,66 @@ pragma solidity 0.7.6;
 
 import "./Distribute.sol";
 import "./interfaces/IERC900.sol";
+import "hardhat/console.sol";
 
 /**
  * An IERC900 staking contract
  */
-contract StakingERC20WithETH is IERC900  {
+contract StakingDoubleERC20 is IERC900  {
     using SafeERC20 for IERC20;
 
     /// @dev handle to access ERC20 token token contract to make transfers
     IERC20 private _token;
-    Distribute immutable public staking_contract_eth;
-    Distribute immutable public staking_contract_token;
+    Distribute immutable public staking_contract_ohm;
+    Distribute immutable public staking_contract_eefi;
 
-    event ProfitToken(uint256 amount);
-    event ProfitEth(uint256 amount);
+    event ProfitOHM(uint256 amount);
+    event ProfitEEFI(uint256 amount);
     event StakeChanged(uint256 total, uint256 timestamp);
 
-    constructor(IERC20 stake_token, IERC20 reward_token, uint256 decimals) {
+    constructor(IERC20 stake_token, IERC20 eefi, uint256 decimals) {
         _token = stake_token;
-        staking_contract_eth = new Distribute(decimals, IERC20(address(0)));
-        staking_contract_token = new Distribute(decimals, reward_token);
+        staking_contract_ohm = new Distribute(decimals, IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5));
+        staking_contract_eefi = new Distribute(decimals, eefi);
     }
 
     /**
-        @dev Sends ETH to the eth reward pool of the staking contract
-    */
-    function distribute_eth() payable external {
-        staking_contract_eth.distribute{value : msg.value}(0, msg.sender);
-        emit ProfitEth(msg.value);
-    }
-
-    /**
-        @dev Takes token from sender and puts it in the reward pool
+        @dev Takes OHM from sender and puts it in the reward pool
         @param amount Amount of token to add to rewards
     */
-    function distribute(uint256 amount) external {
-        staking_contract_token.distribute(amount, msg.sender);
-        emit ProfitToken(amount);
+    function distribute_ohm(uint256 amount) payable external {
+        staking_contract_ohm.distribute(amount, msg.sender);
+        emit ProfitOHM(msg.value);
+    }
+
+    /**
+        @dev Takes EEFI from sender and puts it in the reward pool
+        @param amount Amount of token to add to rewards
+    */
+    function distribute_eefi(uint256 amount) external {
+        staking_contract_eefi.distribute(amount, msg.sender);
+        emit ProfitEEFI(amount);
     }
 
     /**
         @dev Sends any reward token mistakingly sent to the main contract to the reward pool
     */
     function forward() external {
-        IERC20 rewardToken = IERC20(staking_contract_token.reward_token());
+        IERC20 rewardToken = IERC20(staking_contract_ohm.reward_token());
         uint256 balance = rewardToken.balanceOf(address(this));
+        console.log("b", balance);
         if(balance > 0) {
-            rewardToken.approve(address(staking_contract_token), balance);
-            staking_contract_token.distribute(balance, address(this));
-            emit ProfitToken(balance);
+            rewardToken.approve(address(staking_contract_ohm), balance);
+            staking_contract_ohm.distribute(balance, address(this));
+            emit ProfitOHM(balance);
+        }
+
+        rewardToken = IERC20(staking_contract_eefi.reward_token());
+        balance = rewardToken.balanceOf(address(this));
+        if(balance > 0) {
+            rewardToken.approve(address(staking_contract_eefi), balance);
+            staking_contract_eefi.distribute(balance, address(this));
+            emit ProfitEEFI(balance);
         }
     }
     
@@ -73,10 +84,10 @@ contract StakingERC20WithETH is IERC900  {
     function stakeFor(address account, uint256 amount, bytes calldata data) public override {
         //transfer the ERC20 token from the account, he must have set an allowance of {amount} tokens
         _token.safeTransferFrom(msg.sender, address(this), amount);
-        staking_contract_eth.stakeFor(account, amount);
-        staking_contract_token.stakeFor(account, amount);
+        staking_contract_ohm.stakeFor(account, amount);
+        staking_contract_eefi.stakeFor(account, amount);
         emit Staked(account, amount, totalStakedFor(account), data);
-        emit StakeChanged(staking_contract_eth.totalStaked(), block.timestamp);
+        emit StakeChanged(staking_contract_ohm.totalStaked(), block.timestamp);
     }
 
     /**
@@ -85,11 +96,11 @@ contract StakingERC20WithETH is IERC900  {
         @param data Additional data as per the EIP900
     */
     function unstake(uint256 amount, bytes calldata data) external override {
-        staking_contract_eth.unstakeFrom(payable(msg.sender), amount);
-        staking_contract_token.unstakeFrom(payable(msg.sender), amount);
+        staking_contract_ohm.unstakeFrom(payable(msg.sender), amount);
+        staking_contract_eefi.unstakeFrom(payable(msg.sender), amount);
         _token.safeTransfer(msg.sender, amount);
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), data);
-        emit StakeChanged(staking_contract_eth.totalStaked(), block.timestamp);
+        emit StakeChanged(staking_contract_ohm.totalStaked(), block.timestamp);
     }
 
      /**
@@ -97,8 +108,8 @@ contract StakingERC20WithETH is IERC900  {
         @param amount Amount of ERC20 token to remove from the stake
     */
     function withdraw(uint256 amount) external {
-        staking_contract_eth.withdrawFrom(payable(msg.sender), amount);
-        staking_contract_token.withdrawFrom(payable(msg.sender),amount);
+        staking_contract_ohm.withdrawFrom(payable(msg.sender), amount);
+        staking_contract_eefi.withdrawFrom(payable(msg.sender),amount);
     }
 
     /**
@@ -107,7 +118,7 @@ contract StakingERC20WithETH is IERC900  {
         @return the total of staked tokens of this address
     */
     function totalStakedFor(address account) public view override returns (uint256) {
-        return staking_contract_eth.totalStakedFor(account);
+        return staking_contract_ohm.totalStakedFor(account);
     }
     
     /**
@@ -115,15 +126,15 @@ contract StakingERC20WithETH is IERC900  {
         @return the total of staked tokens
     */
     function totalStaked() external view override returns (uint256) {
-        return staking_contract_eth.totalStaked();
+        return staking_contract_ohm.totalStaked();
     }
 
     /**
-        @dev returns the total rewards stored for token and eth
+        @dev returns the total rewards stored for ohm and eefi
     */
-    function totalReward() external view returns (uint256 tokenReward, uint256 ethReward) {
-        tokenReward = staking_contract_token.getTotalReward();
-        ethReward = staking_contract_eth.getTotalReward();
+    function totalReward() external view returns (uint256 _ohm, uint256 _eefi) {
+        _ohm = staking_contract_ohm.getTotalReward();
+        _eefi = staking_contract_eefi.getTotalReward();
     }
 
     /**
@@ -143,13 +154,12 @@ contract StakingERC20WithETH is IERC900  {
     }
 
     /**
-        @dev Returns how much ETH the user can withdraw currently
         @param account Address of the user to check reward for
-        @return _eth the amount of ETH the account will perceive if he unstakes now
-        @return __token the amount of tokens the account will perceive if he unstakes now
+        @return _ohm the amount of OHM the account will perceive if he unstakes now
+        @return _eefi the amount of EEFI the account will perceive if he unstakes now
     */
-    function getReward(address account) public view returns (uint256 _eth, uint256 __token) {
-        _eth = staking_contract_eth.getReward(account);
-        __token = staking_contract_token.getReward(account);
+    function getReward(address account) public view returns (uint256 _ohm, uint256 _eefi) {
+        _ohm = staking_contract_ohm.getReward(account);
+        _eefi = staking_contract_eefi.getReward(account);
     }
 }

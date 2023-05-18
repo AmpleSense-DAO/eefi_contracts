@@ -26,15 +26,4 @@ abstract contract Wrapper {
     {
         return (amples * MAX_waampl_SUPPLY) / ampl.totalSupply();
     }
-
-    /// @dev Converts waampls amount to AMPLs.
-    function _waampleToAmple(uint256 waamples)
-        internal
-        view
-        returns (uint256)
-    {
-        return (waamples *  ampl.totalSupply()) / MAX_waampl_SUPPLY;
-    }
-
-
 }

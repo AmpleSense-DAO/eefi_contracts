@@ -6,7 +6,6 @@ import "@balancer-labs/v2-vault/contracts/interfaces/IVault.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol";
 import "./interfaces/IBalancerTrader.sol";
-import "hardhat/console.sol";
 
 interface IPoolV1 {
     function swapExactAmountIn(address tokenIn, uint256 tokenAmountIn, address tokenOut, uint256 minAmountOut, uint256 maxPrice) external returns (uint256 tokensOut, uint256 newPrice);
@@ -22,6 +21,7 @@ contract BalancerTrader is IBalancerTrader {
     using SafeERC20 for IERC20;
 
     uint256 private constant MAX_UINT = type(uint256).max;
+    int256 private constant MAX_INT = type(int256).max;
 
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     IERC20 public constant ohmToken = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
@@ -102,11 +102,14 @@ contract BalancerTrader is IBalancerTrader {
                     "0x"
                 );
         IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(address(0));
+        assets[0] = IAsset(address(wethToken));
         assets[1] = IAsset(address(ohmToken));
-        assets[1] = IAsset(address(eefiToken));
+        assets[2] = IAsset(address(eefiToken));
 
-        int256[] memory limits = new int256[](2);
+        int256[] memory limits = new int256[](3);
+        limits[0] = int(ethAmount);
+        limits[1] = MAX_INT;
+        limits[2] = 0;
         int256[] memory deltas = vault.batchSwap(
             IVault.SwapKind.GIVEN_IN,
             steps,
