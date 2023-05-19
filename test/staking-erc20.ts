@@ -6,74 +6,106 @@ import { solidity } from 'ethereum-waffle';
 import { formatBytes32String } from 'ethers/lib/utils';
 
 import { FakeERC20 } from '../typechain/FakeERC20';
-import { StakingERC20WithETH } from '../typechain/StakingERC20WithETH';
+import { StakingDoubleERC20 } from '../typechain/StakingDoubleERC20';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 chai.use(solidity);
 
 const { expect } = chai;
 
-const initialTokenBalance = BigNumber.from('0xE35FA931A000');
-const initialEthBalance = BigNumber.from('0x21E19E0C9BAB2400000');
-
-async function getInfo(stacking: StakingERC20WithETH, userAddress: string) {
+async function getInfo(staking: StakingDoubleERC20, userAddress: string) {
   const [
-    distributeEthContract,
-    distributeTokenContract,
+    distributeOHMContract,
+    distributeEEFIContract,
     userTotalStake,
     totalStake,
     stackingTokenContract,
     supportsHistory,
-    [ userEthReward, userTokenReward, ],
+    [ userOHMReward, userEEFIReward, ],
   ] = await Promise.all([
-    stacking.staking_contract_eth(),
-    stacking.staking_contract_token(),
-    stacking.totalStakedFor(userAddress),
-    stacking.totalStaked(),
-    stacking.token(),
-    stacking.supportsHistory(),
-    stacking.getReward(userAddress),
+    staking.staking_contract_ohm(),
+    staking.staking_contract_eefi(),
+    staking.totalStakedFor(userAddress),
+    staking.totalStaked(),
+    staking.token(),
+    staking.supportsHistory(),
+    staking.getReward(userAddress),
   ]);
   return {
-    distributeEthContract,
-    distributeTokenContract,
+    distributeOHMContract,
+    distributeEEFIContract,
     userTotalStake,
     totalStake,
     stackingTokenContract,
     supportsHistory,
-    userEthReward,
-    userTokenReward,
+    userOHMReward,
+    userEEFIReward,
   };
+}
+
+async function impersonateAndFund(address: string) : Promise<SignerWithAddress> {
+  await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [address],
+  });
+  await hre.network.provider.send("hardhat_setBalance", [
+  address,
+  "0x3635c9adc5dea00000"
+  ]);
+
+  return await ethers.getSigner(address);
+}
+
+export async function resetFork() {
+  await hre.network.provider.request({
+    method: "hardhat_reset",
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
+          blockNumber: 17024000
+        },
+      },
+    ],
+  });
 }
 
 
 describe('StackingERC20WithETH Contract', () => {
 
-  let rewardToken: FakeERC20;
+  let eefiToken: FakeERC20;
+  let ohmToken: FakeERC20;
   let stakingToken: FakeERC20;
-  let staking: StakingERC20WithETH;
+  let staking: StakingDoubleERC20;
   let owner: string;
   let userA: SignerWithAddress;
-  let userB: SignerWithAddress;
 
   beforeEach(async () => {
 
+    await resetFork();
+
     const [ erc20Factory, stackingFactory, accounts ] = await Promise.all([
       ethers.getContractFactory('FakeERC20'),
-      ethers.getContractFactory('StakingERC20WithETH'),
+      ethers.getContractFactory('StakingDoubleERC20'),
       ethers.getSigners(),
     ]);
 
     owner = accounts[0].address;
     userA = accounts[1];
-    userB = accounts[2];
 
-    [ rewardToken, stakingToken ] = await Promise.all([
+    [ eefiToken, stakingToken, ohmToken ] = await Promise.all([
       erc20Factory.deploy('9') as Promise<FakeERC20>,
       erc20Factory.deploy('9') as Promise<FakeERC20>,
+      ethers.getContractAt('FakeERC20', '0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5') as Promise<FakeERC20>,
     ]);
 
-    staking = await stackingFactory.deploy(stakingToken.address, rewardToken.address, '0') as StakingERC20WithETH;
+    staking = await stackingFactory.deploy(stakingToken.address, eefiToken.address, '0') as StakingDoubleERC20;
+
+    // get ohm
+    const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
+    
+    const holder = await impersonateAndFund(big_ohm_older_30189);
+    await ohmToken.connect(holder).transfer(owner, await ohmToken.balanceOf(big_ohm_older_30189));
   });
 
   it('Should have been deployed correctly', async () => {
@@ -82,26 +114,27 @@ describe('StackingERC20WithETH Contract', () => {
       totalStake,
       stackingTokenContract,
       supportsHistory,
-      userEthReward,
-      userTokenReward,
+      userOHMReward,
+      userEEFIReward,
     } = await getInfo(staking, userA.address);
 
     expect(userTotalStake).to.be.equal(0);
     expect(totalStake).to.be.equal(0);
     expect(stackingTokenContract).to.be.equal(stakingToken.address);
     expect(supportsHistory).to.be.equal(false);
-    expect(userEthReward).to.be.equal(0);
-    expect(userTokenReward).to.be.equal(0);
+    expect(userOHMReward).to.be.equal(0);
+    expect(userEEFIReward).to.be.equal(0);
   });
 
   describe('requires some amount of tokens', () => {
 
     beforeEach(async () => {
 
-      const { distributeTokenContract } = await getInfo(staking, userA.address);
+      const { distributeOHMContract, distributeEEFIContract } = await getInfo(staking, userA.address);
 
       await Promise.all([
-        rewardToken.approve(distributeTokenContract, BigNumber.from(1_000)),
+        eefiToken.approve(distributeEEFIContract, BigNumber.from(1_000)),
+        ohmToken.approve(distributeOHMContract, BigNumber.from(1_000)),
         stakingToken.approve(staking.address, BigNumber.from(1_000)),
       ]);
     });
@@ -118,8 +151,7 @@ describe('StackingERC20WithETH Contract', () => {
       const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
       const after = await getInfo(staking, userA.address);
 
-      expect(beforeBalance).to.be.equal(initialTokenBalance);
-      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
+      expect(afterBalance).to.be.equal(beforeBalance.sub(100));
       
       expect(stakingBeforeBalance).to.be.equal(0);
       expect(stakingAfterBalance).to.be.equal(100);
@@ -137,11 +169,11 @@ describe('StackingERC20WithETH Contract', () => {
       expect(before.userTotalStake).to.be.equal(0);
       expect(after.userTotalStake).to.be.equal(100);
 
-      expect(before.userEthReward).to.be.equal(0);
-      expect(after.userEthReward).to.be.equal(0);
+      expect(before.userOHMReward).to.be.equal(0);
+      expect(after.userOHMReward).to.be.equal(0);
 
-      expect(before.userTokenReward).to.be.equal(0);
-      expect(after.userTokenReward).to.be.equal(0);
+      expect(before.userEEFIReward).to.be.equal(0);
+      expect(after.userEEFIReward).to.be.equal(0);
     });
 
     it('Should unstake some tokens', async () => {
@@ -158,8 +190,7 @@ describe('StackingERC20WithETH Contract', () => {
       const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
       const after = await getInfo(staking, owner);
 
-      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
-      expect(afterBalance).to.be.equal(initialTokenBalance.sub(30));
+      expect(afterBalance.sub(beforeBalance)).to.be.equal(BigNumber.from(70));
       
       expect(stakingBeforeBalance).to.be.equal(100);
       expect(stakingAfterBalance).to.be.equal(30);
@@ -177,87 +208,42 @@ describe('StackingERC20WithETH Contract', () => {
       expect(before.userTotalStake).to.be.equal(100);
       expect(after.userTotalStake).to.be.equal(30);
 
-      expect(before.userEthReward).to.be.equal(0);
-      expect(after.userEthReward).to.be.equal(0);
+      expect(before.userOHMReward).to.be.equal(0);
+      expect(after.userOHMReward).to.be.equal(0);
 
-      expect(before.userTokenReward).to.be.equal(0);
-      expect(after.userTokenReward).to.be.equal(0);
+      expect(before.userEEFIReward).to.be.equal(0);
+      expect(after.userEEFIReward).to.be.equal(0);
     });
 
 
-    it('Should distribute some tokens', async () => {
+    it('Should distribute some eefi', async () => {
 
       await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
-
-      const beforeBalance = await stakingToken.balanceOf(owner);
-      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
       const before = await getInfo(staking, userA.address);
-
-      const tx = await staking.distribute(BigNumber.from(200));
-
-      const afterBalance = await stakingToken.balanceOf(owner);
-      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
+      const tx = await staking.distribute_eefi(BigNumber.from(200));
       const after = await getInfo(staking, userA.address);
 
-      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
-      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
-      
-      expect(stakingBeforeBalance).to.be.equal(100);
-      expect(stakingAfterBalance).to.be.equal(100);
-
-      expect(tx).to.have.emit(staking, 'ProfitToken').withArgs(
+      expect(tx).to.have.emit(staking, 'ProfitEEFI').withArgs(
         BigNumber.from(200),
       );
       
-      expect(before.totalStake).to.be.equal(100);
-      expect(after.totalStake).to.be.equal(100);
-
-      expect(before.userTotalStake).to.be.equal(100);
-      expect(after.userTotalStake).to.be.equal(100);
-
-      expect(before.userEthReward).to.be.equal(0);
-      expect(after.userEthReward).to.be.equal(0);
-
-      expect(before.userTokenReward).to.be.equal(0);
-      expect(after.userTokenReward).to.be.equal(200);
+      expect(before.userEEFIReward).to.be.equal(0);
+      expect(after.userEEFIReward).to.be.equal(200);
     });
 
 
-    it('Should distribute some eth', async () => {
-      
+    it('Should distribute some OHM', async () => {
       await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
-
-      const beforeBalance = await stakingToken.balanceOf(owner);
-      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
-      const before = await getInfo(staking, userA.address);
-      
-      const tx = await staking.distribute_eth({ value: BigNumber.from(100) });
-      
-      const afterBalance = await stakingToken.balanceOf(owner);
-      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
+      const before = await getInfo(staking, userA.address); 
+      const tx = await staking.distribute_ohm(BigNumber.from(200));
       const after = await getInfo(staking, userA.address);
 
-      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
-      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
-      
-      expect(stakingBeforeBalance).to.be.equal(100);
-      expect(stakingAfterBalance).to.be.equal(100);
-
-      expect(tx).to.have.emit(staking, 'ProfitEth').withArgs(
-        BigNumber.from(100),
+      expect(tx).to.have.emit(staking, 'ProfitOHM').withArgs(
+        BigNumber.from(200),
       );
-      
-      expect(before.totalStake).to.be.equal(100);
-      expect(after.totalStake).to.be.equal(100);
 
-      expect(before.userTotalStake).to.be.equal(100);
-      expect(after.userTotalStake).to.be.equal(100);
-
-      expect(before.userEthReward).to.be.equal(0);
-      expect(after.userEthReward).to.be.equal(100);
-
-      expect(before.userTokenReward).to.be.equal(0);
-      expect(after.userTokenReward).to.be.equal(0);
+      expect(before.userOHMReward).to.be.equal(0);
+      expect(after.userOHMReward).to.be.equal(200);
 
     });
 
@@ -265,59 +251,56 @@ describe('StackingERC20WithETH Contract', () => {
 
       await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
 
-      await rewardToken.transfer(staking.address, BigNumber.from(200));
+      await eefiToken.transfer(staking.address, BigNumber.from(200));
+      await ohmToken.transfer(staking.address, BigNumber.from(200));
       const tx = await staking.forward();
+      const after = await getInfo(staking, userA.address);
 
-      expect(tx).to.have.emit(staking, 'ProfitToken').withArgs(
+      expect(tx).to.have.emit(staking, 'ProfitOHM').withArgs(
         BigNumber.from(200),
       );
+
+      expect(tx).to.have.emit(staking, 'ProfitEEFI').withArgs(
+        BigNumber.from(200),
+      );
+
+      expect(after.userOHMReward).to.be.equal(200);
+
+      expect(after.userEEFIReward).to.be.equal(200);
     });
 
 
     it('Should withdraw reward', async () => {
       
       await staking.stakeFor(userA.address, BigNumber.from(100), formatBytes32String('0'));
-      await staking.distribute_eth({ value: BigNumber.from(100) });
-      await staking.distribute(BigNumber.from(100));
+      await eefiToken.transfer(staking.address, BigNumber.from(200));
+      await ohmToken.transfer(staking.address, BigNumber.from(200));
+      await staking.forward();
 
-      const beforeBalance = await stakingToken.balanceOf(owner);
-      const stakingBeforeBalance = await stakingToken.balanceOf(staking.address);
-      const rewardBeforeBalance = await rewardToken.balanceOf(userA.address);
-      const beforeEthBalance = await userA.getBalance();
+      const ohmBeforeBalance = await ohmToken.balanceOf(userA.address);
+      const eefiBeforeBalance = await eefiToken.balanceOf(userA.address);
       const before = await getInfo(staking, userA.address);
       
-      const tx = await staking.connect(userA).withdraw(BigNumber.from(100));
-      const receipt = await tx.wait();
+      await staking.connect(userA).withdraw(BigNumber.from(100));
       
-      const afterBalance = await stakingToken.balanceOf(owner);
-      const stakingAfterBalance = await stakingToken.balanceOf(staking.address);
-      const rewardAfterBalance = await rewardToken.balanceOf(userA.address);
-      const afterEthBalance = await userA.getBalance();
+      const ohmAfterBalance = await ohmToken.balanceOf(userA.address);
+      const eefiAfterBalance = await eefiToken.balanceOf(userA.address);
       const after = await getInfo(staking, userA.address);
-
-      expect(beforeBalance).to.be.equal(initialTokenBalance.sub(100));
-      expect(afterBalance).to.be.equal(initialTokenBalance.sub(100));
-      
-      expect(stakingBeforeBalance).to.be.equal(100);
-      expect(stakingAfterBalance).to.be.equal(100);
-
-      expect(before.totalStake).to.be.equal(100);
-      expect(after.totalStake).to.be.equal(100);
 
       expect(before.userTotalStake).to.be.equal(100);
       expect(after.userTotalStake).to.be.equal(100);
 
-      expect(before.userEthReward).to.be.equal(100);
-      expect(after.userEthReward).to.be.equal(0);
+      expect(before.userOHMReward).to.be.equal(200);
+      expect(after.userOHMReward).to.be.equal(0);
 
-      expect(before.userTokenReward).to.be.equal(100);
-      expect(after.userTokenReward).to.be.equal(0);
+      expect(before.userEEFIReward).to.be.equal(200);
+      expect(after.userEEFIReward).to.be.equal(0);
 
-      expect(rewardBeforeBalance).to.be.equal(0);
-      expect(rewardAfterBalance).to.be.equal(100);
+      expect(ohmBeforeBalance).to.be.equal(0);
+      expect(ohmAfterBalance).to.be.equal(200);
 
-      expect(beforeEthBalance).to.be.equal(initialEthBalance);
-      expect(afterEthBalance).to.be.equal(initialEthBalance.sub(tx.gasPrice!.mul(receipt.gasUsed)).add(100));
+      expect(eefiBeforeBalance).to.be.equal(0);
+      expect(eefiAfterBalance).to.be.equal(200);
     });
   });
 });

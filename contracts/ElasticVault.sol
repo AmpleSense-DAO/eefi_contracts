@@ -11,8 +11,6 @@ import './interfaces/IBalancerTrader.sol';
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
 
-import "hardhat/console.sol";
-
 contract TokenStorage is Ownable {
     using SafeERC20 for IERC20;
 
@@ -38,26 +36,26 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     uint256 public last_positive = block.timestamp;
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     
-/* 
+    /* 
 
-Parameter Definitions: //See updated parameters below
+    Parameter Definitions: //See updated parameters below
 
-- EEFI Deposit Rate: Depositors receive reward of .0001 EEFI * Amount of AMPL user deposited into vault 
-- EEFI Negative Rebase Rate: When AMPL supply declines mint EEFI at rate of .00001 EEFI * total AMPL deposited into vault 
-- EEFI Equilibrium Rebase Rate: When AMPL supply is does not change (is at equilibrium) mint EEFI at a rate of .0001 EEFI * total AMPL deposited into vault 
-- Deposit FEE_10000: .65% of EEFI minted to user upon initial deposit is delivered to Treasury 
-- Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
-- Trade Posiitve EEFI_100: Upon positive rebase 45% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
-- Trade Positive OHM_100: Upon positive rebase 22% of the new AMPL supply (based on total AMPL in vault) is sold for OHM 
-- Trade Positive Treasury_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers) // Send 2% to Treasury [OK]
-- Trade Positive Rewards_100: Upon positive rebase, send 55% of OHM rewards to users staking AMPL in vault 
-- Trade Positive LP Staking_100: Upon positive rebase, send 30% of OHM rewards to users staking LP tokens (EEFI/OHM)
-- Trade Neutral/Negative Rewards: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault
-- Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
-- Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, or distribute rewards to stakers 
-- Initial MINT: Amount of EEFI that will be minted at contract deployment - 170,000 tokens 
-- Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
-*/
+    - EEFI Deposit Rate: Depositors receive reward of .0001 EEFI * Amount of AMPL user deposited into vault 
+    - EEFI Negative Rebase Rate: When AMPL supply declines mint EEFI at rate of .00001 EEFI * total AMPL deposited into vault 
+    - EEFI Equilibrium Rebase Rate: When AMPL supply is does not change (is at equilibrium) mint EEFI at a rate of .0001 EEFI * total AMPL deposited into vault 
+    - Deposit FEE_10000: .65% of EEFI minted to user upon initial deposit is delivered to Treasury 
+    - Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
+    - Trade Posiitve EEFI_100: Upon positive rebase 45% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
+    - Trade Positive OHM_100: Upon positive rebase 22% of the new AMPL supply (based on total AMPL in vault) is sold for OHM 
+    - Trade Positive Treasury_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers) // Send 2% to Treasury [OK]
+    - Trade Positive Rewards_100: Upon positive rebase, send 55% of OHM rewards to users staking AMPL in vault 
+    - Trade Positive LP Staking_100: Upon positive rebase, send 30% of OHM rewards to users staking LP tokens (EEFI/OHM)
+    - Trade Neutral/Negative Rewards: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault
+    - Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
+    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, or distribute rewards to stakers 
+    - Initial MINT: Amount of EEFI that will be minted at contract deployment - 170,000 tokens 
+    - Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
+    */
 
     uint256 constant public EEFI_DEPOSIT_RATE = 10000;
     uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
@@ -75,15 +73,15 @@ Parameter Definitions: //See updated parameters below
     uint256 constant public MINTING_DECAY = 45 days;
     uint256 constant public INITIAL_MINT = 170000 ether;
 
-/* 
-Event Definitions:
+    /* 
+    Event Definitions:
 
-- Burn: EEFI burned (EEFI purchased using AMPL is burned)
-- Claimed: Rewards claimed by address 
-- Deposit: AMPL deposited by address 
-- Withdrawal: AMPL withdrawn by address 
-- StakeChanged: AMPL staked in contract; calculated as shares of total AMPL deposited 
-*/
+    - Burn: EEFI burned (EEFI purchased using AMPL is burned)
+    - Claimed: Rewards claimed by address 
+    - Deposit: AMPL deposited by address 
+    - Withdrawal: AMPL withdrawn by address 
+    - StakeChanged: AMPL staked in contract; calculated as shares of total AMPL deposited 
+    */
 
     event Burn(uint256 amount);
     event Claimed(address indexed account, uint256 ohm, uint256 eefi);
@@ -110,8 +108,6 @@ Event Definitions:
     }
 
     receive() external payable { }
-
-//Comments below outline how AMPL stake and withdrawable amounts are calculated
 
     /**
      * @param account User address
@@ -228,6 +224,11 @@ Event Definitions:
         emit StakeChanged(totalStaked(), block.timestamp);
     }
 
+    /**
+    * AMPL share of the user based on the current stake
+    * @param stake Amount of shares to convert to AMPL
+    * @return Amount of AMPL the stake is worth
+    */
     function _convertToAMPL(uint256 stake) internal view returns(uint256) {
         return ampl_token.balanceOf(address(this)).mul(stake).divDown(totalStaked());
     }
@@ -275,11 +276,15 @@ Event Definitions:
         }
     }
 
+    /**
+     * @param minimalExpectedEEFI Minimal amount of EEFI to be received from the trade
+     * @param minimalExpectedOHM Minimal amount of OHM to be received from the trade
+     !!!!!!!! This function is only callable by the owner
+    */
     function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external onlyOwner() {
         uint256 balance = ampl_token.balanceOf(address(token_storage));
         uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
         uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
-        console.log("bal", balance);
         uint256 for_treasury = balance.mul(TRADE_POSITIVE_TREASURY_100).divDown(100);
 
         token_storage.claim(address(ampl_token));
@@ -303,7 +308,6 @@ Event Definitions:
         ohm_token.approve(address(rewards_ohm), to_rewards);
         rewards_ohm.distribute(to_rewards, address(this));
         ohm_token.transfer(address(staking_pool), to_lp_staking);
-        console.log("a", for_ohm, ohm_purchased);
         staking_pool.forward();
 
         // distribute the remainder of OHM to the DAO treasury
@@ -312,6 +316,9 @@ Event Definitions:
         ampl_token.safeTransfer(treasury, for_treasury);
     }
 
+    /**
+     * Claims OHM and EEFI rewards for the user
+    */
     function claim() external { 
         (uint256 ohm, uint256 eefi) = getReward(msg.sender);
         rewards_ohm.withdrawFrom(msg.sender, rewards_ohm.totalStakedFor(msg.sender));

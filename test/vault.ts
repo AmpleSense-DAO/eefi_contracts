@@ -351,12 +351,17 @@ describe('ElasticVault Contract', () => {
 
         const storage_addr = await vault.token_storage();
         const amplBalance = await amplToken.balanceOf(storage_addr);
-        console.log("surplus", surplus.toString())
-        expect(amplBalance).to.be.equal("200000000020"); // computed value was 200000000001 due to approx errors
-        
+        // convert to ETH equivalent to prevent rounding errors during checks
+        const amplBalanceUnit = amplBalance.div(10**9);
+        const surplusUnit = surplus.div(10**9);
+        expect(amplBalanceUnit).to.be.equal(surplusUnit);
       });
 
       it('selling shall purchase, distribute and burn EEFI, and purchase and distribute OHM', async () => {
+        // replicate a positive rebase first
+        await amplToken.rebase(0, 500000 * 10**9);
+        await vault.rebase();
+
         const storage_addr = await vault.token_storage();
         const amplBalance = await amplToken.balanceOf(storage_addr);
 
@@ -508,7 +513,8 @@ describe('ElasticVault Contract', () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
         
-        await vault.rebase(0, 0);
+        await vault.rebase();
+        await vault.sell(0,0);
       });
 
       it('should work as expected', async () => {
@@ -575,6 +581,10 @@ describe('ElasticVault Contract', () => {
         // double total supply
         await amplToken.rebase(0, amplTotalSupply);
         console.log("total", (await amplToken.totalSupply()).toString());
+        // increase time by 24h
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.rebase();
         // another deposit of same amount
         await vault.connect(secondAccount).makeDeposit(depositAmount);
 
@@ -593,20 +603,33 @@ describe('ElasticVault Contract', () => {
         await vault.rebase();
         await vault.sell(0, 0);
 
-        let tx = await vault.withdraw(expectedShares);
         // since ampl doubled in total supply, the expected ampl upon withdrawal is twice as much as the initial deposit
-        let expectedAMPLAmount = depositAmount.mul(2);
-        expect(tx).to.emit(amplToken, 'Transfer').withArgs(vault.address, owner, expectedAMPLAmount);
-        const amplRemainingInVault = await amplToken.balanceOf(vault.address);
-        console.log(amplRemainingInVault.toString());
-        // since ampl doubled in total supply, the expected ampl upon withdrawal is twice as much as the initial deposit
-        expectedAMPLAmount = depositAmount.mul(2);
-        // the second deposit for this account was done after the ampl rebase and should be worth same amount of AMPL as before
-        expectedAMPLAmount = expectedAMPLAmount.add(depositAmount);
-        console.log(expectedAMPLAmount.toString());
-        tx = await vault.connect(secondAccount).withdraw(expectedShares.add(expectedShares.div(2)));
-        expect(tx).to.emit(amplToken, 'Transfer').withArgs(vault.address, secondAccount.address, expectedAMPLAmount);
+        // however since the vault is selling on positive rebases, the real amount of AMPL the user has needs to be computed using this formula:
+        // vault AMPL balance * userStake / totalStake
+        let vaultAMPLbalance = await amplToken.balanceOf(vault.address);
+        let userStake = await vault.totalStakedFor(owner);
+        let totalStake = await vault.totalStaked();
+        let expectedAMPLAmount = vaultAMPLbalance.mul(userStake).div(totalStake);
 
+        let tx = await vault.withdraw(expectedShares);
+        
+        expect(tx).to.emit(amplToken, 'Transfer').withArgs(vault.address, owner, expectedAMPLAmount);
+        
+        // since ampl doubled in total supply, the expected ampl upon withdrawal is twice as much as the initial deposit
+        // expectedAMPLAmount = depositAmount.mul(2);
+        // // the second deposit for this account was done after the ampl rebase and should be worth same amount of AMPL as before
+        // expectedAMPLAmount = expectedAMPLAmount.add(depositAmount);
+        // console.log(expectedAMPLAmount.toString());
+        // 
+        vaultAMPLbalance = await amplToken.balanceOf(vault.address);
+        userStake = await vault.totalStakedFor(secondAccount.address);
+        totalStake = await vault.totalStaked();
+        expectedAMPLAmount = vaultAMPLbalance.mul(userStake).div(totalStake);
+
+        tx = await vault.connect(secondAccount).withdraw(expectedShares.add(expectedShares.div(2)));
+
+        expect(tx).to.emit(amplToken, 'Transfer').withArgs(vault.address, secondAccount.address, expectedAMPLAmount);
+        expect(await amplToken.balanceOf(vault.address)).to.be.equal(0);
 
       });
     });

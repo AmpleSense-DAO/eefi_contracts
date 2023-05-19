@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 
 import "./Distribute.sol";
 import "./interfaces/IERC900.sol";
-import "hardhat/console.sol";
 
 /**
  * An IERC900 staking contract
@@ -32,7 +31,7 @@ contract StakingDoubleERC20 is IERC900  {
     */
     function distribute_ohm(uint256 amount) payable external {
         staking_contract_ohm.distribute(amount, msg.sender);
-        emit ProfitOHM(msg.value);
+        emit ProfitOHM(amount);
     }
 
     /**
@@ -50,7 +49,6 @@ contract StakingDoubleERC20 is IERC900  {
     function forward() external {
         IERC20 rewardToken = IERC20(staking_contract_ohm.reward_token());
         uint256 balance = rewardToken.balanceOf(address(this));
-        console.log("b", balance);
         if(balance > 0) {
             rewardToken.approve(address(staking_contract_ohm), balance);
             staking_contract_ohm.distribute(balance, address(this));
