@@ -7,7 +7,7 @@ import { formatBytes32String } from 'ethers/lib/utils';
 
 import { FakeERC20 } from '../typechain/FakeERC20';
 import { BalancerTrader } from '../typechain/BalancerTrader';
-import { TestAmplesenseVault } from "../typechain/TestAmplesenseVault";
+import { TestElasticVault } from "../typechain/TestElasticVault";
 import { EEFIToken } from "../typechain/EEFIToken";
 import { WeightedPool2TokensFactory } from "../typechain/WeightedPool2TokensFactory";
 import { WeightedPool2Tokens } from "../typechain/WeightedPool2Tokens";
@@ -24,6 +24,21 @@ const balancer_vault_address = "0xBA12222222228d8Ba445958a75a0704d566BF2C8";
 const ampl_address = "0xd46ba6d942050d489dbd938a2c909a5d5039a161";
 const weithed_pool_factory_address = "0xA5bf2ddF098bb0Ef6d120C98217dD6B141c74EE0";
 const router_address = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+const ohm_token_address = "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5";
+const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
+
+async function impersonateAndFund(address: string) : Promise<SignerWithAddress> {
+  await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [address],
+  });
+  await hre.network.provider.send("hardhat_setBalance", [
+  address,
+  "0x3635c9adc5dea00000"
+  ]);
+
+  return await ethers.getSigner(address);
+}
 
 describe('BalancerTrader Contract', () => {
 
@@ -31,38 +46,39 @@ describe('BalancerTrader Contract', () => {
   let trader: BalancerTrader;
   let owner: string;
   let eefiToken : EEFIToken;
-  let wethToken : EEFIToken;
+  let ohmToken : EEFIToken;
 
   before(async () => {
-
+    
     const poolFactory = await ethers.getContractAt("WeightedPool2TokensFactory", weithed_pool_factory_address) as WeightedPool2TokensFactory;
     const balancerVault = await ethers.getContractAt("IVault", balancer_vault_address) as IVault;
     const router = await ethers.getContractAt("UniswapV2Router02", router_address) as UniswapV2Router02;
-    const factoryAddress = await router.factory();
-    const wethAddress = await router.WETH();
-    wethToken = await ethers.getContractAt("EEFIToken", wethAddress) as EEFIToken;
+    ohmToken = await ethers.getContractAt("EEFIToken", ohm_token_address) as EEFIToken;
 
     const [ traderFactory, accounts ] = await Promise.all([
       ethers.getContractFactory('BalancerTrader'),
       ethers.getSigners(),
     ]);
+    owner = accounts[0].address;
 
-    const vault = await deploy("TestAmplesenseVault",ampl_address) as TestAmplesenseVault;
+    // get ohm
+    const holder = await impersonateAndFund(big_ohm_older_30189);
+    await ohmToken.connect(holder).transfer(owner, BigNumber.from(30189).mul(10**9));
+
+    const vault = await deploy("TestElasticVault",ampl_address) as TestElasticVault;
     let eefiTokenAddress = await vault.eefi_token();
     eefiToken = await ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
 
-    let token1 = wethAddress;
+    let token1 = ohm_token_address;
     let token2 = eefiTokenAddress;
     if(BigNumber.from(token1) > BigNumber.from(token2)) {
       token1 = eefiTokenAddress;
-      token2 = wethAddress;
+      token2 = ohm_token_address;
     }
 
     let tx = await poolFactory.create("eefi pool", "eefipool", [token1, token2], ["500000000000000001", "499999999999999999"], 1e12, false, accounts[0].address);
-
     const poolCreationEvents = await poolFactory.queryFilter(poolFactory.filters.PoolCreated(null), tx.blockHash);
     const poolAddr = poolCreationEvents[poolCreationEvents.length - 1].args?.pool;
-    const pool = await ethers.getContractAt("WeightedPool2Tokens", factoryAddress) as WeightedPool2Tokens;
     console.log(poolAddr);
     
     const poolRegisterEvents = await balancerVault.queryFilter(balancerVault.filters.PoolRegistered(null, poolAddr, null));
@@ -70,65 +86,51 @@ describe('BalancerTrader Contract', () => {
     const poolID = poolRegisterEvents[0].args?.poolId;
 
     const JOIN_KIND_INIT = 0;
-    const ethLiquidity = ethers.utils.parseEther("20");
+    const liquidity = BigNumber.from(30189).mul(10**9);
     const initUserData = ethers.utils.defaultAbiCoder.encode(['uint256', 'uint256[]'], 
-                                        [JOIN_KIND_INIT, [ethLiquidity, ethLiquidity]]);
-
-    
+                                        [JOIN_KIND_INIT, [liquidity, liquidity]]);
     const request = {
       assets : [token1, token2],
-      maxAmountsIn : [ethLiquidity, ethLiquidity],
+      maxAmountsIn : [liquidity, liquidity],
       userData : initUserData,
       fromInternalBalance : false
     }
-    await vault.TESTMINT(ethLiquidity, accounts[0].address);
-    await eefiToken.approve(balancerVault.address, ethLiquidity);
-    // get weth
-    await accounts[0].sendTransaction({
-      to: wethAddress,
-      value: ethLiquidity
-    });
-    await wethToken.approve(balancerVault.address, ethLiquidity);
+    await vault.TESTMINT(liquidity, accounts[0].address);
+    await eefiToken.approve(balancerVault.address, liquidity);
+    await ohmToken.approve(balancerVault.address, liquidity);
     await balancerVault.joinPool(poolID, accounts[0].address, accounts[0].address, request);
 
-    owner = accounts[0].address;
+    
     trader = await traderFactory.deploy(eefiTokenAddress, poolID) as BalancerTrader;
     
-  });
-
-  it('sellAMPLForEth', async () => {
-    const accounts = await ethers.getSigners();
     // buy ampl
     const ampl = await ethers.getContractAt("EEFIToken", ampl_address) as EEFIToken;
-    const router = await ethers.getContractAt("UniswapV2Router02", router_address) as UniswapV2Router02;
     const wethAddress = await router.WETH();
-    // get ampl
-    await router.swapETHForExactTokens("5000000000000", [wethAddress, ampl_address], accounts[0].address, 999999999999, {value: ethers.utils.parseUnits("600", "ether")});
-    await ampl.approve(trader.address, "5000000000000");
-    const balance = await accounts[0].getBalance();
-    await trader.sellAMPLForEth("5000000000000", 0);
-    const balance2 = await accounts[0].getBalance();
-    const eth = ethers.utils.formatEther(balance2.sub(balance));
-    expect(parseFloat(eth)).to.be.gt(1);
+    await router.swapETHForExactTokens("10000000000000", [wethAddress, ampl_address], accounts[0].address, 999999999999, {value: ethers.utils.parseUnits("600", "ether")});
+    await ampl.approve(trader.address, "10000000000000");
   });
 
-  it('sellAMPLForEEFI', async () => {
-    const accounts = await ethers.getSigners();
-    // buy ampl
-    const ampl = await ethers.getContractAt("EEFIToken", ampl_address) as EEFIToken;
-    const router = await ethers.getContractAt("UniswapV2Router02", router_address) as UniswapV2Router02;
-    const wethAddress = await router.WETH();
-    // get ampl
-    await router.swapETHForExactTokens("50000000000", [wethAddress, ampl_address], accounts[0].address, 999999999999, {value: ethers.utils.parseUnits("600", "ether")});
-    await ampl.approve(trader.address, "50000000000");
-    const balance = await eefiToken.balanceOf(accounts[0].address);
+  it('sellAMPLForOHM should fail if minimal amount fails to be reached', async () => {
+    expect(trader.sellAMPLForOHM("5000000000000", "99999999999999999")).to.be.revertedWith("BalancerTrader: minimalExpectedAmount not acquired");
+  });
+
+  it('sellAMPLForEEFI should fail if minimal amount fails to be reached', async () => {
+    expect(trader.sellAMPLForEEFI("5000000000000", "99999999999999999")).to.be.revertedWith("BalancerTrader: minimalExpectedAmount not acquired");
+  });
+
+  it('sellAMPLForOHM should work', async () => {
+    const balance = await ohmToken.balanceOf(owner);
+    await trader.sellAMPLForOHM("5000000000000", 0);
+    const balance2 = await ohmToken.balanceOf(owner);
+    const ohm = balance2.sub(balance).div(10**9);
+    expect(ohm).to.be.gt(500);
+  });
+
+  it('sellAMPLForEEFI should work', async () => {
+    const balance = await eefiToken.balanceOf(owner);
     await trader.sellAMPLForEEFI("50000000000", 0);
-    const balance2 = await eefiToken.balanceOf(accounts[0].address);
-    const eefi = ethers.utils.formatEther(balance2.sub(balance));
-    expect(parseFloat(eefi)).to.be.gt(0);
-  });
-
-  it('checking slippage arguments', async () => {
-    expect(false);
+    const balance2 = await eefiToken.balanceOf(owner);
+    const eefi = balance2.sub(balance);
+    expect(eefi.toNumber()).to.be.gt(0);
   });
 });

@@ -15,4 +15,8 @@ contract FakeERC20 is ERC20 {
             _burn(msg.sender, uint256(-amount));
         }
     }
+
+    function mint(uint256 amount, address to) external {
+        _mint(to, amount);
+    }
 }

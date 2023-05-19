@@ -20,6 +20,10 @@ const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   solidity: {
     compilers: [
+      { version: "0.8.4", settings: {optimizer: {
+        enabled: true,
+        runs: 200
+      }} },
       { version: "0.7.6", settings: {optimizer: {
       enabled: true,
       runs: 200
@@ -35,6 +39,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId : 1337,
       forking: {
+        blockNumber: 17024000,
         enabled: true,
         url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`
       }

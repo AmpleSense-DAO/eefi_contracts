@@ -1,5 +1,5 @@
 const hre = require("hardhat");
-import { TestAmplesenseVault } from "../typechain/TestAmplesenseVault";
+import { TestElasticVault } from "../typechain/TestElasticVault";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
 import { TokenDistributor } from "../typechain/TokenDistributor";
@@ -63,7 +63,7 @@ async function main() {
   const KMPL_5K = hre.ethers.BigNumber.from(5000).mul(hre.ethers.BigNumber.from(10).pow(9));
   console.log("deploying vault");
 
-  const vault = await deploy("TestAmplesenseVault",ampl_address) as TestAmplesenseVault;
+  const vault = await deploy("TestElasticVault",ampl_address) as TestElasticVault;
 
   console.log("Deployed vault");
 

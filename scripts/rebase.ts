@@ -1,11 +1,11 @@
 /*  This script performs the following functions: 
-1. Performs the rebase call for the AmpleSenseVault (determines whether EEFI is minted, or purchased and burned)
+1. Performs the rebase call for the ElasticVault (determines whether EEFI is minted, or purchased and burned)
 2. Calculates slippage arguments for trades
 3. Has several fail-safes, including reverts if the transation will require too much gas (.env.MAX_GAS_PRICE) using Fast gas price. 
-4. This script utilizes the wallet approved to call the rebase function by the AmpleSenseVault contract
+4. This script utilizes the wallet approved to call the rebase function by the ElasticVault contract
 */
 
-import { AmplesenseVault } from "../typechain/AmplesenseVault";
+import { ElasticVault } from "../typechain/ElasticVault";
 import { BalancerTrader } from "../typechain/BalancerTrader"
 import { UFragments } from "../typechain/UFragments";
 import { BalancerSDK, BalancerSdkConfig, Network, SwapType, BatchSwapStep } from '@balancer-labs/sdk';
@@ -14,7 +14,7 @@ import { config as dotenvConfig } from "dotenv";
 import {BigNumber, ethers, Wallet} from "ethers";
 const balancerTraderJson = require("../artifacts/contracts/interfaces/IBalancerTrader.sol/IBalancerTrader.json");
 const fragmentsJson = require("../artifacts/uFragments/contracts/UFragments.sol/UFragments.json");
-const amplesensevaultJson = require("../artifacts/contracts/AmplesenseVault.sol/AmplesenseVault.json");
+const ElasticVaultJson = require("../artifacts/contracts/ElasticVault.sol/ElasticVault.json");
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
@@ -90,7 +90,7 @@ const balancerAmplETHPooLAbi = [
 ]
 
 // Determine how much ETH will be acquired post-AMPL sale
-async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, ethDelta : BigNumber) : Promise<BigNumber> {
+async function computesellAMPLForOHM(amplAmount : any, amplDelta : BigNumber, ethDelta : BigNumber) : Promise<BigNumber> {
   const balancerAmplEthVault = new ethers.Contract("0xa751A143f8fe0a108800Bfb915585E4255C2FE80", balancerAmplETHPooLAbi, signer);
   const swapFee = await balancerAmplEthVault.getSwapFee();
   const weightAMPL = await balancerAmplEthVault.getDenormalizedWeight("0xD46bA6D942050d489DBd938a2C909A5d5039A161");
@@ -102,7 +102,7 @@ async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, et
   try {
     return await balancerAmplEthVault.calcOutGivenIn(balanceAMPLWithDelta, weightAMPL, balanceETHWithDelta, weightETH, amplAmount, swapFee);
   } catch(err) {
-    console.log("error computeSellAMPLForEth:", err);
+    console.log("error computesellAMPLForOHM:", err);
     return BigNumber.from("0");
   }
 }
@@ -110,7 +110,7 @@ async function computeSellAMPLForEth(amplAmount : any, amplDelta : BigNumber, et
 //Determine how much EEFI will be acquired post ETH sale
 async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,BigNumber]> {
   console.log(`selling ${prettyAMPL(amplAmount)}`)
-  const expectedETH = await computeSellAMPLForEth(amplAmount, BigNumber.from(0), BigNumber.from(0));
+  const expectedETH = await computesellAMPLForOHM(amplAmount, BigNumber.from(0), BigNumber.from(0));
   console.log(`got ${prettyETH(expectedETH)} ETH`);
   if(expectedETH.eq(0)) {
     return [BigNumber.from("0"),BigNumber.from("0")];
@@ -143,7 +143,7 @@ async function computeSellAMPLForEEFI(amplAmount : any) : Promise<[BigNumber,Big
   }
 }
 
-async function rebase(expectedEEFI : any, expectedETH : any, vault : AmplesenseVault) : Promise<boolean> {
+async function rebase(expectedEEFI : any, expectedETH : any, vault : ElasticVault) : Promise<boolean> {
   let gasPriceFast = 0;
   let gasMax = parseFloat(MAX_GAS_PRICE!);
   while(gasPriceFast == 0 || gasPriceFast > gasMax)
@@ -187,7 +187,7 @@ async function waitRebase() {
 }
 
 async function main() {
-  const vault = new ethers.Contract("0x5f9A579C795e665Fb00032523140e386Edcb99ee", amplesensevaultJson.abi, signer) as unknown as AmplesenseVault;
+  const vault = new ethers.Contract("0x5f9A579C795e665Fb00032523140e386Edcb99ee", ElasticVaultJson.abi, signer) as unknown as ElasticVault;
   const amplToken = await new ethers.Contract("0xd46ba6d942050d489dbd938a2c909a5d5039a161", fragmentsJson.abi, signer) as unknown as UFragments;
 
   while(true) {
@@ -228,7 +228,7 @@ async function main() {
       let [expectedEEFI, expectedETH] = await computeSellAMPLForEEFI(forEEFI);
       console.log(`expecting ${prettyETH(expectedEEFI)} EEFI for ${prettyAMPL(forEEFI)} AMPL`);
 
-      expectedETH = await computeSellAMPLForEth(forETH, forEEFI, expectedETH);
+      expectedETH = await computesellAMPLForOHM(forETH, forEEFI, expectedETH);
       console.log(`expecting ${prettyETH(expectedETH)} ETH for ${prettyAMPL(forETH)} AMPL`);
 
       if(expectedETH.gt(0) && expectedEEFI.gt(0)) {

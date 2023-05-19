@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: NONE
 pragma solidity 0.7.6;
 
-import '../AmplesenseVault.sol';
+import '../ElasticVault.sol';
 
-contract TestAmplesenseVault is AmplesenseVault {
+contract TestElasticVault is ElasticVault {
 
-    constructor(IERC20 ampl_token) AmplesenseVault(ampl_token) {
+    constructor(IERC20 ampl_token) ElasticVault(ampl_token) {
     }
 
     // Test mint function: only used during testing.

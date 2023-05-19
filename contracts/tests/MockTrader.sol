@@ -11,28 +11,25 @@ contract MockTrader is IBalancerTrader {
 
     IERC20 public ampl_token;
     IERC20 public eefi_token;
-    uint256 public ratio_eth = 10000000 ether;
-    uint256 public ratio_eefi = 1000000000 ether;
+    IERC20 public ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
+    uint256 public ratio_ohm;
+    uint256 public ratio_eefi;
 
-    constructor(IERC20 _ampl_token, IERC20 _eefi_token, uint256 _ratio_eth, uint256 _ratio_eefi) {
+    constructor(IERC20 _ampl_token, IERC20 _eefi_token, uint256 _ratio_ohm, uint256 _ratio_eefi) {
         ampl_token = _ampl_token;
         eefi_token = _eefi_token;
-        ratio_eth = _ratio_eth;
+        ratio_ohm = _ratio_ohm;
         ratio_eefi = _ratio_eefi;
-    }
-
-    receive() external payable {
-
     }
 
     /**
     * @dev Caller must allow the right amount of tokens to the trader
      */
-    function sellAMPLForEth(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ethAmount) {
+    function sellAMPLForOHM(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ohmAmount) {
         ampl_token.transferFrom(msg.sender, address(this), amount);
-        ethAmount = amount * ratio_eth / 1 ether;
-        msg.sender.transfer(ethAmount);
-        emit Sale_ETH(amount, ethAmount);
+        ohmAmount = amount * ratio_ohm / 1 ether;
+        ohm_token.safeTransfer(msg.sender, ohmAmount);
+        emit Sale_OHM(amount, ohmAmount);
     }
 
     /**
