@@ -34,7 +34,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     Distribute immutable public rewards_ohm;
     address payable public treasury;
     uint256 public last_positive = block.timestamp;
-    uint256 rebaseCallerReward = 0; // The amount of EEFI to be minted to the rebase caller as a reward
+    uint256 public rebase_caller_reward = 0; // The amount of EEFI to be minted to the rebase caller as a reward
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     
     /* 
@@ -237,12 +237,12 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
 
     /**
     * Change the rebase reward
-    * @param newRebaseReward New rebase reward
+    * @param new_rebase_reward New rebase reward
     !!!!!!!! This function is only callable by the owner
     */
-    function setRebaseReward(uint256 newRebaseReward) external onlyOwner() {
-        rebaseCallerReward = newRebaseReward;
-        emit RebaseRewardChanged(newRebaseReward);
+    function setRebaseReward(uint256 new_rebase_reward) external onlyOwner() {
+        rebase_caller_reward = new_rebase_reward;
+        emit RebaseRewardChanged(new_rebase_reward);
     }
 
     //Functions called depending on AMPL rebase status
@@ -287,7 +287,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
             }
         }
 
-        eefi_token.mint(msg.sender, rebaseCallerReward);
+        eefi_token.mint(msg.sender, rebase_caller_reward);
     }
 
     /**
