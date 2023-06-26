@@ -34,6 +34,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     Distribute immutable public rewards_ohm;
     address payable public treasury;
     uint256 public last_positive = block.timestamp;
+    uint256 rebaseCallerReward = 0; // The amount of EEFI to be minted to the rebase caller as a reward
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     
     /* 
@@ -88,6 +89,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     event Deposit(address indexed account, uint256 amount, uint256 length);
     event Withdrawal(address indexed account, uint256 amount, uint256 length);
     event StakeChanged(uint256 total, uint256 timestamp);
+    event RebaseRewardChanged(uint256 rebaseCallerReward);
 
     struct DepositChunk {
         uint256 amount;
@@ -233,6 +235,16 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         return ampl_token.balanceOf(address(this)).mul(stake).divDown(totalStaked());
     }
 
+    /**
+    * Change the rebase reward
+    * @param newRebaseReward New rebase reward
+    !!!!!!!! This function is only callable by the owner
+    */
+    function setRebaseReward(uint256 newRebaseReward) external onlyOwner() {
+        rebaseCallerReward = newRebaseReward;
+        emit RebaseRewardChanged(newRebaseReward);
+    }
+
     //Functions called depending on AMPL rebase status
     function _rebase(uint256 old_supply, uint256 new_supply) internal override {
         uint256 new_balance = ampl_token.balanceOf(address(this));
@@ -274,6 +286,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
                 IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
             }
         }
+
+        eefi_token.mint(msg.sender, rebaseCallerReward);
     }
 
     /**
