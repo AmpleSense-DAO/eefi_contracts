@@ -73,6 +73,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 45 days;
     uint256 constant public INITIAL_MINT = 170000 ether;
+    uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
 
     /* 
     Event Definitions:
@@ -241,6 +242,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     !!!!!!!! This function is only callable by the owner
     */
     function setRebaseReward(uint256 new_rebase_reward) external onlyOwner() {
+        require(new_rebase_reward <= MAX_REBASE_REWARD, "ElasticVault: invalid rebase reward");
         rebase_caller_reward = new_rebase_reward;
         emit RebaseRewardChanged(new_rebase_reward);
     }
