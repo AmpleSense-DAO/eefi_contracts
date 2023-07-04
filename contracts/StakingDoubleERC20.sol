@@ -153,8 +153,8 @@ contract StakingDoubleERC20 is IERC900  {
 
     /**
         @param account Address of the user to check reward for
-        @return _ohm the amount of OHM the account will perceive if he unstakes now
-        @return _eefi the amount of EEFI the account will perceive if he unstakes now
+        @return _ohm the amount of OHM the account will receive if they unstake now
+        @return _eefi the amount of EEFI the account will receive if they unstake now
     */
     function getReward(address account) public view returns (uint256 _ohm, uint256 _eefi) {
         _ohm = staking_contract_ohm.getReward(account);
