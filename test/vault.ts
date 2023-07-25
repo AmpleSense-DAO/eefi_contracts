@@ -5,11 +5,11 @@ import { BigNumber } from 'ethers';
 import { solidity } from 'ethereum-waffle';
 
 import { FakeERC20 } from '../typechain/FakeERC20';
-import { FakeERC721 } from '../typechain/FakeERC721';
 import { MockTrader } from '../typechain/MockTrader';
 import { StakingDoubleERC20 as StakingERC20 } from '../typechain/StakingDoubleERC20';
-import { TestElasticVault } from '../typechain/TestElasticVault';
+import { ElasticVault } from '../typechain/ElasticVault';
 import { FakeAMPL } from '../typechain/FakeAMPL';
+import { EEFIToken } from '../typechain/EEFIToken';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 chai.use(solidity);
@@ -18,7 +18,7 @@ const { expect } = chai;
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
-async function getInfo(vault: TestElasticVault, account: string) {
+async function getInfo(vault: ElasticVault, account: string) {
   // Promise.all can handle only 10 promise max
   const [
     staking_pool,
@@ -102,21 +102,22 @@ export async function resetFork() {
 
 
 describe('ElasticVault Contract', () => {
-  let vault : TestElasticVault;
+  let vault : ElasticVault;
   let owner : string;
   let treasury : string;
   let amplToken : FakeAMPL;
   let ohmToken : FakeERC20;
-  let eefiToken: FakeERC20;
+  let eefiToken: EEFIToken;
   let staking_pool : StakingERC20;
   let balancerTrader : MockTrader;
 
   beforeEach(async () => {
     await resetFork();
-    const vaultFactory = await ethers.getContractFactory('TestElasticVault');
+    const vaultFactory = await ethers.getContractFactory('ElasticVault');
     const stakingerc20Factory = await ethers.getContractFactory('StakingDoubleERC20');
     const traderFactory = await ethers.getContractFactory('MockTrader');
     const amplFactory = await ethers.getContractFactory('FakeAMPL');
+    const eefiFactory = await ethers.getContractFactory('EEFIToken');
 
     const accounts = await ethers.getSigners();
     owner = accounts[0].address;
@@ -124,13 +125,16 @@ describe('ElasticVault Contract', () => {
     
     amplToken = await amplFactory.deploy() as FakeAMPL;
     ohmToken = await ethers.getContractAt('FakeERC20', "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
+    eefiToken = await eefiFactory.deploy() as EEFIToken;
 
-    vault = await vaultFactory.deploy(amplToken.address) as TestElasticVault;
+    vault = await vaultFactory.deploy(eefiToken.address, amplToken.address) as ElasticVault;
+
+    // grant minting rights to the vault
+    await eefiToken.grantRole(await eefiToken.MINTER_ROLE(), vault.address);
+    // grant minting rights to the tester
+    await eefiToken.grantRole(await eefiToken.MINTER_ROLE(), owner);
     
-    let eefiTokenAddress = await vault.eefi_token();
-    eefiToken = await ethers.getContractAt('FakeERC20', eefiTokenAddress) as FakeERC20;
-    
-    staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiTokenAddress, 9) as StakingERC20;
+    staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiToken.address, 9) as StakingERC20;
     balancerTrader = await traderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseEther('1'), ethers.utils.parseEther('1')) as MockTrader;
   });
 
@@ -144,7 +148,7 @@ describe('ElasticVault Contract', () => {
     expect(info.trader).to.be.equal(zeroAddress);
     expect(info.treasury).to.be.equal(zeroAddress);
 
-    expect(info.eefi_token).to.not.be.equal(zeroAddress);
+    expect(info.eefi_token).to.be.equal(eefiToken.address);
     expect(info.rewards_eefi).to.not.be.equal(zeroAddress);
     expect(info.rewards_ohm).to.not.be.equal(zeroAddress);
 
@@ -173,10 +177,6 @@ describe('ElasticVault Contract', () => {
         expect(info.treasury).to.be.equal(treasury);
       });
 
-      it('should be mint EEFI upon initialization correctly', async () => {
-        expect(await eefiToken.balanceOf(treasury)).to.be.equal(await vault.INITIAL_MINT());
-      });
-
       it('should be initialized only once', async () => {
         await expect(
           vault.initialize(
@@ -190,6 +190,13 @@ describe('ElasticVault Contract', () => {
     describe('makeDeposit()', () => {
       it('deposit shall fail if staking without creating ampl allowance first', async () => {
         await expect(vault.makeDeposit(10**9)).to.be.reverted;
+      });
+
+      it('should fail if vault doesnt have minting rights on eefi', async () => {
+        const deposit = BigNumber.from(10**9);
+        await amplToken.increaseAllowance(vault.address, 10**9);
+        await eefiToken.revokeRole(await eefiToken.MINTER_ROLE(), vault.address);
+        await expect(vault.makeDeposit(deposit)).to.be.revertedWith('ElasticVault: mint failed');
       });
 
       it('should set shares in the contracts & mint eefi', async () => {
@@ -224,7 +231,7 @@ describe('ElasticVault Contract', () => {
         expect(beforeOwnerOHMReward).to.be.equal(0);
         expect(beforeOwnerEefiReward).to.be.equal(0);
         expect(beforeOwnerEefiBalance).to.be.equal(0);
-        expect(beforeTreasuryEefiBalance).to.be.equal(await vault.INITIAL_MINT());
+        expect(beforeTreasuryEefiBalance).to.be.equal(0);
 
         expect(afterInfo.accountTotalStaked).to.be.equal(waamplDeposit);
         expect(afterInfo.accountBalance).to.be.equal(deposit);
@@ -264,7 +271,7 @@ describe('ElasticVault Contract', () => {
 
         await amplToken.increaseAllowance(vault.address, 20000 * 10**9);
 
-        await vault.TESTMINT(BigNumber.from(99999).mul(BigNumber.from(10).pow(18)), balancerTrader.address);
+        await eefiToken.mint(balancerTrader.address, BigNumber.from(99999).mul(BigNumber.from(10).pow(18)));
 
         // get ohm
         const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
@@ -434,7 +441,7 @@ describe('ElasticVault Contract', () => {
 
         await amplToken.increaseAllowance(vault.address, 10**9);
 
-        await vault.TESTMINT(99999, balancerTrader.address);
+        await eefiToken.mint(balancerTrader.address, 99999);
         // get ohm
         const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
         const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
@@ -486,7 +493,7 @@ describe('ElasticVault Contract', () => {
 
         await amplToken.increaseAllowance(vault.address, 999999*10**9);
 
-        await vault.TESTMINT(99999*10**9, balancerTrader.address);
+        await eefiToken.mint(balancerTrader.address, BigNumber.from(99999).mul(BigNumber.from(10).pow(18)));
         // get ohm
         const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
         const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
@@ -542,7 +549,7 @@ describe('ElasticVault Contract', () => {
 
         await amplToken.increaseAllowance(vault.address, 999999*10**9);
 
-        await vault.TESTMINT(99999*10**9, balancerTrader.address);
+        await eefiToken.mint(balancerTrader.address, BigNumber.from(99999).mul(BigNumber.from(10).pow(18)));
         // get ohm
         const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
         const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;

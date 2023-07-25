@@ -1,5 +1,5 @@
 const hre = require("hardhat");
-import { TestElasticVault } from "../typechain/TestElasticVault";
+import { ElasticVault } from "../typechain/ElasticVault";
 import { StakingERC20 } from "../typechain/StakingERC20";
 import { Pioneer1Vault } from "../typechain/Pioneer1Vault";
 import { EEFIToken } from "../typechain/EEFIToken";
@@ -21,7 +21,7 @@ async function main() {
 
   console.log("deploying vault " + tokens.ampl.address)
 
-  let [p1, vault] = await deployVerify("TestElasticVault",tokens.ampl.address) as [any, TestElasticVault];
+  let [p1, vault] = await deployVerify("ElasticVault",tokens.ampl.address) as [any, ElasticVault];
 
   console.log("Deployed vault");
 
