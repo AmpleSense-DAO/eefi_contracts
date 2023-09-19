@@ -3,14 +3,9 @@ import chai from 'chai';
 import { ethers } from 'hardhat';
 import { BigNumber } from 'ethers';
 import { solidity } from 'ethereum-waffle';
-import { formatBytes32String } from 'ethers/lib/utils';
-
-import { FakeERC20 } from '../typechain/FakeERC20';
 import { BalancerTrader } from '../typechain/BalancerTrader';
-import { TestElasticVault } from "../typechain/TestElasticVault";
 import { EEFIToken } from "../typechain/EEFIToken";
 import { WeightedPool2TokensFactory } from "../typechain/WeightedPool2TokensFactory";
-import { WeightedPool2Tokens } from "../typechain/WeightedPool2Tokens";
 import { IVault } from "../typechain/IVault";
 import { UniswapV2Router02 } from "../typechain/UniswapV2Router02";
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
@@ -42,7 +37,6 @@ async function impersonateAndFund(address: string) : Promise<SignerWithAddress> 
 
 describe('BalancerTrader Contract', () => {
 
-  let token: FakeERC20;
   let trader: BalancerTrader;
   let owner: string;
   let eefiToken : EEFIToken;
@@ -65,14 +59,14 @@ describe('BalancerTrader Contract', () => {
     const holder = await impersonateAndFund(big_ohm_older_30189);
     await ohmToken.connect(holder).transfer(owner, BigNumber.from(30189).mul(10**9));
 
-    const vault = await deploy("TestElasticVault",ampl_address) as TestElasticVault;
-    let eefiTokenAddress = await vault.eefi_token();
-    eefiToken = await ethers.getContractAt("EEFIToken", eefiTokenAddress) as EEFIToken;
+    eefiToken = await deploy("EEFIToken") as EEFIToken;
+    // grant minting rights to the tester
+    await eefiToken.grantRole(await eefiToken.MINTER_ROLE(), owner);
 
     let token1 = ohm_token_address;
-    let token2 = eefiTokenAddress;
+    let token2 = eefiToken.address;
     if(BigNumber.from(token1) > BigNumber.from(token2)) {
-      token1 = eefiTokenAddress;
+      token1 = eefiToken.address;
       token2 = ohm_token_address;
     }
 
@@ -95,13 +89,13 @@ describe('BalancerTrader Contract', () => {
       userData : initUserData,
       fromInternalBalance : false
     }
-    await vault.TESTMINT(liquidity, accounts[0].address);
+    await eefiToken.mint(accounts[0].address, liquidity);
     await eefiToken.approve(balancerVault.address, liquidity);
     await ohmToken.approve(balancerVault.address, liquidity);
     await balancerVault.joinPool(poolID, accounts[0].address, accounts[0].address, request);
 
     
-    trader = await traderFactory.deploy(eefiTokenAddress, poolID) as BalancerTrader;
+    trader = await traderFactory.deploy(eefiToken.address, poolID) as BalancerTrader;
     
     // buy ampl
     const ampl = await ethers.getContractAt("EEFIToken", ampl_address) as EEFIToken;

@@ -4,7 +4,6 @@ pragma solidity 0.7.6;
 // Contract requirements 
 import './Distribute.sol';
 import './interfaces/IStakingDoubleERC20.sol';
-import './EEFIToken.sol';
 import './AMPLRebaser.sol';
 import './Wrapper.sol';
 import './interfaces/IBalancerTrader.sol';
@@ -29,7 +28,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     TokenStorage public token_storage;
     IStakingDoubleERC20 public staking_pool;
     IBalancerTrader public trader;
-    EEFIToken public eefi_token;
+    IERC20 public eefi_token;
     Distribute immutable public rewards_eefi;
     Distribute immutable public rewards_ohm;
     address payable public treasury;
@@ -72,7 +71,6 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     uint256 constant public TRADE_NEUTRAL_NEG_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 45 days;
-    uint256 constant public INITIAL_MINT = 170000 ether;
     uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
 
     /* 
@@ -100,11 +98,11 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     mapping(address => DepositChunk[]) private _deposits;
     
 // Only contract can mint new EEFI, and distribute OHM and EEFI rewards     
-    constructor(IERC20 ampl_token)
+    constructor(IERC20 _eefi_token, IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Wrapper(ampl_token)
     Ownable() {
-        eefi_token = new EEFIToken();
+        eefi_token = _eefi_token;
         rewards_eefi = new Distribute(9, IERC20(eefi_token));
         rewards_ohm = new Distribute(9, IERC20(ohm_token));
         token_storage = new TokenStorage();
@@ -157,7 +155,6 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         require(address(treasury) == address(0), "ElasticVault: contract already initialized");
         staking_pool = _staking_pool;
         treasury = _treasury;
-        eefi_token.mint(treasury, INITIAL_MINT);
     }
 
     /**
@@ -183,8 +180,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // send some EEFI to Treasury upon initial mint 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 45 days without positive rebase do not mint EEFI
-            eefi_token.mint(treasury, deposit_fee);
-            eefi_token.mint(msg.sender, to_mint.sub(deposit_fee));
+            (bool success1,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", treasury, deposit_fee));
+            (bool success2,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", msg.sender, to_mint.sub(deposit_fee)));
+            require(success1 && success2, "ElasticVault: mint failed");
         }
         
         // stake the shares also in the rewards pool
@@ -265,8 +263,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
                 uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE) * 10**9; /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
-                eefi_token.mint(address(this), to_mint);
-
+                (bool success,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", address(this), to_mint));
+                require(success, "ElasticVault: mint failed");
                 /* 
                 EEFI Reward Distribution Overview: 
 
@@ -289,7 +287,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
             }
         }
 
-        eefi_token.mint(msg.sender, rebase_caller_reward);
+        (bool success,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", msg.sender, rebase_caller_reward));
+        require(success, "ElasticVault: mint failed");
     }
 
     /**
@@ -316,7 +315,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         // burn the rest
         uint256 to_burn = eefi_token.balanceOf(address(this));
         emit Burn(to_burn);
-        eefi_token.burn(to_burn);
+        (bool success,) = address(eefi_token).call(abi.encodeWithSignature("burn(uint256)", to_burn));
+        require(success, "ElasticVault: mint failed");
         
         // distribute ohm to vaults
         uint256 to_rewards = ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).divDown(100);
