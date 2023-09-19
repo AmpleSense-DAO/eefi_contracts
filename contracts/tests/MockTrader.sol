@@ -3,9 +3,9 @@ pragma solidity ^0.7.0;
 pragma abicoder v2;
 
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol";
-import "../interfaces/IBalancerTrader.sol";
+import "../interfaces/ITrader.sol";
 
-contract MockTrader is IBalancerTrader {
+contract MockTrader is ITrader {
 
     using SafeERC20 for IERC20;
 
