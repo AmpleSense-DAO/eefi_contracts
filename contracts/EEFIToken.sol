@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/AccessControl.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20Burnable.sol';
 
-//Note: Only the Elastic Vault contract (ElasticVault.sol) is authorized to mint or burn EEFI 
+//Note: Only authorized minters have permission to mint or burn EEFI 
 
 contract EEFIToken is ERC20Burnable, AccessControl {
 
