@@ -38,7 +38,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     
     /* 
 
-    Parameter Definitions: //See updated parameters below
+    Parameter Definitions: //Parameters updated from v1 vault
 
     - EEFI Deposit Rate: Depositors receive reward of .0001 EEFI * Amount of AMPL user deposited into vault 
     - EEFI Negative Rebase Rate: When AMPL supply declines mint EEFI at rate of .00001 EEFI * total AMPL deposited into vault 
@@ -47,13 +47,12 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     - Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
     - Trade Posiitve EEFI_100: Upon positive rebase 45% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
     - Trade Positive OHM_100: Upon positive rebase 22% of the new AMPL supply (based on total AMPL in vault) is sold for OHM 
-    - Trade Positive Treasury_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is deposited into Pioneer Vault I (Zeus/Apollo NFT stakers) // Send 2% to Treasury [OK]
+    - Trade Positive Treasury_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is sent to Treasury 
     - Trade Positive Rewards_100: Upon positive rebase, send 55% of OHM rewards to users staking AMPL in vault 
     - Trade Positive LP Staking_100: Upon positive rebase, send 30% of OHM rewards to users staking LP tokens (EEFI/OHM)
     - Trade Neutral/Negative Rewards: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault
     - Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
-    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, or distribute rewards to stakers 
-    - Initial MINT: Amount of EEFI that will be minted at contract deployment - 170,000 tokens 
+    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, distribute rewards to stakers, or issue 
     - Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
     */
 
@@ -67,7 +66,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     uint256 constant public TRADE_POSITIVE_TREASURY_100 = 2;
     uint256 constant public TRADE_POSITIVE_OHM_REWARDS_100 = 55;
     uint256 constant public TRADE_NEUTRAL_NEG_EEFI_REWARDS_100 = 55;
-    uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 30; //Suggest creating 2 seperate sets of constants to account for positive and neutral/negative states (see comments below) [OK]
+    uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 30; 
     uint256 constant public TRADE_NEUTRAL_NEG_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 45 days;
@@ -240,7 +239,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     !!!!!!!! This function is only callable by the owner
     */
     function setRebaseReward(uint256 new_rebase_reward) external onlyOwner() {
-        require(new_rebase_reward <= MAX_REBASE_REWARD, "ElasticVault: invalid rebase reward");
+        require(new_rebase_reward <= MAX_REBASE_REWARD, "ElasticVault: invalid rebase reward"); //Max Rebase reward can't go above maximum 
         rebase_caller_reward = new_rebase_reward;
         emit RebaseRewardChanged(new_rebase_reward);
     }
