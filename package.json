@@ -15,6 +15,7 @@
     "@types/node": "^14.14.22",
     "@uniswap/v2-core": "https://github.com/Uniswap/uniswap-v2-core",
     "@uniswap/v2-periphery": "https://github.com/Uniswap/uniswap-v2-periphery",
+    "@uniswap/v3-periphery": "^1.4.3",
     "axios": "^0.26.1",
     "chai": "^4.2.0",
     "dotenv": "^16.0.0",

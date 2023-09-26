@@ -6,7 +6,7 @@ import './Distribute.sol';
 import './interfaces/IStakingDoubleERC20.sol';
 import './AMPLRebaser.sol';
 import './Wrapper.sol';
-import './interfaces/IBalancerTrader.sol';
+import './interfaces/ITrader.sol';
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
 
@@ -27,7 +27,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
 
     TokenStorage public token_storage;
     IStakingDoubleERC20 public staking_pool;
-    IBalancerTrader public trader;
+    ITrader public trader;
     IERC20 public eefi_token;
     Distribute immutable public rewards_eefi;
     Distribute immutable public rewards_ohm;
@@ -161,7 +161,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         for trading AMPL, OHM and EEFI - Note: this is the only admin permission on the vault and is included to account for changes in future AMPL liqudity distribution and does not impact EEFI minting or provide access to user funds or rewards)
         @param _trader Address of the trader contract
     */
-    function setTrader(IBalancerTrader _trader) external onlyOwner() {
+    function setTrader(ITrader _trader) external onlyOwner() {
         require(address(_trader) != address(0), "ElasticVault: invalid trader");
         trader = _trader;
     }

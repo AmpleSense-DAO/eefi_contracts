@@ -137,7 +137,7 @@ async function main() {
   await vault.initialize(pioneer1.address, pioneer2.address, pioneer3.address, staking_pool.address, accounts[0].address);
   console.log("vault initialized");
 
-  const trader = await deploy("BalancerTrader",eefiTokenAddress, poolID) as Pioneer1Vault;
+  const trader = await deploy("Trader",eefiTokenAddress, poolID) as Pioneer1Vault;
   await vault.setTrader(trader.address);
   await pioneer1.setTrader(trader.address);
 

@@ -6,13 +6,13 @@
 */
 
 import { ElasticVault } from "../typechain/ElasticVault";
-import { BalancerTrader } from "../typechain/BalancerTrader"
+import { Trader } from "../typechain/Trader"
 import { UFragments } from "../typechain/UFragments";
 import { BalancerSDK, BalancerSdkConfig, Network, SwapType, BatchSwapStep } from '@balancer-labs/sdk';
 import { resolve } from "path";
 import { config as dotenvConfig } from "dotenv";
 import {BigNumber, ethers, Wallet} from "ethers";
-const balancerTraderJson = require("../artifacts/contracts/interfaces/IBalancerTrader.sol/IBalancerTrader.json");
+const traderJson = require("../artifacts/contracts/interfaces/ITrader.sol/ITrader.json");
 const fragmentsJson = require("../artifacts/uFragments/contracts/UFragments.sol/UFragments.json");
 const ElasticVaultJson = require("../artifacts/contracts/ElasticVault.sol/ElasticVault.json");
 
@@ -156,7 +156,7 @@ async function rebase(expectedEEFI : any, expectedETH : any, vault : ElasticVaul
     const expectedETHWithSlippage = expectedETH.mul(ethSlippage100).div(BigNumber.from("100"));
     console.log("minEEFI: "+expectedEEFIWithSlippage, "minETH: "+expectedETHWithSlippage);
 
-    const trader = new ethers.Contract("0xCB569E7Ca72FE970cf08610Bf642f55aD616880C",balancerTraderJson.abi, signer) as unknown as BalancerTrader;
+    const trader = new ethers.Contract("0xCB569E7Ca72FE970cf08610Bf642f55aD616880C",traderJson.abi, signer) as unknown as Trader;
     trader.once("Sale_ETH", (amount, ethAmount) => {
       console.log("Sale_ETH: " + amount + "=>" + ethAmount);
     });
