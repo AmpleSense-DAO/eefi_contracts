@@ -11,19 +11,19 @@ During Negative Rebases: The vault mints EEFI (based on how much AMPL is deposit
 
 During Neutral Rebases/Equilibrium: The vault mints EEFI (based on how much AMPL is deposited into the vault); the mint amount is higher than what occurs during negative rebases. EEFI is distributed as outlined above. 
 
-During positive rebases, 70% of the new AMPL supply is automatically sold for OHM and EEFI. 90% of purchased EEFI is burned. OHM purchaed is distributed to stakers and vaults (as outlined above).  
+During positive rebases, a percentage of the new AMPL supply is automatically sold for OHM and EEFI. 90% of purchased EEFI is burned. OHM purchaed is distributed to stakers and vaults.  
 
 The rebase function is called after each AMPL rebase, which either mints new EEFI (and distributes it) or buys and burns EEFI, and purchases OHM for distribution to stakers. 
 
 The contract inherits from AMPLRebaser which adds the rebase public function and tracks the supply changes in AMPL to compute the percentage of currently owed AMPL tokens by the contract that is coming from AMPL rebase cycles.
 
-The contract creates the EEFI token used in rewards. It is the only contract authorized to mint EEFI, and EEFI is only minted during neutral/negative AMPL rebase cycles. 
+The Elastic Vault contract creates the EEFI token used in rewards. EEFI is only minted during neutral/negative AMPL rebase cycles. 
 
 We use the Distribute contract to handle OHM and EEFI rewards pools and their computation.
 
 ## EEFIToken.sol
 
-This is a simple erc20 token contract. Note that the token can be minted and burned. The ElasticVault.sol token is the only authorized minter and burner of EEFI. 
+This is a simple erc20 token contract. Note that the token can be minted and burned by authorized wallets/contracts. 
 
 ## StakingERC20.sol
 
