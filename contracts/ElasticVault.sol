@@ -47,9 +47,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     - Lock Time: AMPL deposited into vault is locked for 90 days; lock time applies to each new AMPL deposit
     - Trade Posiitve EEFI_100: Upon positive rebase 45% of new AMPL supply (based on total AMPL in vault) is sold and used to buy EEFI 
     - Trade Positive OHM_100: Upon positive rebase 22% of the new AMPL supply (based on total AMPL in vault) is sold for OHM 
-    - Trade Positive Treasury_100: Upon positive rebase 2% of new AMPL supply (based on total AMPL in vault) is sent to Treasury 
+    - Trade Positive Treasury_100: Upon positive rebase 3% of new AMPL supply (based on total AMPL in vault) is sent to Treasury 
     - Trade Positive Rewards_100: Upon positive rebase, send 55% of OHM rewards to users staking AMPL in vault 
-    - Trade Positive LP Staking_100: Upon positive rebase, send 30% of OHM rewards to users staking LP tokens (EEFI/OHM)
+    - Trade Positive LP Staking_100: Upon positive rebase, send 35% of OHM rewards to users staking LP tokens (EEFI/OHM)
     - Trade Neutral/Negative Rewards: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault
     - Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
     - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, distribute rewards to stakers, or issue 
@@ -63,10 +63,10 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     uint256 constant public LOCK_TIME = 90 days;
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 45;
     uint256 constant public TRADE_POSITIVE_OHM_100 = 22;
-    uint256 constant public TRADE_POSITIVE_TREASURY_100 = 2;
+    uint256 constant public TRADE_POSITIVE_TREASURY_100 = 3;
     uint256 constant public TRADE_POSITIVE_OHM_REWARDS_100 = 55;
     uint256 constant public TRADE_NEUTRAL_NEG_EEFI_REWARDS_100 = 55;
-    uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 30; 
+    uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35; 
     uint256 constant public TRADE_NEUTRAL_NEG_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 45 days;
@@ -281,7 +281,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
                 rewards_eefi.distribute(to_rewards, address(this));
                 staking_pool.forward(); 
 
-                // distribute the remainder (10%) of EEFI to the treasury
+                // distribute the remainder of EEFI to the treasury
                 IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
             }
         }
