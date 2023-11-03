@@ -175,7 +175,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         uint256 waampl = _ampleTowaample(amount);
         _deposits[msg.sender].push(DepositChunk(waampl, block.timestamp));
 
-        uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
+        uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // send some EEFI to Treasury upon initial mint 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 45 days without positive rebase do not mint EEFI
