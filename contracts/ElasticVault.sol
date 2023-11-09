@@ -175,7 +175,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         uint256 waampl = _ampleTowaample(amount);
         _deposits[msg.sender].push(DepositChunk(waampl, block.timestamp));
 
-        uint256 to_mint = amount / EEFI_DEPOSIT_RATE * 10**9;
+        uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // send some EEFI to Treasury upon initial mint 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 45 days without positive rebase do not mint EEFI
@@ -200,19 +200,22 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
+        uint256 next_pop = 0; // keeps track of the amount of deposits to pop and the index of the next deposit to liquidate
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
-            DepositChunk storage deposit = _deposits[msg.sender][0];
+            DepositChunk storage deposit = _deposits[msg.sender][next_pop];
             require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
             if(deposit.amount > to_withdraw) {
                 deposit.amount = deposit.amount.sub(to_withdraw);
                 to_withdraw = 0;
             } else {
                 to_withdraw = to_withdraw.sub(deposit.amount);
-                _popDeposit();
+                next_pop++;
             }
         }
+        // remove the deposits that were fully liquidated
+        _popDeposits(next_pop);
         // compute the current ampl count representing user shares
         uint256 ampl_to_withdraw = _convertToAMPL(amount);
         ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
@@ -261,7 +264,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
-                uint256 to_mint = new_balance.divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE) * 10**9; /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
+                uint256 to_mint = new_balance.mul(10**9).divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE); /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
                 (bool success,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", address(this), to_mint));
                 require(success, "ElasticVault: mint failed");
                 /* 
@@ -367,10 +370,18 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
         eefi = rewards_eefi.getTotalReward();
     }
 
-    function _popDeposit() internal {
-        for (uint i = 0; i < _deposits[msg.sender].length - 1; i++) {
-            _deposits[msg.sender][i] = _deposits[msg.sender][i + 1];
+    /**
+        @dev removes the first N elements of the deposit array
+    */
+    function _popDeposits(uint256 n) internal {
+        uint256 length = _deposits[msg.sender].length;
+        for (uint256 i = 0; i < length - n; i++) {
+            _deposits[msg.sender][i] = _deposits[msg.sender][i + n];
         }
-        _deposits[msg.sender].pop();
+
+        for (uint256 i = 0; i < n; i++) {
+            _deposits[msg.sender].pop();
+        }
     }
+
 }
