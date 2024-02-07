@@ -36,6 +36,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     uint256 public to_distribute;
     mapping(address => uint256) private _bond_value_addr;
     mapping(address => uint256) private _stakes;
+    mapping(address => uint256) private pending_rewards;
 
     /// @dev token to distribute
     IERC20 immutable public reward_token;
@@ -63,14 +64,15 @@ contract Distribute is Ownable, ReentrancyGuard {
             staker_count++;
         }
         uint256 accumulated_reward = getReward(account);
+        if(accumulated_reward > 0) {
+            pending_rewards[account] = pending_rewards[account].add(accumulated_reward);
+        }
         _stakes[account] = _stakes[account].add(amount);
-
-        uint256 new_bond_value = accumulated_reward * PRECISION / _stakes[account];
-        _bond_value_addr[account] = bond_value - new_bond_value;
+        _bond_value_addr[account] = bond_value;
     }
 
     /**
-        @dev unstakes a certain amounts, if unstaking is currently not possible the function MUST revert
+        @dev unstakes a certain amount, if unstaking is currently not possible the function MUST revert
         @param account From whom
         @param amount Amount to remove from the stake
     */
@@ -84,6 +86,10 @@ contract Distribute is Ownable, ReentrancyGuard {
         if(_stakes[account] == 0) {
             staker_count--;
         }
+
+        // always try and distribute the pending rewards
+        to_reward = to_reward.add(pending_rewards[account]);
+        pending_rewards[account] = 0;
 
         if(to_reward == 0) return;
         //take into account dust error during payment too
