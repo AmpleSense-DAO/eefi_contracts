@@ -109,8 +109,6 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         token_storage = new TokenStorage();
     }
 
-    receive() external payable { }
-
     /**
      * @param account User address
      * @return total amount of shares owned by account
