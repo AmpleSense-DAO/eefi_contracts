@@ -25,7 +25,7 @@ contract Distribute is Ownable, ReentrancyGuard {
      to match the staking token precision
      If staking token has less decimals then this value will also be 1
     */
-    uint256 immutable public DECIMALS_ADJUSTMENT;
+    uint256 public DECIMALS_ADJUSTMENT;
 
     uint256 public constant INITIAL_BOND_VALUE = 1000000;
 
@@ -54,7 +54,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     constructor(uint256 _staking_decimals, uint256 _reward_decimals, IERC20 _reward_token) Ownable() ReentrancyGuard() {
         reward_token = _reward_token;
         // sanitize reward token decimals
-        (bool success, uint256 checked_decimals) = tryGetDecimals(address(reward_token));
+        (bool success, uint256 checked_decimals) = tryGetDecimals(address(_reward_token));
         if(success) {
             require(checked_decimals == _reward_decimals, "Distribute: Invalid reward decimals");
         }
