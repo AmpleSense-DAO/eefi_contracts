@@ -9,6 +9,7 @@ import './Wrapper.sol';
 import './interfaces/ITrader.sol';
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol';
 
 contract TokenStorage is Ownable {
     using SafeERC20 for IERC20;
@@ -21,7 +22,7 @@ contract TokenStorage is Ownable {
     }
 }
 
-contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
+contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -249,7 +250,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     }
 
     //Functions called depending on AMPL rebase status
-    function _rebase(uint256 old_supply, uint256 new_supply) internal override {
+    function _rebase(uint256 old_supply, uint256 new_supply) internal override nonReentrant() {
         uint256 new_balance = ampl_token.balanceOf(address(this));
 
         if(new_supply > old_supply) {
@@ -299,7 +300,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
      * @param minimalExpectedOHM Minimal amount of OHM to be received from the trade
      !!!!!!!! This function is only callable by the owner
     */
-    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external onlyOwner() {
+    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() onlyOwner() {
         uint256 balance = ampl_token.balanceOf(address(token_storage));
         uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
         uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
