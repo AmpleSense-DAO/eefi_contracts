@@ -102,8 +102,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable {
     Wrapper(ampl_token)
     Ownable() {
         eefi_token = _eefi_token;
-        rewards_eefi = new Distribute(9, IERC20(eefi_token));
-        rewards_ohm = new Distribute(9, IERC20(ohm_token));
+        // we're staking wampl wich is 12 digits, reward eefi is 18 digits
+        rewards_eefi = new Distribute(12, 18, IERC20(eefi_token));
+        rewards_ohm = new Distribute(12, 9, IERC20(ohm_token));
         token_storage = new TokenStorage();
     }
 
