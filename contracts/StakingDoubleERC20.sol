@@ -30,7 +30,7 @@ contract StakingDoubleERC20 is IERC900  {
         @dev Takes OHM from sender and puts it in the reward pool
         @param amount Amount of token to add to rewards
     */
-    function distribute_ohm(uint256 amount) payable external {
+    function distribute_ohm(uint256 amount) external {
         staking_contract_ohm.distribute(amount, msg.sender);
         emit ProfitOHM(amount);
     }
