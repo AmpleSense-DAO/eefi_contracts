@@ -11,6 +11,10 @@ import './interfaces/ITrader.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol';
 
+interface IEEFIToken {
+    function mint(address account, uint256 amount) external;
+}
+
 contract TokenStorage is Ownable {
     using SafeERC20 for IERC20;
 
@@ -179,9 +183,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // send some EEFI to Treasury upon initial mint 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 45 days without positive rebase do not mint EEFI
-            (bool success1,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", treasury, deposit_fee));
-            (bool success2,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", msg.sender, to_mint.sub(deposit_fee)));
-            require(success1 && success2, "ElasticVault: mint failed");
+            IEEFIToken(address(eefi_token)).mint(treasury, deposit_fee);
+            IEEFIToken(address(eefi_token)).mint(msg.sender, to_mint.sub(deposit_fee));
         }
         
         // stake the shares also in the rewards pool
