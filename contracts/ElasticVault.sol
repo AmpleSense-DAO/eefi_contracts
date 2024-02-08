@@ -33,6 +33,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     TokenStorage public token_storage;
     IStakingDoubleERC20 public staking_pool;
     ITrader public trader;
+    ITrader pending_trader;
     IERC20 public eefi_token;
     Distribute immutable public rewards_eefi;
     Distribute immutable public rewards_ohm;
@@ -40,6 +41,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     uint256 public last_positive = block.timestamp;
     uint256 public rebase_caller_reward = 0; // The amount of EEFI to be minted to the rebase caller as a reward
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
+    uint256 public trader_change_request_time;
     
     /* 
 
@@ -76,6 +78,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     uint256 constant public TREASURY_EEFI_100 = 10;
     uint256 constant public MINTING_DECAY = 45 days;
     uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
+    uint256 constant public TRADER_CHANGE_COOLDOWN = 1 days;
 
     /* 
     Event Definitions:
@@ -93,6 +96,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     event Withdrawal(address indexed account, uint256 amount, uint256 length);
     event StakeChanged(uint256 total, uint256 timestamp);
     event RebaseRewardChanged(uint256 rebaseCallerReward);
+    event TraderChangeRequest(address oldTrader, address newTrader);
+    event TraderChanged(address trader);
 
     struct DepositChunk {
         uint256 amount;
@@ -151,23 +156,39 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @dev Called only once by the owner; this function sets up the vaults
         @param _staking_pool Address of the LP staking pool (EEFI/OHM LP token staking pool)
         @param _treasury Address of the treasury (Address of Elastic Finance DAO Treasury)
+        @param _trader Address of the initial trader contract
     */
-    function initialize(IStakingDoubleERC20 _staking_pool, address payable _treasury) external
+    function initialize(IStakingDoubleERC20 _staking_pool, address payable _treasury, address _trader) external
     onlyOwner() 
     {
         require(address(treasury) == address(0), "ElasticVault: contract already initialized");
         staking_pool = _staking_pool;
         treasury = _treasury;
+        trader = ITrader(_trader);
     }
 
     /**
         @dev Contract owner can set and replace the contract used
         for trading AMPL, OHM and EEFI - Note: this is the only admin permission on the vault and is included to account for changes in future AMPL liqudity distribution and does not impact EEFI minting or provide access to user funds or rewards)
+        Additionally, the trader change request is subject to a 1 day cooldown
         @param _trader Address of the trader contract
     */
-    function setTrader(ITrader _trader) external onlyOwner() {
+    function setTraderRequest(ITrader _trader) external onlyOwner() {
         require(address(_trader) != address(0), "ElasticVault: invalid trader");
-        trader = _trader;
+        pending_trader = _trader;
+        trader_change_request_time = block.timestamp;
+        emit TraderChangeRequest(address(trader), address(pending_trader));
+    }
+
+    /**
+        @dev Contract owner can set the trader contract after the cooldown period
+    */
+    function setTrader() external onlyOwner() {
+        require(address(pending_trader) != address(0), "ElasticVault: invalid trader");
+        require(block.timestamp > trader_change_request_time + TRADER_CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
+        trader = pending_trader;
+        pending_trader = ITrader(address(0));
+        emit TraderChanged(address(trader));
     }
 
     /**
