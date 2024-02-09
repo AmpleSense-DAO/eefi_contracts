@@ -10,7 +10,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 abstract contract Wrapper {
 
     /// @dev The maximum waampl supply.
-    uint256 public constant MAX_waampl_SUPPLY = 10000000 * (10**12); // 10 M
+    uint256 public constant MAX_WAAMPL_SUPPLY = 10000000 * (10**12); // 10 M
     IERC20 immutable public ampl;
 
     constructor(IERC20 _ampl) {
@@ -24,6 +24,6 @@ abstract contract Wrapper {
         view
         returns (uint256)
     {
-        return (amples * MAX_waampl_SUPPLY) / ampl.totalSupply();
+        return (amples * MAX_WAAMPL_SUPPLY) / ampl.totalSupply();
     }
 }
