@@ -28,8 +28,8 @@ contract Trader is ITrader {
     IUniswapV2Router02 public constant uniswapV2Router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     IERC20 public immutable eefiToken;
 
-    address[] pathAMPLETH = new address[](2);
-    address[] pathOHMEEFI = new address[](2);
+    address[] public pathAMPLETH = new address[](2);
+    address[] public pathOHMEEFI = new address[](2);
 
 
     constructor(IERC20 _eefiToken) {
