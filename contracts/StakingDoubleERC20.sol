@@ -20,6 +20,8 @@ contract StakingDoubleERC20 is IERC900  {
     event StakeChanged(uint256 total, uint256 timestamp);
 
     constructor(IERC20 stake_token, uint256 stake_decimals, IERC20 eefi) {
+        require(address(stake_token) != address(0), "StakingDoubleERC20: Invalid stake token");
+        require(address(eefi) != address(0), "StakingDoubleERC20: Invalid eefi token");
         _token = stake_token;
         // we do not need to sanitize the decimals here because the Distribute contract will do it
         staking_contract_ohm = new Distribute(stake_decimals, 9, IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5));
