@@ -20,9 +20,6 @@ interface IEEFIToken {
 contract TokenStorage is Ownable {
     using SafeERC20 for IERC20;
 
-    constructor() Ownable() {
-    }
-
     function claim(address token) external onlyOwner() {
         IERC20(token).safeTransfer(msg.sender, IERC20(token).balanceOf(address(this)));
     }
