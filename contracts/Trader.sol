@@ -47,7 +47,7 @@ contract Trader is ITrader {
     * @param minimalExpectedAmount The minimal expected amount of ohm
      */
     function sellAMPLForOHM(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ohmAmount) {
-        require(amplToken.transferFrom(msg.sender, address(this), amount),"Trader: transferFrom failed");
+        amplToken.safeTransferFrom(msg.sender, address(this), amount);
         amplToken.approve(address(uniswapV2Router), amount);
         uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, pathAMPLETH, address(this), block.timestamp);
         uint256 ethAmount = amounts[1];
@@ -75,7 +75,7 @@ contract Trader is ITrader {
     * @param minimalExpectedAmount The minimal expected amount of EEFI
      */
     function sellAMPLForEEFI(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 eefiAmount) {
-        require(amplToken.transferFrom(msg.sender, address(this), amount),"Trader: transferFrom failed");
+        amplToken.safeTransferFrom(msg.sender, address(this), amount);
         amplToken.approve(address(uniswapV2Router), amount);
         uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, pathAMPLETH, address(this), block.timestamp);
         uint256 ethAmount = amounts[1];
