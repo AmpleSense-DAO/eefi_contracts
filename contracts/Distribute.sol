@@ -51,7 +51,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         @param _reward_decimals Number of decimals of the reward token
         @param _reward_token The token used for rewards. Set to 0 for ETH
     */
-    constructor(uint256 _staking_decimals, uint256 _reward_decimals, IERC20 _reward_token) Ownable() ReentrancyGuard() {
+    constructor(uint256 _staking_decimals, uint256 _reward_decimals, IERC20 _reward_token) {
         reward_token = _reward_token;
         // sanitize reward token decimals
         (bool success, uint256 checked_decimals) = tryGetDecimals(address(_reward_token));
