@@ -279,8 +279,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
                 uint256 to_mint = new_balance.mul(10**9).divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE); /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
-                (bool success,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", address(this), to_mint));
-                require(success, "ElasticVault: mint failed");
+                IEEFIToken(eefi_token).mint(address(this), to_mint);
                 /* 
                 EEFI Reward Distribution Overview: 
 
@@ -302,9 +301,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
                 IERC20(eefi_token).safeTransfer(treasury, eefi_token.balanceOf(address(this)));
             }
         }
-
-        (bool success,) = address(eefi_token).call(abi.encodeWithSignature("mint(address,uint256)", msg.sender, rebase_caller_reward));
-        require(success, "ElasticVault: mint failed");
+        IEEFIToken(eefi_token).mint(msg.sender, rebase_caller_reward);
     }
 
     /**
