@@ -2,7 +2,10 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
+import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
+
 contract DepositsLinkedList {
+    using Math for uint256;
 
     struct Deposit {
         uint256 amount;
@@ -60,7 +63,7 @@ contract DepositsLinkedList {
             // Check if the deposit has expired
             if ((block.timestamp - nodes[current].deposit.timestamp) > lock_duration) {
                 // Add the current node's deposit amount to the sum if it has expired
-                sum += nodes[current].deposit.amount;
+                sum = sum.add(nodes[current].deposit.amount);
             }
             // Move to the next node
             current = nodes[current].next;
