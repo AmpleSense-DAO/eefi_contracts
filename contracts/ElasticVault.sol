@@ -105,6 +105,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     AMPLRebaser(ampl_token)
     Wrapper(ampl_token)
     Ownable() {
+        require(address(_eefi_token) != address(0), "ElasticVault: Invalid eefi token");
+        require(address(ampl_token) != address(0), "ElasticVault: Invalid ampl token");
         eefi_token = _eefi_token;
         // we're staking wampl wich is 12 digits, reward eefi is 18 digits
         rewards_eefi = new Distribute(12, 18, IERC20(eefi_token));
