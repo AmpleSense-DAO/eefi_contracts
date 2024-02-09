@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: NONE
 pragma solidity 0.7.6;
+pragma abicoder v2;
 
 // Contract requirements 
 import './Distribute.sol';
+import './DepositsLinkedList.sol';
 import './interfaces/IStakingDoubleERC20.sol';
 import './AMPLRebaser.sol';
 import './Wrapper.sol';
@@ -99,12 +101,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     event TraderChangeRequest(address oldTrader, address newTrader);
     event TraderChanged(address trader);
 
-    struct DepositChunk {
-        uint256 amount;
-        uint256 timestamp;
-    }
-
-    mapping(address => DepositChunk[]) private _deposits;
+    mapping(address => DepositsLinkedList) private _deposits;
     
 // Only contract can mint new EEFI, and distribute OHM and EEFI rewards     
     constructor(IERC20 _eefi_token, IERC20 ampl_token)
@@ -124,10 +121,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
      */
 
     function totalStakedFor(address account) public view returns (uint256 total) {
-        for(uint i = 0; i < _deposits[account].length; i++) {
-            total += _deposits[account][i].amount;
-        }
-        return total;
+        // use 0 as lock duration to sum all deposit amounts
+        return _deposits[account].sumExpiredDeposits(0);
     }
 
     /**
@@ -135,12 +130,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     */
     function totalClaimableBy(address account) public view returns (uint256 total) {
         if(rewards_eefi.totalStaked() == 0) return 0;
-        for(uint i = 0; i < _deposits[account].length; i++) {
-            if(_deposits[account][i].timestamp < block.timestamp.sub(LOCK_TIME)) {
-                total += _deposits[account][i].amount;
-            }
-        }
-        total = _convertToAMPL(total);
+        // only count expired deposits
+        uint256 expired_amount = _deposits[account].sumExpiredDeposits(LOCK_TIME);
+        total = _convertToAMPL(expired_amount);
     }
 
     /**
@@ -198,7 +190,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     function makeDeposit(uint256 amount) _rebaseSynced() external {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 waampl = _ampleTowaample(amount);
-        _deposits[msg.sender].push(DepositChunk(waampl, block.timestamp));
+        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit(waampl, block.timestamp));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -211,7 +203,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         // stake the shares also in the rewards pool
         rewards_eefi.stakeFor(msg.sender, waampl);
         rewards_ohm.stakeFor(msg.sender, waampl);
-        emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
+        emit Deposit(msg.sender, amount, _deposits[msg.sender].length());
         emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 
@@ -224,22 +216,23 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
-        uint256 next_pop = 0; // keeps track of the amount of deposits to pop and the index of the next deposit to liquidate
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
-            DepositChunk storage deposit = _deposits[msg.sender][next_pop];
-            require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
-            if(deposit.amount > to_withdraw) {
-                deposit.amount = deposit.amount.sub(to_withdraw);
-                to_withdraw = 0;
-            } else {
-                to_withdraw = to_withdraw.sub(deposit.amount);
-                next_pop++;
+            if(_deposits[msg.sender].length() > 0) {
+                DepositsLinkedList.Deposit memory deposit = _deposits[msg.sender].getDepositById(_deposits[msg.sender].head());
+                // if the first deposit is not unlocked return an error
+                require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
+                if(deposit.amount > to_withdraw) {
+                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head(), deposit.amount.sub(to_withdraw));
+                    to_withdraw = 0;
+                } else {
+                    to_withdraw = to_withdraw.sub(deposit.amount);
+                    _deposits[msg.sender].popHead();
+                }
             }
+            
         }
-        // remove the deposits that were fully liquidated
-        _popDeposits(next_pop);
         // compute the current ampl count representing user shares
         uint256 ampl_to_withdraw = _convertToAMPL(amount);
         ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
@@ -247,7 +240,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
         rewards_ohm.unstakeFrom(msg.sender, amount);
-        emit Withdrawal(msg.sender, ampl_to_withdraw,_deposits[msg.sender].length);
+        emit Withdrawal(msg.sender, ampl_to_withdraw,_deposits[msg.sender].length());
         emit StakeChanged(totalStaked(), block.timestamp);
     }
 
@@ -392,20 +385,6 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     function totalReward() external view returns (uint256 ohm, uint256 eefi) {
         ohm = rewards_ohm.getTotalReward(); 
         eefi = rewards_eefi.getTotalReward();
-    }
-
-    /**
-        @dev removes the first N elements of the deposit array
-    */
-    function _popDeposits(uint256 n) internal {
-        uint256 length = _deposits[msg.sender].length;
-        for (uint256 i = 0; i < length - n; i++) {
-            _deposits[msg.sender][i] = _deposits[msg.sender][i + n];
-        }
-
-        for (uint256 i = 0; i < n; i++) {
-            _deposits[msg.sender].pop();
-        }
     }
 
 }
