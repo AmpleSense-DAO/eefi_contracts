@@ -17,7 +17,6 @@ abstract contract AMPLRebaser {
     IERC20 immutable public ampl_token;
 
     constructor(IERC20 _ampl_token) {
-        require(address(_ampl_token) != address(0), "AMPLRebaser: Invalid ampl token address");
         ampl_token = _ampl_token;
         last_ampl_supply = _ampl_token.totalSupply();
         last_rebase_call = block.timestamp;
