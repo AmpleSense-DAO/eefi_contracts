@@ -265,15 +265,15 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     }
 
     //Functions called depending on AMPL rebase status
-    function _rebase(uint256 old_supply, uint256 new_supply) internal override nonReentrant() {
+    function _rebase(uint256 new_supply) internal override nonReentrant() {
         uint256 new_balance = ampl_token.balanceOf(address(this));
 
-        if(new_supply > old_supply) {
+        if(new_supply > last_ampl_supply) {
             // This is a positive AMPL rebase and initates trading and distribuition of AMPL according to parameters (see parameters definitions)
             last_positive = block.timestamp;
             require(address(trader) != address(0), "ElasticVault: trader not set");
 
-            uint256 changeRatio18Digits = old_supply.mul(10**18).divDown(new_supply);
+            uint256 changeRatio18Digits = last_ampl_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
 
             // transfer surplus to sell pool
