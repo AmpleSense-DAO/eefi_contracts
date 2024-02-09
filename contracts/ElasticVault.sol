@@ -276,7 +276,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
 
             // transfer surplus to sell pool
-            ampl_token.transfer(address(token_storage), surplus);
+            ampl_token.safeTransfer(address(token_storage), surplus);
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
