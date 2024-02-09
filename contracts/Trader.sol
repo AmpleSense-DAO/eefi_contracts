@@ -40,11 +40,6 @@ contract Trader is ITrader {
         pathOHMEEFI[1] = address(_eefiToken);
     }
 
-    receive() external payable {
-        // make sure we accept only eth coming from unwrapping weth
-        revert("Trader: Not accepting ETH");
-    }
-
     /**
     * @dev Caller must transfer the right amount of tokens to the trader
     * @param amount Amount of AMPL to sell
