@@ -15,14 +15,17 @@ contract Distribute is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /**
-     @dev This value is very important because if the number of bonds is too great
-     compared to the distributed value, then the bond increase will be zero
-     therefore this value depends on the number of decimals
-     of the distributed token and I suggest it to be the same
-     For example if the token has 18 decimals, then the precision should also have 18 decimals
-
+     @dev This value is used so when reward token distribution is computed
+     the difference in precision between staking and reward token doesnt interfere
+     with bond increase computation
+     This will be computed based on the difference between decimals
+     of the staking token and the reward token
+     If both tokens have the same amount of decimals then this value is 1
+     If reward token has less decimals then amounts will be multiplied by this value
+     to match the staking token precision
+     If staking token has less decimals then this value will also be 1
     */
-    uint256 immutable public PRECISION;
+    uint256 public DECIMALS_ADJUSTMENT;
 
     uint256 public constant INITIAL_BOND_VALUE = 1000000;
 
@@ -36,18 +39,54 @@ contract Distribute is Ownable, ReentrancyGuard {
     uint256 public to_distribute;
     mapping(address => uint256) private _bond_value_addr;
     mapping(address => uint256) private _stakes;
+    mapping(address => uint256) private pending_rewards;
+    uint256 immutable staking_decimals;
 
     /// @dev token to distribute
     IERC20 immutable public reward_token;
 
     /**
         @dev Initialize the contract
-        @param decimals Number of decimals of the reward token
+        @param _staking_decimals Number of decimals of the staking token
+        @param _reward_decimals Number of decimals of the reward token
         @param _reward_token The token used for rewards. Set to 0 for ETH
     */
-    constructor(uint256 decimals, IERC20 _reward_token) Ownable() ReentrancyGuard() {
+    constructor(uint256 _staking_decimals, uint256 _reward_decimals, IERC20 _reward_token) {
+        require(address(_reward_token) != address(0), "Distribute: Invalid reward token");
         reward_token = _reward_token;
-        PRECISION = 10**decimals;
+        // sanitize reward token decimals
+        (bool success, uint256 checked_decimals) = tryGetDecimals(address(_reward_token));
+        if(success) {
+            require(checked_decimals == _reward_decimals, "Distribute: Invalid reward decimals");
+        }
+        staking_decimals = _staking_decimals;
+        if(_staking_decimals > _reward_decimals) {
+            DECIMALS_ADJUSTMENT = 10**(_staking_decimals - _reward_decimals);
+        } else {
+            DECIMALS_ADJUSTMENT = 1;
+        }
+    }
+
+    /**
+     * @dev Attempts to call the `decimals()` function on an ERC-20 token contract.
+     * @param tokenAddress The address of the ERC-20 token contract.
+     * @return success Indicates if the call was successful.
+     * @return decimals The number of decimals the token uses, or 0 if the call failed.
+     */
+    function tryGetDecimals(address tokenAddress) public view returns (bool success, uint8 decimals) {
+        bytes memory payload = abi.encodeWithSignature("decimals()");
+        // Low-level call to the token contract
+        bytes memory returnData;
+        (success, returnData) = tokenAddress.staticcall(payload);
+        
+        // If call was successful and returned data is the expected length for uint8
+        if (success && returnData.length == 32) {
+            // Decode the return data
+            decimals = abi.decode(returnData, (uint8));
+        } else {
+            // Default to 0 decimals if call failed or returned unexpected data
+            return (false, 0);
+        }
     }
 
     /**
@@ -63,14 +102,15 @@ contract Distribute is Ownable, ReentrancyGuard {
             staker_count++;
         }
         uint256 accumulated_reward = getReward(account);
+        if(accumulated_reward > 0) {
+            pending_rewards[account] = pending_rewards[account].add(accumulated_reward);
+        }
         _stakes[account] = _stakes[account].add(amount);
-
-        uint256 new_bond_value = accumulated_reward * PRECISION / _stakes[account];
-        _bond_value_addr[account] = bond_value - new_bond_value;
+        _bond_value_addr[account] = bond_value;
     }
 
     /**
-        @dev unstakes a certain amounts, if unstaking is currently not possible the function MUST revert
+        @dev unstakes a certain amount, if unstaking is currently not possible the function MUST revert
         @param account From whom
         @param amount Amount to remove from the stake
     */
@@ -84,6 +124,10 @@ contract Distribute is Ownable, ReentrancyGuard {
         if(_stakes[account] == 0) {
             staker_count--;
         }
+
+        // always try and distribute the pending rewards
+        to_reward = to_reward.add(pending_rewards[account]);
+        pending_rewards[account] = 0;
 
         if(to_reward == 0) return;
         //take into account dust error during payment too
@@ -119,8 +163,8 @@ contract Distribute is Ownable, ReentrancyGuard {
         } else {
             amount = msg.value;
         }
-
-        uint256 total_bonds = _total_staked / PRECISION;
+        // bond precision is always based on 1 unit of staked token
+        uint256 total_bonds = _total_staked / staking_decimals;
 
         if(total_bonds == 0) {
             // not enough staked to compute bonds account, put into temp pool
@@ -135,8 +179,10 @@ contract Distribute is Ownable, ReentrancyGuard {
         }
 
         uint256 temp_to_distribute = to_distribute + amount;
-        uint256 bond_increase = temp_to_distribute / total_bonds;
-        uint256 distributed_total = total_bonds.mul(bond_increase);
+        // bond value is always computed on decimals adjusted rewards
+        uint256 bond_increase = temp_to_distribute * DECIMALS_ADJUSTMENT / total_bonds;
+        // adjust back for distributed total
+        uint256 distributed_total = total_bonds.mul(bond_increase) / DECIMALS_ADJUSTMENT;
         bond_value += bond_increase;
         //collect the dust because of the PRECISION used for bonds
         //it will be reinjected into the next distribution
@@ -186,6 +232,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         @return the amount account will perceive if he unstakes now
     */
     function _getReward(address account, uint256 amount) internal view returns (uint256) {
-        return amount.mul(bond_value.sub(_bond_value_addr[account])) / PRECISION;
+        // we apply decimals adjustement as bond value is computed on decimals adjusted rewards
+        return amount.mul(bond_value.sub(_bond_value_addr[account])) / DECIMALS_ADJUSTMENT;
     }
 }

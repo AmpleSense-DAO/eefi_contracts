@@ -19,6 +19,7 @@ contract Trader is ITrader {
 
     uint256 private constant MAX_UINT = type(uint256).max;
     int256 private constant MAX_INT = type(int256).max;
+    uint24 private constant FEE = 3000; // fee of the pairs to interact with
 
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     IERC20 public constant ohmToken = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
@@ -27,8 +28,8 @@ contract Trader is ITrader {
     IUniswapV2Router02 public constant uniswapV2Router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     IERC20 public immutable eefiToken;
 
-    address[] pathAMPLETH = new address[](2);
-    address[] pathOHMEEFI = new address[](2);
+    address[] public pathAMPLETH = new address[](2);
+    address[] public pathOHMEEFI = new address[](2);
 
 
     constructor(IERC20 _eefiToken) {
@@ -40,18 +41,13 @@ contract Trader is ITrader {
         pathOHMEEFI[1] = address(_eefiToken);
     }
 
-    receive() external payable {
-        // make sure we accept only eth coming from unwrapping weth
-        revert("Trader: Not accepting ETH");
-    }
-
     /**
     * @dev Caller must transfer the right amount of tokens to the trader
     * @param amount Amount of AMPL to sell
     * @param minimalExpectedAmount The minimal expected amount of ohm
      */
     function sellAMPLForOHM(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ohmAmount) {
-        require(amplToken.transferFrom(msg.sender, address(this), amount),"Trader: transferFrom failed");
+        amplToken.safeTransferFrom(msg.sender, address(this), amount);
         amplToken.approve(address(uniswapV2Router), amount);
         uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, pathAMPLETH, address(this), block.timestamp);
         uint256 ethAmount = amounts[1];
@@ -60,7 +56,7 @@ contract Trader is ITrader {
             ISwapRouter.ExactInputSingleParams(
                 address(wethToken),
                 address(ohmToken),
-                3000,
+                FEE,
                 msg.sender,
                 block.timestamp,
                 ethAmount,
@@ -79,7 +75,7 @@ contract Trader is ITrader {
     * @param minimalExpectedAmount The minimal expected amount of EEFI
      */
     function sellAMPLForEEFI(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 eefiAmount) {
-        require(amplToken.transferFrom(msg.sender, address(this), amount),"Trader: transferFrom failed");
+        amplToken.safeTransferFrom(msg.sender, address(this), amount);
         amplToken.approve(address(uniswapV2Router), amount);
         uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, pathAMPLETH, address(this), block.timestamp);
         uint256 ethAmount = amounts[1];
@@ -88,7 +84,7 @@ contract Trader is ITrader {
             ISwapRouter.ExactInputSingleParams(
                 address(wethToken),
                 address(ohmToken),
-                3000,
+                FEE,
                 address(this),
                 block.timestamp,
                 ethAmount,
