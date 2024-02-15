@@ -193,7 +193,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     function makeDeposit(uint256 amount) _rebaseSynced() nonReentrant() external {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 waampl = _ampleTowaample(amount);
-        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit(waampl, block.timestamp));
+        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: waampl, timestamp:block.timestamp}));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
