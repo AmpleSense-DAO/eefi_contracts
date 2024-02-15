@@ -298,7 +298,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
                 uint256 to_lp_staking = to_mint.mul(TRADE_NEUTRAL_NEG_LPSTAKING_100).divDown(100);
 
                 eefi_token.approve(address(rewards_eefi), to_rewards);
-                eefi_token.transfer(address(staking_pool), to_lp_staking); 
+                eefi_token.safeTransfer(address(staking_pool), to_lp_staking); 
 
                 rewards_eefi.distribute(to_rewards, address(this));
                 staking_pool.forward(); 
@@ -341,7 +341,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         uint256 to_lp_staking = ohm_purchased.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
         ohm_token.approve(address(rewards_ohm), to_rewards);
         rewards_ohm.distribute(to_rewards, address(this));
-        ohm_token.transfer(address(staking_pool), to_lp_staking);
+        ohm_token.safeTransfer(address(staking_pool), to_lp_staking);
         staking_pool.forward();
 
         // distribute the remainder of OHM to the DAO treasury
