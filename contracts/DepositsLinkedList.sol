@@ -60,8 +60,8 @@ contract DepositsLinkedList {
 
         // Traverse the list until the end
         while (current != NULL) {
-            // Check if the deposit has expired
-            if ((block.timestamp - nodes[current].deposit.timestamp) > lock_duration) {
+            // Check if the deposit has expired only if lock duration is > 0
+            if (lock_duration == 0 || ((block.timestamp - nodes[current].deposit.timestamp) > lock_duration)) {
                 // Add the current node's deposit amount to the sum if it has expired
                 sum = sum.add(nodes[current].deposit.amount);
             }
