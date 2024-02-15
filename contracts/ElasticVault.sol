@@ -15,6 +15,7 @@ import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.
 
 interface IEEFIToken {
     function mint(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
 }
 
 contract TokenStorage is Ownable {
@@ -330,8 +331,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         // burn the rest
         uint256 to_burn = eefi_token.balanceOf(address(this));
         emit Burn(to_burn);
-        (bool success,) = address(eefi_token).call(abi.encodeWithSignature("burn(uint256)", to_burn));
-        require(success, "ElasticVault: mint failed");
+        IEEFIToken(address(eefi_token)).burn(to_burn);
         
         // distribute ohm to vaults
         uint256 to_rewards = ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).divDown(100);
