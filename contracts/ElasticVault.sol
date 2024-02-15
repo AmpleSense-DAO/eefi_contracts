@@ -63,10 +63,10 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     - Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
     */
 
-    uint256 constant public EEFI_DEPOSIT_RATE = 10000;
-    uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 100000;
-    uint256 constant public EEFI_EQULIBRIUM_REBASE_RATE = 10000;
-    uint256 constant public DEPOSIT_FEE_10000 = 65;
+    uint256 constant public EEFI_DEPOSIT_RATE = 0.0001e8;
+    uint256 constant public EEFI_NEGATIVE_REBASE_RATE = 0.00001e10;
+    uint256 constant public EEFI_EQULIBRIUM_REBASE_RATE = 0.0001e8;
+    uint256 constant public DEPOSIT_FEE_10000 = 0.0065e4;
     uint256 constant public LOCK_TIME = 90 days;
     uint256 constant public TRADE_POSITIVE_EEFI_100 = 45;
     uint256 constant public TRADE_POSITIVE_OHM_100 = 22;
