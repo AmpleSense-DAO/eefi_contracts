@@ -186,7 +186,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @dev Deposits AMPL into the contract
         @param amount Amount of AMPL to take from the user
     */
-    function makeDeposit(uint256 amount) _rebaseSynced() external {
+    function makeDeposit(uint256 amount) _rebaseSynced() nonReentrant() external {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 waampl = _ampleTowaample(amount);
         _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit(waampl, block.timestamp));
@@ -211,7 +211,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @param amount Amount of shares to withdraw
         !!! This isnt the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
-    function withdraw(uint256 amount) _rebaseSynced() public {
+    function withdraw(uint256 amount) _rebaseSynced() nonReentrant() public {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
@@ -350,7 +350,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     /**
      * Claims OHM and EEFI rewards for the user
     */
-    function claim() external { 
+    function claim() external nonReentrant() { 
         (uint256 ohm, uint256 eefi) = getReward(msg.sender);
         rewards_ohm.withdrawFrom(msg.sender, rewards_ohm.totalStakedFor(msg.sender));
         rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStakedFor(msg.sender));
