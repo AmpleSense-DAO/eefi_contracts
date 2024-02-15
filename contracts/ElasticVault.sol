@@ -153,6 +153,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     function initialize(IStakingDoubleERC20 _staking_pool, address payable _treasury, address _trader) external
     onlyOwner() 
     {
+        require(address(_staking_pool) != address(0), "ElasticVault: invalid staking pool");
+        require(_treasury != address(0), "ElasticVault: invalid treasury");
+        require(_trader != address(0), "ElasticVault: invalid trader");
         require(address(treasury) == address(0), "ElasticVault: contract already initialized");
         staking_pool = _staking_pool;
         treasury = _treasury;
