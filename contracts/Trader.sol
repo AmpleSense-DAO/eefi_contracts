@@ -19,7 +19,7 @@ contract Trader is ITrader {
 
     uint256 private constant MAX_UINT = type(uint256).max;
     int256 private constant MAX_INT = type(int256).max;
-    uint24 private constant FEE = 3000; // fee of the pairs to interact with
+    uint24 private constant FEE = 0.3e4; // fee of the pairs to interact with is 0.3%
 
     IERC20 public constant amplToken = IERC20(0xD46bA6D942050d489DBd938a2C909A5d5039A161);
     IERC20 public constant ohmToken = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
