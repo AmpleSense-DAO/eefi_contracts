@@ -77,9 +77,9 @@ contract TokenUpgrader {
         uint256 balance = oldEEFI.balanceOf(msg.sender);
         require(toUpgrade <= balance, "TokenUpgrader: You must have the tokens to upgrade on your wallet");
         // take the old EEFI tokens from the user
-        oldEEFI.safeTransferFrom(msg.sender, address(this), balance);
+        oldEEFI.safeTransferFrom(msg.sender, address(this), toUpgrade);
         // this supposes TokenUpgrader has burn rights on the old EEFI token
-        oldEEFI.burn(balance);
+        oldEEFI.burn(toUpgrade);
         // this supposes TokenUpgrader has minting rights on the new EEFI token
         newEEFI.mint(msg.sender, toUpgrade);
 
