@@ -103,7 +103,7 @@ contract TokenUpgrader is Ownable {
 
         //Require sender is not on excluded addresses list
         require(
-            isAddressExcluded(msg.sender) == false,
+            isAddressExcluded(msg.sender),
             "TokenUpgrader: Address is not authorized to upgrade"
         );
 
