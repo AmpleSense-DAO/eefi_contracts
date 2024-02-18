@@ -54,6 +54,7 @@ contract TokenUpgrader {
         // sum all tokens claimed from vesting prior to round 3
         uint256 upgradableBalance = 0;
         ScheduleInfo[] memory infos = vesting.retrieveScheduleInfo(msg.sender);
+        //Need to add retrieveTokenClaimData(address) here because this stores how many tokens have been claimed to date
         
         for(uint i = 0; i < infos.length; i++) {
             ScheduleInfo memory info = infos[i];
