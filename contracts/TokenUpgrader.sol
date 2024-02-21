@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: NONE
-pragma solidity 0.8.9;
+pragma solidity 0.7.6;
+pragma abicoder v2;
 
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeERC20.sol";
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
-import "@openzeppelin/contracts/access/Ownable.sol";
+import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Ownable.sol';
 
 /* ========== Interfaces ========== */
 
@@ -17,10 +18,6 @@ interface IVestingExecutor {
     function retrieveScheduleInfo(
         address account
     ) external returns (ScheduleInfo[] memory);
-
-    function retrieveTokenClaimData(
-        address account
-    ) external returns (TokenClaimInfo[] memory);
 }
 
 /* ========== Structs ========== */
@@ -33,12 +30,6 @@ struct ScheduleInfo {
     uint256 claimedAmount;
     uint256 totalAmount;
     address asset;
-}
-
-struct TokenClaimInfo {
-    address asset;
-    uint256 scheduleID;
-    uint256 claimedAmount;
 }
 
 contract TokenUpgrader is Ownable {
@@ -75,16 +66,12 @@ contract TokenUpgrader is Ownable {
 
     /* ========== Excluded Address Management ========== */
 
-    function addAddressToExclude(address _address) public onlyOwner {
-        excludedAddresses[_address] = true;
+    function excludeAddress(address _address, bool exclude) public onlyOwner {
+        excludedAddresses[_address] = exclude;
     }
 
     function removeAddressFromExclude(address _address) public onlyOwner {
         excludedAddresses[_address] = false;
-    }
-
-    function isAddressExcluded(address _address) public view returns (bool) {
-        return excludedAddresses[_address];
     }
 
     /* ========== Upgrade Functions ========== */
@@ -97,20 +84,11 @@ contract TokenUpgrader is Ownable {
     function upgrade() external {
         // Retrieve vesting schedules and token claim data
         ScheduleInfo[] memory infos = vesting.retrieveScheduleInfo(msg.sender);
-        TokenClaimInfo[] memory claimInfos = vesting.retrieveTokenClaimData(
-            msg.sender
-        );
 
         //Require sender is not on excluded addresses list
         require(
-            isAddressExcluded(msg.sender) == false,
+            excludedAddresses[msg.sender] == false,
             "TokenUpgrader: Address is not authorized to upgrade"
-        );
-
-        //Require user has claimed tokens from vesting contract
-        require(
-            claimInfos.length > 0,
-            "TokenUpgrader: No tokens to upgrade, have you claimed the old tokens from vesting?"
         );
 
         uint256 validClaimableAmount = 0;
@@ -123,6 +101,11 @@ contract TokenUpgrader is Ownable {
                 validClaimableAmount = validClaimableAmount.add(info.claimedAmount);
             }
         }
+
+        require(
+            validClaimableAmount > 0,
+            "TokenUpgrader: No tokens to upgrade, have you claimed the old tokens from vesting?"
+        );
         
         // Subtract tokens that user already upgraded to prevent user from claiming more tokens than owed
         uint256 toUpgrade = validClaimableAmount.sub(
@@ -132,7 +115,7 @@ contract TokenUpgrader is Ownable {
         // Update the upgraded tokens count for this user
         upgradedUserTokens[msg.sender] += toUpgrade;
 
-        require(toUpgrade > 0, "TokenUpgrader: All tokens have been upgraded");
+        require(toUpgrade > 0, "TokenUpgrader: All claimed tokens have already been upgraded");
         
         // Make sure user has oldEEFI in wallet
         uint256 balance = oldEEFI.balanceOf(msg.sender);
