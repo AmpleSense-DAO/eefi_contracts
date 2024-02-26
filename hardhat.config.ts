@@ -39,10 +39,14 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId : 1337,
       forking: {
-        blockNumber: 18109783,
+        blockNumber: 19225459,
         enabled: true,
         url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`
       }
+    },
+    tenderly: {
+      url: "https://virtual.mainnet.rpc.tenderly.co/5f10780c-a305-4485-b967-5b4603d4ba9c",
+      chainId: 1
     },
     localhost: {
       url: "http://127.0.0.1:8586",
