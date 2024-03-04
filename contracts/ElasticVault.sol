@@ -61,6 +61,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     - Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
     - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, distribute rewards to stakers
     - Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
+    - Max Rebase Reward: Immutable maximum amount of EEFI that can be minted to rebase caller
+    - Trader Change Cooldown: Cooldown period for updates to authorized trader address
     */
 
     uint256 constant public EEFI_DEPOSIT_RATE = 0.0001e8;
@@ -88,6 +90,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     - Deposit: AMPL deposited by address 
     - Withdrawal: AMPL withdrawn by address 
     - StakeChanged: AMPL staked in contract; calculated as shares of total AMPL deposited 
+    - RebaseRewardChanged: Amount of reward distributed to rebase caller changed; Reward amount cannot exceed MAX_REBASE_REWARD
+    - TraderChangeRequest: Initates 1-day cooldown period to change authorized trader 
+    - TraderChanged: Authorized trader changed 
     */
 
     event Burn(uint256 amount);
@@ -101,7 +106,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
     mapping(address => DepositsLinkedList) private _deposits;
     
-// Only contract can mint new EEFI, and distribute OHM and EEFI rewards     
+// Contract can mint new EEFI, and distribute OHM and EEFI rewards     
     constructor(IERC20 _eefi_token, IERC20 ampl_token)
     AMPLRebaser(ampl_token)
     Wrapper(ampl_token)
@@ -109,7 +114,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         require(address(_eefi_token) != address(0), "ElasticVault: Invalid eefi token");
         require(address(ampl_token) != address(0), "ElasticVault: Invalid ampl token");
         eefi_token = _eefi_token;
-        // we're staking wampl wich is 12 digits, reward eefi is 18 digits
+        // we're staking wampl which is 12 digits, reward eefi is 18 digits
         rewards_eefi = new Distribute(12, 18, IERC20(eefi_token));
         rewards_ohm = new Distribute(12, 9, IERC20(ohm_token));
         token_storage = new TokenStorage();
@@ -146,7 +151,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
     /**
         @dev Called only once by the owner; this function sets up the vaults
-        @param _staking_pool Address of the LP staking pool (EEFI/OHM LP token staking pool)
+        @param _staking_pool Address of the LP staking pool (EEFI/OHM Uniswap V2 LP token staking pool)
         @param _treasury Address of the treasury (Address of Elastic Finance DAO Treasury)
         @param _trader Address of the initial trader contract
     */
@@ -163,8 +168,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     }
 
     /**
-        @dev Contract owner can set and replace the contract used
-        for trading AMPL, OHM and EEFI - Note: this is the only admin permission on the vault and is included to account for changes in future AMPL liqudity distribution and does not impact EEFI minting or provide access to user funds or rewards)
+        @dev Request for contract owner to set and replace the contract used
+        for trading AMPL, OHM and EEFI - Note: Trader update functionality intended to account for 
+        future changes in AMPL liqudity distribution on DEXs.
         Additionally, the trader change request is subject to a 1 day cooldown
         @param _trader Address of the trader contract
     */
@@ -197,7 +203,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
-        // send some EEFI to Treasury upon initial mint 
+        // Mint deposit reward to sender; send deposit fee to Treasury 
         if(last_positive + MINTING_DECAY > block.timestamp) { // if 45 days without positive rebase do not mint EEFI
             IEEFIToken(address(eefi_token)).mint(treasury, deposit_fee);
             IEEFIToken(address(eefi_token)).mint(msg.sender, to_mint.sub(deposit_fee));
@@ -213,7 +219,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     /**
         @dev Withdraw an amount of shares
         @param amount Amount of shares to withdraw
-        !!! This isnt the amount of AMPL the user will get as we are using wrapped ampl to represent shares
+        !!! This isn't the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
     function withdraw(uint256 amount) _rebaseSynced() nonReentrant() public {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
