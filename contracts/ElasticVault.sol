@@ -98,7 +98,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     - TraderChangeRequest: Initates 1-day cooldown period to change authorized trader 
     - TraderChanged: Authorized trader contract changed
     - AuthorizedTraderChanged: EOA authorized to conduct trading operations changed 
-    - EmergencyWithdrawal: Emergency withdrawal mode enabled (allows depositors to withdraw deposits before timelock expires
+    - EmergencyWithdrawal: Emergency withdrawal mode enabled (allows depositors to withdraw deposits before timelock expires)
     */
 
     event Burn(uint256 amount);
