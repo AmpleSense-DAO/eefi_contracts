@@ -270,7 +270,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
             if(_deposits[msg.sender].length() > 0) {
                 DepositsLinkedList.Deposit memory deposit = _deposits[msg.sender].getDepositById(_deposits[msg.sender].head());
                 // if emergency withdrawal is enabled, allow the user to withdraw all of their deposits
-                if(emergencyWithdrawalEnabled) {
+                if(!emergencyWithdrawalEnabled) {
                     // if the first deposit is not unlocked return an error
                     require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
                 }
