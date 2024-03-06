@@ -361,9 +361,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     /**
      * @param minimalExpectedEEFI Minimal amount of EEFI to be received from the trade
      * @param minimalExpectedOHM Minimal amount of OHM to be received from the trade
-     !!!!!!!! This function is only callable by the owner
+     !!!!!!!! This function is only callable by the authorized trader
     */
-    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader() {
+    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader() returns (uint256 eefi_purchased, uint256 ohm_purchased) {
         uint256 balance = ampl_token.balanceOf(address(token_storage));
         uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
         uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
@@ -373,9 +373,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
         ampl_token.approve(address(trader), for_eefi.add(for_ohm));
         // buy EEFI
-        uint256 eefi_purchased = trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
+        eefi_purchased = trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
         // buy OHM
-        uint256 ohm_purchased = trader.sellAMPLForOHM(for_ohm, minimalExpectedOHM);
+        ohm_purchased = trader.sellAMPLForOHM(for_ohm, minimalExpectedOHM);
 
         // 10% of purchased EEFI is sent to the DAO Treasury.
         IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(100));
