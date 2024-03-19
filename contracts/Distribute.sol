@@ -27,7 +27,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     */
     uint256 public DECIMALS_ADJUSTMENT;
 
-    uint256 public constant INITIAL_BOND_VALUE = 1000000;
+    uint256 public constant INITIAL_BOND_VALUE = 1_000_000;
 
     uint256 public bond_value = INITIAL_BOND_VALUE;
     //just for info
@@ -98,14 +98,15 @@ contract Distribute is Ownable, ReentrancyGuard {
         require(account != address(0), "Distribute: Invalid account");
         require(amount > 0, "Distribute: Amount must be greater than zero");
         _total_staked = _total_staked.add(amount);
-        if(_stakes[account] == 0) {
+        uint256 stake = _stakes[account];
+        if(stake == 0) {
             staker_count++;
         }
         uint256 accumulated_reward = getReward(account);
         if(accumulated_reward > 0) {
             pending_rewards[account] = pending_rewards[account].add(accumulated_reward);
         }
-        _stakes[account] = _stakes[account].add(amount);
+        _stakes[account] = stake.add(amount);
         _bond_value_addr[account] = bond_value;
     }
 
@@ -117,11 +118,13 @@ contract Distribute is Ownable, ReentrancyGuard {
     function unstakeFrom(address payable account, uint256 amount) public onlyOwner nonReentrant {
         require(account != address(0), "Distribute: Invalid account");
         require(amount > 0, "Distribute: Amount must be greater than zero");
-        require(amount <= _stakes[account], "Distribute: Dont have enough staked");
+        uint256 stake = _stakes[account];
+        require(amount <= stake, "Distribute: Dont have enough staked");
         uint256 to_reward = _getReward(account, amount);
         _total_staked -= amount;
-        _stakes[account] -= amount;
-        if(_stakes[account] == 0) {
+        stake -= amount;
+        _stakes[account] = stake;
+        if(stake == 0) {
             staker_count--;
         }
 

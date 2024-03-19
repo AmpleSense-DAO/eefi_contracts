@@ -1,6 +1,23 @@
 # Elastic Protocol Vault contracts
 
+## AMPLRebaser.sol
+
+Fetches data from AMPL to feed the contracts inheriting from it the AMPL rebase pool changes. 
+
+## DepositsLinkedList.sol
+
+Manages AMPL deposit and withdrawal accounting. 
+
+## Distribute.sol
+
+Handle OHM and EEFI reward pools and their computation.
+
+## EEFIToken.sol
+
+Erc20 token contract. Note: EEFI can be minted and burned by Treasury multisig/ and authorized contracts. 
+
 ## ElasticVault.sol
+
 The main Elastic Vault which enables users to stake AMPL and earn rewards in EEFI and OHM.
 
 The vault's operations are powered by tokens deposited into it that have three distinct rebase phases: positive, negative and neutral (equilibrium).  
@@ -13,29 +30,25 @@ During Neutral Rebases/Equilibrium: The vault mints EEFI (based on how much AMPL
 
 During positive rebases, a percentage of the new AMPL supply is automatically sold for OHM and EEFI. 90% of purchased EEFI is burned. OHM purchaed is distributed to stakers and vaults.  
 
-The rebase function is called after each AMPL rebase, which either mints new EEFI (and distributes it) or buys and burns EEFI, and purchases OHM for distribution to stakers. 
+The rebase function is called after each AMPL rebase, which either mints new EEFI (and distributes it) or deposits a portion of newly generated AMPL into TokenStorage. The rebase function can be called by any address. Rebase callers receive a small EEFI reward as compensation for performing this service. 
+
+AMPL deposited into the TokenStorage is used to buy and burn EEFI as well as purchase OHM for distribution to stakers. 
 
 The contract inherits from AMPLRebaser which adds the rebase public function and tracks the supply changes in AMPL to compute the percentage of currently owed AMPL tokens by the contract that is coming from AMPL rebase cycles.
 
-The Elastic Vault contract creates the EEFI token used in rewards. EEFI is only minted during neutral/negative AMPL rebase cycles. 
+The Elastic Vault contract creates the EEFI token used in rewards. EEFI is only minted by the contract during neutral/negative AMPL rebase cycles. 
 
-We use the Distribute contract to handle OHM and EEFI rewards pools and their computation.
+## StakingDoubleERC20.sol
 
-## EEFIToken.sol
+This is an erc20 staking vault that also manages distribution of token and OHM rewards to users.
 
-This is a simple erc20 token contract. Note that the token can be minted and burned by authorized wallets/contracts. 
+## Trader.sol
 
-## StakingERC20.sol
+Used to manage selling of AMPL for OHM and EEFI.
 
-This is an erc20 staking vault distributing token and OHM rewards to users.
+## Wrapper.sol 
 
-## AMPLRebaser.sol
-
-Fetches data from AMPL to feed the contracts inheriting from it the AMPL rebase pool changes. 
-
-## MockTrader.sol
-
-Used for executing tests locally it emulates selling of AMPL for OHM and EEFI.
+Helper contract that wraps AMPL deposited into Elastic Vault into non-rebasing user shares. Inspired by wAMPL implementation: https://github.com/ampleforth/ampleforth-contracts/blob/master/contracts/waampl.sol. 
 
 ## How to use
 

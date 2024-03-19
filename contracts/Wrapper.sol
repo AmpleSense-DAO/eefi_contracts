@@ -2,15 +2,17 @@
 pragma solidity 0.7.6;
 
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 
 /**
  * Helper inspired by waampl https://github.com/ampleforth/ampleforth-contracts/blob/master/contracts/waampl.sol
  * The goal is to wrap AMPL into non rebasing user shares
 */
 abstract contract Wrapper {
+    using Math for uint256;
 
     /// @dev The maximum waampl supply.
-    uint256 public constant MAX_WAAMPL_SUPPLY = 10000000 * (10**12); // 10 M
+    uint256 public constant MAX_WAAMPL_SUPPLY = 10_000_000e12; // 10 M at 12 decimals
     IERC20 immutable public ampl;
 
     constructor(IERC20 _ampl) {
@@ -24,6 +26,6 @@ abstract contract Wrapper {
         view
         returns (uint256)
     {
-        return (amples * MAX_WAAMPL_SUPPLY) / ampl.totalSupply();
+        return amples.mul(MAX_WAAMPL_SUPPLY).divDown(ampl.totalSupply());
     }
 }
