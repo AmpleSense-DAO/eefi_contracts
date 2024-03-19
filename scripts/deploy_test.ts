@@ -86,7 +86,7 @@ async function main() {
 
   }
 
-  const eefiAddr = "0x4cFc3f4095D19b84603C11FD8A2F0154e9036a98";
+  const eefiAddr = "0x857FfC55B1Aa61A7fF847C82072790cAE73cd883";
   const amplAddr = "0xD46bA6D942050d489DBd938a2C909A5d5039A161";
   const ohmAddr = "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5";
 
