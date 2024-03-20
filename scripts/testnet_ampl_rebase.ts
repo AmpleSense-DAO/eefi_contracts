@@ -1,5 +1,3 @@
-import { ElasticVault } from "../typechain/ElasticVault";
-import { Wallet } from "ethers";
 import { ethers } from "hardhat";
 import { config as dotenvConfig } from "dotenv";
 import { resolve } from "path";
