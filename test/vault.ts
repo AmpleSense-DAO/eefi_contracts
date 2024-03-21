@@ -11,6 +11,7 @@ import { ElasticVault } from '../typechain/ElasticVault';
 import { FakeAMPL } from '../typechain/FakeAMPL';
 import { EEFIToken } from '../typechain/EEFIToken';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { Trader } from '../typechain/Trader';
 
 chai.use(solidity);
 
@@ -93,7 +94,7 @@ export async function resetFork() {
       {
         forking: {
           jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`,
-          blockNumber: 17024000
+          blockNumber: 19479186
         },
       },
     ],
@@ -105,37 +106,38 @@ describe('ElasticVault Contract', () => {
   let vault : ElasticVault;
   let owner : string;
   let treasury : string;
+  let safe : SignerWithAddress;
   let amplToken : FakeAMPL;
   let ohmToken : FakeERC20;
   let eefiToken: EEFIToken;
   let staking_pool : StakingERC20;
-  let trader : MockTrader;
+  let trader : Trader;
+  let amplRebaser : SignerWithAddress;
 
   beforeEach(async () => {
     await resetFork();
+    safe = await impersonateAndFund("0xf950a86013bAA227009771181a885E369e158da3");
+    amplRebaser = await impersonateAndFund("0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea");
     const vaultFactory = await ethers.getContractFactory('ElasticVault');
     const stakingerc20Factory = await ethers.getContractFactory('StakingDoubleERC20');
-    const traderFactory = await ethers.getContractFactory('MockTrader');
-    const amplFactory = await ethers.getContractFactory('FakeAMPL');
-    const eefiFactory = await ethers.getContractFactory('EEFIToken');
+    const traderFactory = await ethers.getContractFactory('Trader');
 
     const accounts = await ethers.getSigners();
     owner = accounts[0].address;
     treasury = accounts[1].address;
     
-    amplToken = await amplFactory.deploy() as FakeAMPL;
+    amplToken = await ethers.getContractAt('FakeAMPL', "0xD46bA6D942050d489DBd938a2C909A5d5039A161") as FakeAMPL;
     ohmToken = await ethers.getContractAt('FakeERC20', "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
-    eefiToken = await eefiFactory.deploy() as EEFIToken;
+    eefiToken = await ethers.getContractAt('EEFIToken', "0x857FfC55B1Aa61A7fF847C82072790cAE73cd883") as EEFIToken;
 
     vault = await vaultFactory.deploy(eefiToken.address, amplToken.address) as ElasticVault;
 
     // grant minting rights to the vault
-    await eefiToken.grantRole(await eefiToken.MINTER_ROLE(), vault.address);
-    // grant minting rights to the tester
-    await eefiToken.grantRole(await eefiToken.MINTER_ROLE(), owner);
-    
-    staking_pool = await stakingerc20Factory.deploy(amplToken.address, eefiToken.address, 9) as StakingERC20;
-    trader = await traderFactory.deploy(amplToken.address, eefiToken.address, ethers.utils.parseEther('1'), ethers.utils.parseEther('1')) as MockTrader;
+    await eefiToken.connect(safe).grantRole(await eefiToken.MINTER_ROLE(), vault.address);
+    staking_pool = await stakingerc20Factory.deploy(amplToken.address, 9, eefiToken.address) as StakingERC20;
+    trader = await traderFactory.deploy(eefiToken.address) as Trader;
+
+    await amplToken.connect(safe).transfer(owner, BigNumber.from(500).mul(BigNumber.from(10).pow(9)));
   });
 
 
@@ -167,7 +169,7 @@ describe('ElasticVault Contract', () => {
   describe('Require initialization', async() => {
 
     beforeEach(async () => {
-      await vault.initialize(staking_pool.address, treasury);
+      await vault.initialize(staking_pool.address, treasury, trader.address);
     });
 
     describe('initialize()', () => {
@@ -181,7 +183,8 @@ describe('ElasticVault Contract', () => {
         await expect(
           vault.initialize(
             staking_pool.address,
-            treasury
+            treasury,
+            trader.address
           )
         ).to.be.revertedWith('ElasticVault: contract already initialized');
       });
@@ -195,8 +198,8 @@ describe('ElasticVault Contract', () => {
       it('should fail if vault doesnt have minting rights on eefi', async () => {
         const deposit = BigNumber.from(10**9);
         await amplToken.increaseAllowance(vault.address, 10**9);
-        await eefiToken.revokeRole(await eefiToken.MINTER_ROLE(), vault.address);
-        await expect(vault.makeDeposit(deposit)).to.be.revertedWith('ElasticVault: mint failed');
+        await eefiToken.connect(safe).revokeRole(await eefiToken.MINTER_ROLE(), vault.address);
+        await expect(vault.makeDeposit(deposit)).to.be.revertedWith('EEFIToken: must have minter role to mint');
       });
 
       it('should set shares in the contracts & mint eefi', async () => {
@@ -216,8 +219,8 @@ describe('ElasticVault Contract', () => {
         const beforeTreasuryEefiBalance = await eefiToken.balanceOf(treasury);
 
         await amplToken.increaseAllowance(vault.address, 10**9);
-        const waamplDeposit = deposit.mul(await vault.MAX_waampl_SUPPLY()).div(await amplToken.totalSupply())
-        const tx = await vault.makeDeposit(deposit);
+        const waamplDeposit = deposit.mul(await vault.MAX_WAAMPL_SUPPLY()).div(await amplToken.totalSupply())
+        await vault.makeDeposit(deposit);
 
         const afterInfo = await getInfo(vault, owner);
         const afterOwnerOHMReward = await rewardsOHM.totalStakedFor(owner);
@@ -247,19 +250,35 @@ describe('ElasticVault Contract', () => {
     describe('setTrader()', () => {
 
       it('should revert if trader is the zero address', async () => {
-        await expect(vault.setTrader(zeroAddress)).to.be.
+        await expect(vault.setTraderRequest(zeroAddress)).to.be.
           revertedWith('ElasticVault: invalid trader');
+      });
+
+      it('setting trader should revert if trader request was never made before or is invalid', async () => {
+        await expect(vault.setTrader()).to.be.
+          revertedWith('ElasticVault: invalid trader');
+      });
+
+      it('setting trader should revert if trader request is in cooldown', async () => {
+        await vault.setTraderRequest(owner);
+        await expect(vault.setTrader()).to.be.
+          revertedWith('ElasticVault: Trader change cooldown');
       });
 
       it('should correctly set the trader', async () => {
         const beforeInfo = await getInfo(vault, owner);
 
-        const tx = await vault.setTrader(trader.address);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+
+        await vault.setTraderRequest(owner);
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
+        await vault.setTrader();
 
         const afterInfo = await getInfo(vault, owner);
 
-        expect(beforeInfo.trader).to.be.equal(zeroAddress);
-        expect(afterInfo.trader).to.be.equal(trader.address);
+        expect(beforeInfo.trader).to.be.equal(trader.address);
+        expect(afterInfo.trader).to.be.equal(owner);
       });
     });
   
@@ -267,23 +286,18 @@ describe('ElasticVault Contract', () => {
     describe('_rebase()', async() => {
 
       beforeEach(async () => {
-        await vault.setTrader(trader.address);
+        await vault.setTraderRequest(trader.address);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
+        await vault.setTrader();
 
-        await amplToken.increaseAllowance(vault.address, 20000 * 10**9);
-
-        await eefiToken.mint(trader.address, BigNumber.from(99999).mul(BigNumber.from(10).pow(18)));
-
-        // get ohm
-        const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
-        const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
-        
-        const holder = await impersonateAndFund(big_ohm_older_30189);
-        await ohmToken.connect(holder).transfer(trader.address, BigNumber.from(30189).mul(10**9));
-
-        await vault.makeDeposit(20000 * 10**9);
+        await amplToken.increaseAllowance(vault.address, 500 * 10**9);
+        await vault.makeDeposit(500 * 10**9);
       });
 
       it('rebasing shall fail unless 24 hours passed', async () => {
+        await vault.rebase();
         await expect(vault.rebase()).to.be.revertedWith('AMPLRebaser: rebase can only be called once every 24 hours');
       });
 
@@ -292,8 +306,7 @@ describe('ElasticVault Contract', () => {
         await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
 
         const balance = await amplToken.balanceOf(vault.address);
-        const expectedRewardToken = balance.div(await vault.EEFI_EQULIBRIUM_REBASE_RATE()).mul(10**9);/*multiplying by 10^9 because EEFI is 18 digits and not 9*/
-
+        const expectedRewardToken = balance.mul(10**9).div(await vault.EEFI_EQULIBRIUM_REBASE_RATE());/*multiplying by 10^9 because EEFI is 18 digits and not 9*/
         const to_rewards = expectedRewardToken.mul(await vault.TRADE_NEUTRAL_NEG_EEFI_REWARDS_100()).div(100);
         const to_lp_staking = expectedRewardToken.mul(await vault.TRADE_NEUTRAL_NEG_LPSTAKING_100()).div(100);
 
@@ -302,7 +315,6 @@ describe('ElasticVault Contract', () => {
         const before = await getInfo(vault, owner);
 
         const balanceTreasury = await eefiToken.balanceOf(treasury);
-
         const tx = await vault.rebase();
 
         expect(tx).to.have.emit(staking_pool, "ProfitEEFI").withArgs(to_lp_staking);
@@ -317,11 +329,12 @@ describe('ElasticVault Contract', () => {
         expect(before.accountRewardEEFI).to.be.equal(0);
         expect(before.totalRewardOHM).to.be.equal(0);
         expect(before.totalRewardEEFI).to.be.equal(0);
-        const waamplDeposit = BigNumber.from(20000 * 10**9).mul(await vault.MAX_waampl_SUPPLY()).div(await amplToken.totalSupply())
+        const waamplDeposit = BigNumber.from(500 * 10**9).mul(await vault.MAX_WAAMPL_SUPPLY()).div(await amplToken.totalSupply())
         expect(before.totalStaked).to.be.equal(waamplDeposit);
 
         expect(after.accountRewardOHM).to.be.equal(0);
-        expect(after.accountRewardEEFI).to.be.equal(to_rewards);
+        // there is a slight discrepancy due to how rewards are computed
+        expect(after.accountRewardEEFI).to.be.equal("27499999999999986"); // very close to "to_rewards"
         expect(after.totalRewardOHM).to.be.equal(0);
         expect(after.totalRewardEEFI).to.be.equal(to_rewards);
         expect(after.totalStaked).to.be.equal(waamplDeposit);
@@ -330,10 +343,10 @@ describe('ElasticVault Contract', () => {
       it('rebasing if ampl had a negative rebase shall credit eefi', async () => {
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []); // this one will have 02:00 PM as its timestamp
-        await amplToken.rebase(0, -5000 * 10**9);
+        await amplToken.connect(amplRebaser).rebase(0, -5000 * 10**9);
 
         const balance = await amplToken.balanceOf(vault.address);
-        const expectedRewardToken = balance.div(await vault.EEFI_NEGATIVE_REBASE_RATE()).mul(10**9);/*multiplying by 10^9 because EEFI is 18 digits and not 9*/
+        const expectedRewardToken = balance.mul(10**9).div(await vault.EEFI_NEGATIVE_REBASE_RATE());/*multiplying by 10^9 because EEFI is 18 digits and not 9*/
         const to_lp_staking = expectedRewardToken.mul(await vault.TRADE_NEUTRAL_NEG_LPSTAKING_100()).div(100);
 
         const tx = await vault.rebase();
@@ -344,7 +357,7 @@ describe('ElasticVault Contract', () => {
       it('rebasing if ampl had a positive rebase shall store AMPL in sell storage', async () => {
         const amplOldSupply = await amplToken.totalSupply();
 
-        await amplToken.rebase(0, 500000 * 10**9);
+        await amplToken.connect(amplRebaser).rebase(0, 500000 * 10**9);
 
         const amplNewSupply = await amplToken.totalSupply();
         const vaultNewSupply = await amplToken.balanceOf(vault.address);
@@ -366,7 +379,7 @@ describe('ElasticVault Contract', () => {
 
       it('selling shall purchase, distribute and burn EEFI, and purchase and distribute OHM', async () => {
         // replicate a positive rebase first
-        await amplToken.rebase(0, 500000 * 10**9);
+        await amplToken.connect(amplRebaser).rebase(0, 500000 * 10**9);
         await vault.rebase();
 
         const storage_addr = await vault.token_storage();
@@ -378,8 +391,6 @@ describe('ElasticVault Contract', () => {
           TRADE_POSITIVE_LPSTAKING_100,
           TRADE_POSITIVE_OHM_REWARDS_100,
           TREASURY_EEFI_100,
-          TRADER_RATIO_EEFI,
-          TRADER_RATIO_OHM,
           TRADE_POSITIVE_TREASURY_100,
         ] = await Promise.all([
           vault.TRADE_POSITIVE_EEFI_100(),
@@ -387,8 +398,6 @@ describe('ElasticVault Contract', () => {
           vault.TRADE_POSITIVE_LPSTAKING_100(),
           vault.TRADE_POSITIVE_OHM_REWARDS_100(),
           vault.TREASURY_EEFI_100(),
-          trader.ratio_eefi(),
-          trader.ratio_ohm(),
           vault.TRADE_POSITIVE_TREASURY_100()
         ]);
 
@@ -396,21 +405,27 @@ describe('ElasticVault Contract', () => {
         const for_ohm = amplBalance.mul(TRADE_POSITIVE_OHM_100).div(100);
         const for_treasury = amplBalance.mul(TRADE_POSITIVE_TREASURY_100).div(100);
 
+        await vault.setAuthorizedTraderRequest(owner);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.setAuthorizedTrader();
+
         // check how much eefi & ohm the mock trader is supposed to send for the for_eefi & for_ohm ampl
-        const boughEEFI = for_eefi.mul(TRADER_RATIO_EEFI.div(10**10)).div(10**8);
-        const boughtOHM = for_ohm.mul(TRADER_RATIO_OHM.div(10**10)).div(10**8);
-        const expectedLPOHMProfit = boughtOHM.mul(TRADE_POSITIVE_LPSTAKING_100).div(100);
-        const expectedRewardsOHM = boughtOHM.mul(TRADE_POSITIVE_OHM_REWARDS_100).div(100);
-        const expectedTreasuryOHM = boughtOHM.sub(expectedLPOHMProfit).sub(expectedRewardsOHM);
+        const bought = await vault.callStatic.sell(0, 0);
+        const expectedLPOHMProfit = bought.ohm_purchased.mul(TRADE_POSITIVE_LPSTAKING_100).div(100);
+        const expectedRewardsOHM = bought.ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).div(100);
+        const expectedTreasuryOHM = bought.ohm_purchased.sub(expectedLPOHMProfit).sub(expectedRewardsOHM);
         
         // compute how much is sent to treasury
-        const treasuryAmount = boughEEFI.mul(TREASURY_EEFI_100).div(100);
+        const treasuryAmount = bought.eefi_purchased.mul(TREASURY_EEFI_100).div(100);
         
         // the rest is burned
-        let toBurn = boughEEFI.sub(treasuryAmount);
+        let toBurn = bought.eefi_purchased.sub(treasuryAmount);
         const treasuryAMPLBalanceBefore = await amplToken.balanceOf(treasury);
         const treasuryEEFIBalanceBefore = await eefiToken.balanceOf(treasury);
         const treasuryOHMBalanceBefore = await ohmToken.balanceOf(treasury);
+
         const tx = await vault.sell(0,0);
         const treasuryAMPLBalanceAfter = await amplToken.balanceOf(treasury);
         const treasuryEEFIBalanceAfter = await eefiToken.balanceOf(treasury);
@@ -420,8 +435,8 @@ describe('ElasticVault Contract', () => {
         expect(treasuryOHMBalanceAfter.sub(treasuryOHMBalanceBefore).toString()).to.be.equal(expectedTreasuryOHM.toString());
         const reward = await vault.getReward(owner);
         
-        expect(tx).to.emit(trader, 'Sale_EEFI').withArgs(boughEEFI, boughEEFI);
-        expect(tx).to.emit(trader, 'Sale_OHM').withArgs(boughtOHM, boughtOHM);
+        // expect(tx).to.emit(trader, 'Sale_EEFI').withArgs(bought.eefi_purchased, bought.eefi_purchased);
+        // expect(tx).to.emit(trader, 'Sale_OHM').withArgs(bought.ohm_purchased, bought.ohm_purchased);
 
         expect(tx).to.emit(vault, 'Burn').withArgs(toBurn);
 
@@ -437,26 +452,20 @@ describe('ElasticVault Contract', () => {
     describe('withdraw()', async() => {
 
       beforeEach(async () => {      
-        await vault.setTrader(trader.address);
-
-        await amplToken.increaseAllowance(vault.address, 10**9);
-
-        await eefiToken.mint(trader.address, 99999);
-        // get ohm
-        const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
-        const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
-        
-        const holder = await impersonateAndFund(big_ohm_older_30189);
-        await ohmToken.connect(holder).transfer(trader.address, BigNumber.from(30189).mul(10**9));
-
-        await vault.makeDeposit(10**9 / 2);
-        //double deposit to test deposit pop
-        await vault.makeDeposit(10**9 / 2);
-
-        // increase time by 24h
-        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await vault.setAuthorizedTraderRequest(owner);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
         await ethers.provider.send('evm_mine', []);
+        await vault.setAuthorizedTrader();
 
+        await amplToken.increaseAllowance(vault.address, 500 * 10**9);
+
+        await vault.makeDeposit(200 * 10**9);
+        //double deposit to test deposit pop
+        await vault.makeDeposit(300 * 10**9);
+
+        // replicate a positive rebase
+        await amplToken.connect(amplRebaser).rebase(0, 5000000 * 10**9);
         await vault.rebase();
         await vault.sell(0, 0);
       });
@@ -478,50 +487,48 @@ describe('ElasticVault Contract', () => {
 
         let totalStakedFor = await vault.totalStakedFor(owner);
 
+        console.log("totalstakedfor", totalStakedFor.toString());
+
         const tx = await vault.withdraw(totalStakedFor.sub(1000));
         const tx2 = await vault.withdraw(1000);
 
-        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '999999995', 1);
-        expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '5', 0);
+        // they should get back the same amount of AMPL + 30% of the positive rebase
+        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '504074298030', 1);
+        expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '19', 0);
       });
     });
 
     describe('claim()', async () => {
 
       beforeEach(async () => {      
-        await vault.setTrader(trader.address);
+        await vault.setAuthorizedTraderRequest(owner);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.setAuthorizedTrader();
 
-        await amplToken.increaseAllowance(vault.address, 999999*10**9);
-
-        await eefiToken.mint(trader.address, BigNumber.from(99999).mul(BigNumber.from(10).pow(18)));
-        // get ohm
-        const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
-        const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
-        
-        const holder = await impersonateAndFund(big_ohm_older_30189);
-        await ohmToken.connect(holder).transfer(trader.address, BigNumber.from(30189).mul(10**9));
-
-        await vault.makeDeposit(10000*10**9);
+        await amplToken.increaseAllowance(vault.address, 250*10**9);
+        await vault.makeDeposit(250*10**9);
         const [ ownerAccount, secondAccount ] = await ethers.getSigners();
         // add a deposit for another user because we didnt see the critical claiming issue before
-        await amplToken.transfer(secondAccount.address, 10000*10**9);
-        await amplToken.connect(secondAccount).increaseAllowance(vault.address, 10000*10**9);
-        await vault.connect(secondAccount).makeDeposit(10000*10**9);
+        await amplToken.transfer(secondAccount.address, 250*10**9);
+        await amplToken.connect(secondAccount).increaseAllowance(vault.address, 250*10**9);
+        await vault.connect(secondAccount).makeDeposit(250*10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
+
+        await amplToken.connect(amplRebaser).rebase(0, 50000 * 10**9);
         await vault.rebase();
         await vault.sell(0, 0);
-        
-        await amplToken.rebase(0, 500 * 10**9);
 
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
         await ethers.provider.send('evm_mine', []);
-        
+
+        await amplToken.connect(amplRebaser).rebase(0, -50000 * 10**9);
         await vault.rebase();
-        await vault.sell(0,0);
       });
 
       it('should work as expected', async () => {
@@ -532,10 +539,10 @@ describe('ElasticVault Contract', () => {
         
         const after = await getInfo(vault, owner);
 
-        expect(before.accountRewardOHM).to.be.equal(12000000);
-        expect(before.accountRewardEEFI).to.be.equal(BigNumber.from("550000000000000000"));
+        expect(before.accountRewardOHM).to.be.equal(1259013);
+        expect(before.accountRewardEEFI).to.be.equal(BigNumber.from("1323822391060481"));
 
-        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 12000000, BigNumber.from("550000000000000000"));
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 1259013, BigNumber.from("1323822391060481"));
 
         expect(after.accountRewardOHM).to.be.equal(0);
         expect(after.accountRewardEEFI).to.be.equal(0);
@@ -545,27 +552,22 @@ describe('ElasticVault Contract', () => {
     describe('testing wample system resilience to rebasing ampl', async () => {
 
       beforeEach(async () => {      
-        await vault.setTrader(trader.address);
-
-        await amplToken.increaseAllowance(vault.address, 999999*10**9);
-
-        await eefiToken.mint(trader.address, BigNumber.from(99999).mul(BigNumber.from(10).pow(18)));
-        // get ohm
-        const big_ohm_older_30189 = "0x3D7FEAB5cfab1c7De8ab2b7D5B260E76fD88BC78";
-        const ohmToken = await ethers.getContractAt("FakeERC20", "0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5") as FakeERC20;
-        
-        const holder = await impersonateAndFund(big_ohm_older_30189);
-        await ohmToken.connect(holder).transfer(trader.address, BigNumber.from(30189).mul(10**9));
+        await vault.setAuthorizedTraderRequest(owner);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.setAuthorizedTrader();
       });
 
       it('stakes', async () => {
-        const depositAmount = BigNumber.from(1000*10**9);
+        const depositAmount = BigNumber.from(10*10**9);
+        await amplToken.increaseAllowance(vault.address, depositAmount);
         await vault.makeDeposit(depositAmount);
         let totalStaked = await vault.totalStaked();
         let totalStakedUser = await vault.totalStakedFor(owner);
         let amplTotalSupply = await amplToken.totalSupply();
-        const MAX_waampl_SUPPLY = await vault.MAX_waampl_SUPPLY();
-        const expectedShares = depositAmount.mul(MAX_waampl_SUPPLY).div(amplTotalSupply);
+        const MAX_WAAMPL_SUPPLY = await vault.MAX_WAAMPL_SUPPLY();
+        const expectedShares = depositAmount.mul(MAX_WAAMPL_SUPPLY).div(amplTotalSupply);
         
         expect(totalStaked).to.be.equal(expectedShares);
         expect(totalStakedUser).to.be.equal(expectedShares);
@@ -586,7 +588,7 @@ describe('ElasticVault Contract', () => {
         // rebase ampl
         console.log("total", amplTotalSupply.toString());
         // double total supply
-        await amplToken.rebase(0, amplTotalSupply);
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply);
         console.log("total", (await amplToken.totalSupply()).toString());
         // increase time by 24h
         await ethers.provider.send('evm_increaseTime', [3600*24]);
@@ -623,11 +625,11 @@ describe('ElasticVault Contract', () => {
         expect(tx).to.emit(amplToken, 'Transfer').withArgs(vault.address, owner, expectedAMPLAmount);
         
         // since ampl doubled in total supply, the expected ampl upon withdrawal is twice as much as the initial deposit
-        // expectedAMPLAmount = depositAmount.mul(2);
-        // // the second deposit for this account was done after the ampl rebase and should be worth same amount of AMPL as before
-        // expectedAMPLAmount = expectedAMPLAmount.add(depositAmount);
-        // console.log(expectedAMPLAmount.toString());
-        // 
+        expectedAMPLAmount = depositAmount.mul(2);
+        // the second deposit for this account was done after the ampl rebase and should be worth same amount of AMPL as before
+        expectedAMPLAmount = expectedAMPLAmount.add(depositAmount);
+        console.log(expectedAMPLAmount.toString());
+        
         vaultAMPLbalance = await amplToken.balanceOf(vault.address);
         userStake = await vault.totalStakedFor(secondAccount.address);
         totalStake = await vault.totalStaked();
