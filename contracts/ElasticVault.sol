@@ -135,6 +135,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
      */
 
     function totalStakedFor(address account) public view returns (uint256 total) {
+        // if deposits are not initialized for this account then we have no deposits to sum
+        if(address(_deposits[account]) == address(0)) return 0;
         // use 0 as lock duration to sum all deposit amounts
         return _deposits[account].sumExpiredDeposits(0);
     }
@@ -240,6 +242,10 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     function makeDeposit(uint256 amount) _rebaseSynced() nonReentrant() external {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 waampl = _ampleTowaample(amount);
+        // first deposit needs to initialize the linked list
+        if(address(_deposits[msg.sender]) == address(0)) {
+            _deposits[msg.sender] = new DepositsLinkedList();
+        }
         _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: waampl, timestamp:block.timestamp}));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
@@ -288,7 +294,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         }
         // compute the current ampl count representing user shares
         uint256 ampl_to_withdraw = _convertToAMPL(amount);
-        ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
+                ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);

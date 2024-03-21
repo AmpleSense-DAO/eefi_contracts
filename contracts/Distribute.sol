@@ -104,9 +104,11 @@ contract Distribute is Ownable, ReentrancyGuard {
         }
         uint256 accumulated_reward = getReward(account);
         if(accumulated_reward > 0) {
-            pending_rewards[account] = pending_rewards[account].add(accumulated_reward);
+            // set pending rewards to the current reward
+            pending_rewards[account] = accumulated_reward;
         }
         _stakes[account] = stake.add(amount);
+        // reset bond value for this account
         _bond_value_addr[account] = bond_value;
     }
 
@@ -128,11 +130,11 @@ contract Distribute is Ownable, ReentrancyGuard {
             staker_count--;
         }
 
-        // always try and distribute the pending rewards
-        to_reward = to_reward.add(pending_rewards[account]);
+        if(to_reward == 0) return;
+
+        // void pending rewards
         pending_rewards[account] = 0;
 
-        if(to_reward == 0) return;
         //take into account dust error during payment too
         if(address(reward_token) != address(0)) {
             reward_token.safeTransfer(account, to_reward);
@@ -167,7 +169,7 @@ contract Distribute is Ownable, ReentrancyGuard {
             amount = msg.value;
         }
         // bond precision is always based on 1 unit of staked token
-        uint256 total_bonds = _total_staked / staking_decimals;
+        uint256 total_bonds = _total_staked / 10**staking_decimals;
 
         if(total_bonds == 0) {
             // not enough staked to compute bonds account, put into temp pool
@@ -186,7 +188,7 @@ contract Distribute is Ownable, ReentrancyGuard {
         uint256 bond_increase = temp_to_distribute * DECIMALS_ADJUSTMENT / total_bonds;
         // adjust back for distributed total
         uint256 distributed_total = total_bonds.mul(bond_increase) / DECIMALS_ADJUSTMENT;
-        bond_value += bond_increase;
+        bond_value = bond_value.add(bond_increase);
         //collect the dust because of the PRECISION used for bonds
         //it will be reinjected into the next distribution
         to_distribute = temp_to_distribute - distributed_total;
@@ -232,10 +234,13 @@ contract Distribute is Ownable, ReentrancyGuard {
         @dev Returns how much the user can withdraw currently
         @param account Address of the user to check reward for
         @param amount Number of stakes
-        @return the amount account will perceive if he unstakes now
+        @return reward the amount account will perceive if he unstakes now
     */
-    function _getReward(address account, uint256 amount) internal view returns (uint256) {
+    function _getReward(address account, uint256 amount) internal view returns (uint256 reward) {
         // we apply decimals adjustement as bond value is computed on decimals adjusted rewards
-        return amount.mul(bond_value.sub(_bond_value_addr[account])) / DECIMALS_ADJUSTMENT;
+        uint256 accountBonds = amount.divDown(10**staking_decimals);
+        reward = accountBonds.mul(bond_value.sub(_bond_value_addr[account])).divDown(DECIMALS_ADJUSTMENT);
+        // adding pending rewards
+        reward = reward.add(pending_rewards[account]);
     }
 }
