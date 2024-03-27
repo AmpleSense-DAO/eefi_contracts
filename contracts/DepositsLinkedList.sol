@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
 
-contract DepositsLinkedList {
+library DepositsLinkedList {
     using Math for uint256;
 
     struct Deposit {
@@ -17,73 +17,67 @@ contract DepositsLinkedList {
         uint next;
     }
 
-    mapping(uint => Node) public nodes;
-    uint public head;
-    uint public tail;
-    uint public length = 0;
+    struct List {
+        mapping(uint => Node) nodes;
+        uint head;
+        uint tail;
+        uint length;
+        uint nodeIdCounter;
+    }
+
     uint private constant NULL = 0; // Represent the 'null' pointer
-    uint private nodeIdCounter = 1;
 
-    constructor() {
-        head = tail = NULL;
+    function initialize(List storage list) internal {
+        list.head = list.tail = NULL;
+        list.nodeIdCounter = 1; // Initialize node ID counter
     }
 
-    // Insert a node at the end of the list
-    function insertEnd(Deposit memory _deposit) public {
-        uint newNodeId = nodeIdCounter++; // Use and increment the counter for unique IDs
-        nodes[newNodeId] = Node(_deposit, NULL);
-        if (head == NULL) {
-            head = tail = newNodeId;
+    function insertEnd(List storage list, Deposit memory _deposit) internal {
+        uint newNodeId = list.nodeIdCounter++; // Use and increment the counter for unique IDs
+        list.nodes[newNodeId] = Node(_deposit, NULL);
+        if (list.head == NULL) {
+            list.head = list.tail = newNodeId;
         } else {
-            nodes[tail].next = newNodeId;
-            tail = newNodeId;
+            list.nodes[list.tail].next = newNodeId;
+            list.tail = newNodeId;
         }
-        length++;
+        list.length++;
     }
 
-    // Adjusted popHead function
-    function popHead() public {
-        require(head != NULL, "List is empty, cannot pop head.");
-        uint oldHead = head;
-        head = nodes[oldHead].next;
-        delete nodes[oldHead];
-        length--;
-        if (head == NULL) {
-            tail = NULL; // Reset the tail if the list is empty
+    function popHead(List storage list) internal {
+        require(list.head != NULL, "List is empty, cannot pop head.");
+        uint oldHead = list.head;
+        list.head = list.nodes[oldHead].next;
+        delete list.nodes[oldHead];
+        list.length--;
+        if (list.head == NULL) {
+            list.tail = NULL; // Reset the tail if the list is empty
         }
     }
 
-    // Traverse the list and sum all expired deposits amounts
-    function sumExpiredDeposits(uint256 lock_duration) public view returns (uint256 sum) {
-        uint current = head; // Start traversal from the head of the list
-        sum = 0; // Initialize sum of amounts
+    function sumExpiredDeposits(List storage list, uint256 lock_duration) internal view returns (uint256 sum) {
+        uint current = list.head;
+        sum = 0;
 
-        // Traverse the list until the end
         while (current != NULL) {
-            // Check if the deposit has expired only if lock duration is > 0
-            if (lock_duration == 0 || ((block.timestamp - nodes[current].deposit.timestamp) > lock_duration)) {
-                // Add the current node's deposit amount to the sum if it has expired
-                sum = sum.add(nodes[current].deposit.amount);
+            if (lock_duration == 0 || ((block.timestamp - list.nodes[current].deposit.timestamp) > lock_duration)) {
+                sum = sum.add(list.nodes[current].deposit.amount);
             }
-            // Move to the next node
-            current = nodes[current].next;
+            current = list.nodes[current].next;
         }
 
         return sum;
     }
 
-    // Modify the amount of a deposit
-    function modifyDepositAmount(uint nodeID, uint256 newAmount) public {
-        Node storage node = nodes[nodeID];
+    function modifyDepositAmount(List storage list, uint nodeID, uint256 newAmount) internal {
+        Node storage node = list.nodes[nodeID];
         node.deposit.amount = newAmount;
     }
 
-
-    // Get the Deposit data of a node by its ID
-    function getDepositById(uint id) public view returns (Deposit memory) {
+    function getDepositById(List storage list, uint id) internal view returns (Deposit memory) {
         require(id != NULL, "Invalid ID: ID cannot be zero.");
-        require(nodes[id].next != NULL || id == head, "Node does not exist.");
+        require(list.nodes[id].next != NULL || id == list.head, "Node does not exist.");
 
-        return nodes[id].deposit;
+        return list.nodes[id].deposit;
     }
 }

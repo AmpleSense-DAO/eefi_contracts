@@ -29,6 +29,7 @@ contract TokenStorage is Ownable {
 contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
+    using DepositsLinkedList for DepositsLinkedList.List;
 
     TokenStorage public token_storage;
     IStakingDoubleERC20 public staking_pool;
@@ -113,7 +114,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     event AuthorizedTraderChanged(address trader);
     event EmergencyWithdrawal(bool enabled);
 
-    mapping(address => DepositsLinkedList) private _deposits;
+    mapping(address => DepositsLinkedList.List) private _deposits;
     
 // Contract can mint new EEFI, and distribute OHM and EEFI rewards     
     constructor(IERC20 _eefi_token, IERC20 ampl_token)
@@ -136,7 +137,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
     function totalStakedFor(address account) public view returns (uint256 total) {
         // if deposits are not initialized for this account then we have no deposits to sum
-        if(address(_deposits[account]) == address(0)) return 0;
+        if(_deposits[account].nodeIdCounter == 0) return 0;
         // use 0 as lock duration to sum all deposit amounts
         return _deposits[account].sumExpiredDeposits(0);
     }
@@ -243,8 +244,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 waampl = _ampleTowaample(amount);
         // first deposit needs to initialize the linked list
-        if(address(_deposits[msg.sender]) == address(0)) {
-            _deposits[msg.sender] = new DepositsLinkedList();
+        if(_deposits[msg.sender].nodeIdCounter == 0) {
+            _deposits[msg.sender].initialize();
         }
         _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: waampl, timestamp:block.timestamp}));
 
@@ -259,7 +260,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         // stake the shares also in the rewards pool
         rewards_eefi.stakeFor(msg.sender, waampl);
         rewards_ohm.stakeFor(msg.sender, waampl);
-        emit Deposit(msg.sender, amount, _deposits[msg.sender].length());
+        emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
         emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 
@@ -275,15 +276,15 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
             // either liquidate the deposit, or reduce it
-            if(_deposits[msg.sender].length() > 0) {
-                DepositsLinkedList.Deposit memory deposit = _deposits[msg.sender].getDepositById(_deposits[msg.sender].head());
+            if(_deposits[msg.sender].length > 0) {
+                DepositsLinkedList.Deposit memory deposit = _deposits[msg.sender].getDepositById(_deposits[msg.sender].head);
                 // if emergency withdrawal is enabled, allow the user to withdraw all of their deposits
                 if(!emergencyWithdrawalEnabled) {
                     // if the first deposit is not unlocked return an error
                     require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
                 }
                 if(deposit.amount > to_withdraw) {
-                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head(), deposit.amount.sub(to_withdraw));
+                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head, deposit.amount.sub(to_withdraw));
                     to_withdraw = 0;
                 } else {
                     to_withdraw = to_withdraw.sub(deposit.amount);
@@ -299,7 +300,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
         rewards_ohm.unstakeFrom(msg.sender, amount);
-        emit Withdrawal(msg.sender, ampl_to_withdraw,_deposits[msg.sender].length());
+        emit Withdrawal(msg.sender, ampl_to_withdraw,_deposits[msg.sender].length);
         emit StakeChanged(totalStaked(), block.timestamp);
     }
 
