@@ -45,7 +45,7 @@ contract TokenUpgrader is Ownable, ReentrancyGuard {
     IEEFIToken public constant oldEEFI =
         IEEFIToken(0x4cFc3f4095D19b84603C11FD8A2F0154e9036a98);
     // New EEFI token
-    IEEFIToken public newEEFI = 
+    IEEFIToken public constant newEEFI = 
         IEEFIToken(0x857FfC55B1Aa61A7fF847C82072790cAE73cd883);
     // Vesting contract with old EEFI vested
     IVestingExecutor public constant vesting =

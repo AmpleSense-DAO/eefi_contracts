@@ -35,6 +35,7 @@ describe('TokenUpgrader Contract', () => {
   let oldEefiToken : EEFIToken;
 
   let owner: SignerWithAddress;
+  let treasury: SignerWithAddress;
 
   before(async () => {
     const accounts = await ethers.getSigners();
@@ -42,7 +43,7 @@ describe('TokenUpgrader Contract', () => {
     eefiToken = await ethers.getContractAt("EEFIToken", "0x857FfC55B1Aa61A7fF847C82072790cAE73cd883") as EEFIToken;
     upgrader = await deploy("TokenUpgrader") as TokenUpgrader;
 
-    const treasury = await impersonateAndFund("0xf950a86013bAA227009771181a885E369e158da3");
+    treasury = await impersonateAndFund("0xf950a86013bAA227009771181a885E369e158da3");
     // grant minting rights to the upgrader
     await eefiToken.connect(treasury).grantRole(await eefiToken.MINTER_ROLE(), upgrader.address);
 
@@ -51,6 +52,13 @@ describe('TokenUpgrader Contract', () => {
     // at the end of vesting period
     await hre.ethers.provider.send('evm_increaseTime', [1722180197-1707933723]);
     await hre.ethers.provider.send('evm_mine', []);
+  });
+
+  it('should fail to upgrade if tokens are not claimed from vesting', async () => {
+    const vestor = await impersonateAndFund("0x84C1d27b613f5B0636dD720a762dabE882a8E1cC");
+    // has 2 schedules: 56000000000000000000 and 35000000000000000000
+    await expect(upgrader.connect(vestor).upgrade())
+      .to.be.revertedWith("TokenUpgrader: No tokens to upgrade, have you claimed the old tokens from vesting?");
   });
 
   it('upgrade should work with only first schedule claimed', async () => {
@@ -80,7 +88,7 @@ describe('TokenUpgrader Contract', () => {
     expect(tx).to.emit(upgrader, "TokenUpgrade").withArgs(vestor.address, BigNumber.from("1203849500000000000000")); // value checked against mainnet
   });
 
-  it('upgrade should work if both schedules were claimed', async () => {
+  it('upgrade should fail if tokens were claimed but are not in user wallet but work once the tokens are in the wallet', async () => {
     const vestor = await impersonateAndFund("0x84C1d27b613f5B0636dD720a762dabE882a8E1cC");
     // has 2 schedules: 56000000000000000000 and 35000000000000000000
     const totalClaim = BigNumber.from("35000000000000000000").add(BigNumber.from("56000000000000000000"));
@@ -90,11 +98,28 @@ describe('TokenUpgrader Contract', () => {
     await vestingExecutor.connect(vestor).claimTokens(1, vestor.address, oldEefiToken.address);
     const oldEefiBalance = await oldEefiToken.balanceOf(vestor.address);
     await oldEefiToken.connect(vestor).approve(upgrader.address, oldEefiBalance);
+    await oldEefiToken.connect(vestor).transfer(treasury.address, oldEefiBalance);
+    // User tries to upgrade without having sufficient oldEEFI tokens in their wallet
+    await expect(upgrader.connect(vestor).upgrade())
+    .to.be.revertedWith("TokenUpgrader: You must have the tokens to upgrade in your wallet");
+
+    // User gets back the tokens in their wallet
+    await oldEefiToken.connect(treasury).transfer(vestor.address, oldEefiBalance);
     const tx = await upgrader.connect(vestor).upgrade();
     const newEefiBalance = await eefiToken.balanceOf(vestor.address);
     expect(oldEefiBalance).to.be.equal(newEefiBalance);
     expect(newEefiBalance).to.be.equal(totalClaim);
     expect(tx).to.emit(upgrader, "TokenUpgrade").withArgs(vestor.address, totalClaim);
+  });
+
+  it('should not allow blacklisted addresses to upgrade', async () => {
+    const blacklistedUser = await impersonateAndFund("0x84C1d27b613f5B0636dD720a762dabE882a8E1cC");
+    // Owner blacklists the user
+    await upgrader.connect(owner).excludeAddress(blacklistedUser.address, true);
+    
+    // Try to upgrade tokens for blacklisted address
+    await expect(upgrader.connect(blacklistedUser).upgrade())
+      .to.be.revertedWith("TokenUpgrader: Address is not authorized to upgrade");
   });
   
 });
