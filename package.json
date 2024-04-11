@@ -10,6 +10,7 @@
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^3.3.0",
     "@openzeppelin/test-helpers": "^0.5.10",
+    "openzeppelin5": "npm:@openzeppelin/contracts@4.9.6",
     "@typechain/ethers-v5": "^5.0.0",
     "@types/mocha": "^8.2.0",
     "@types/node": "^14.14.22",

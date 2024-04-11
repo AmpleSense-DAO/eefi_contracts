@@ -39,19 +39,21 @@ describe('TokenUpgrader Contract', () => {
   before(async () => {
     const accounts = await ethers.getSigners();
     owner = accounts[0];
-    eefiToken = await deploy("EEFIToken") as EEFIToken;
-    upgrader = await deploy("TokenUpgrader", eefiToken.address, 1707933723) as TokenUpgrader;
-    // grant minting rights to the tester
-    await eefiToken.grantRole(await eefiToken.MINTER_ROLE(), upgrader.address);
+    eefiToken = await ethers.getContractAt("EEFIToken", "0x857FfC55B1Aa61A7fF847C82072790cAE73cd883") as EEFIToken;
+    upgrader = await deploy("TokenUpgrader") as TokenUpgrader;
+
+    const treasury = await impersonateAndFund("0xf950a86013bAA227009771181a885E369e158da3");
+    // grant minting rights to the upgrader
+    await eefiToken.connect(treasury).grantRole(await eefiToken.MINTER_ROLE(), upgrader.address);
 
     oldEefiToken = await ethers.getContractAt("EEFIToken", "0x4cFc3f4095D19b84603C11FD8A2F0154e9036a98") as EEFIToken;
 
     // at the end of vesting period
-    await hre.ethers.provider.send('evm_increaseTime', [1722180197]);
+    await hre.ethers.provider.send('evm_increaseTime', [1722180197-1707933723]);
     await hre.ethers.provider.send('evm_mine', []);
   });
 
-  it.only('upgrade should work with only first schedule claimed', async () => {
+  it('upgrade should work with only first schedule claimed', async () => {
     const vestor = await impersonateAndFund("0x8325A509845a8f4F2760eAD394Ad95b059ef645c");
     // claim vested tokens
     const vestingExecutor = await ethers.getContractAt(vestingExecutorABI, "0xcaf5b5D268032a41cAF34d9280A1857E3394Ba47");
@@ -67,7 +69,7 @@ describe('TokenUpgrader Contract', () => {
     expect(upgradedBalance).to.be.equal(BigNumber.from("30000000000000000000")); // value checked against mainnet
   });
 
-  it.only('upgrade should work again after second schedule is claimed', async () => {
+  it('upgrade should work again after second schedule is claimed', async () => {
     const vestor = await impersonateAndFund("0x8325A509845a8f4F2760eAD394Ad95b059ef645c");
     // claim vested tokens
     const vestingExecutor = await ethers.getContractAt(vestingExecutorABI, "0xcaf5b5D268032a41cAF34d9280A1857E3394Ba47");
@@ -78,7 +80,7 @@ describe('TokenUpgrader Contract', () => {
     expect(tx).to.emit(upgrader, "TokenUpgrade").withArgs(vestor.address, BigNumber.from("1203849500000000000000")); // value checked against mainnet
   });
 
-  it.only('upgrade should work if both schedules were claimed', async () => {
+  it('upgrade should work if both schedules were claimed', async () => {
     const vestor = await impersonateAndFund("0x84C1d27b613f5B0636dD720a762dabE882a8E1cC");
     // has 2 schedules: 56000000000000000000 and 35000000000000000000
     const totalClaim = BigNumber.from("35000000000000000000").add(BigNumber.from("56000000000000000000"));

@@ -38,8 +38,9 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId : 1337,
+      blockGasLimit: 20000000,
       forking: {
-        blockNumber: 19254176,
+        blockNumber: 19631300,
         enabled: true,
         url: `https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy`
       }
