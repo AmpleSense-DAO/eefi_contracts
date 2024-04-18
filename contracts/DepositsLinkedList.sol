@@ -59,7 +59,7 @@ library DepositsLinkedList {
         uint current = list.head;
 
         while (current != NULL) {
-            if (lock_duration == 0 || ((block.timestamp - list.nodes[current].deposit.timestamp) > lock_duration)) {
+            if (lock_duration == 0 || ((block.timestamp.sub(list.nodes[current].deposit.timestamp)) > lock_duration)) {
                 sum = sum.add(list.nodes[current].deposit.amount);
             }
             current = list.nodes[current].next;
