@@ -57,7 +57,6 @@ library DepositsLinkedList {
 
     function sumExpiredDeposits(List storage list, uint256 lock_duration) internal view returns (uint256 sum) {
         uint current = list.head;
-        sum = 0;
 
         while (current != NULL) {
             if (lock_duration == 0 || ((block.timestamp - list.nodes[current].deposit.timestamp) > lock_duration)) {
