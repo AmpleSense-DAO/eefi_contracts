@@ -8,8 +8,8 @@ library DepositsLinkedList {
     using Math for uint256;
 
     struct Deposit {
-        uint256 amount;
-        uint256 timestamp;
+        uint208 amount;
+        uint48 timestamp;
     }
 
     struct Node {
@@ -70,7 +70,7 @@ library DepositsLinkedList {
 
     function modifyDepositAmount(List storage list, uint nodeID, uint256 newAmount) internal {
         Node storage node = list.nodes[nodeID];
-        node.deposit.amount = newAmount;
+        node.deposit.amount = uint208(newAmount);
     }
 
     function getDepositById(List storage list, uint id) internal view returns (Deposit memory) {

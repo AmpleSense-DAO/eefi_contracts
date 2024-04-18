@@ -247,7 +247,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         if(_deposits[msg.sender].nodeIdCounter == 0) {
             _deposits[msg.sender].initialize();
         }
-        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: waampl, timestamp:block.timestamp}));
+        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: uint208(waampl), timestamp:uint48(block.timestamp)}));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -284,7 +284,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
                     require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
                 }
                 if(deposit.amount > to_withdraw) {
-                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head, deposit.amount.sub(to_withdraw));
+                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head, uint256(deposit.amount).sub(to_withdraw));
                     to_withdraw = 0;
                 } else {
                     to_withdraw = to_withdraw.sub(deposit.amount);
