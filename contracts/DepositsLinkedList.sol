@@ -33,7 +33,7 @@ library DepositsLinkedList {
 
     function insertEnd(List storage list, Deposit memory _deposit) internal {
         uint newNodeId = list.nodeIdCounter++; // Use and increment the counter for unique IDs
-        list.nodes[newNodeId] = Node(_deposit, NULL);
+        list.nodes[newNodeId] = Node({deposit: _deposit, next: NULL});
         if (list.head == NULL) {
             list.head = list.tail = newNodeId;
         } else {
