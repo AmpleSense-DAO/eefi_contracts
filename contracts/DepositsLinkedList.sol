@@ -58,10 +58,11 @@ library DepositsLinkedList {
         uint current = list.head;
 
         while (current != NULL) {
-            if (lock_duration == 0 || ((block.timestamp.sub(list.nodes[current].deposit.timestamp)) > lock_duration)) {
-                sum = sum.add(list.nodes[current].deposit.amount);
+            Node memory currentNode = list.nodes[current];
+            if (lock_duration == 0 || ((block.timestamp.sub(currentNode.deposit.timestamp)) > lock_duration)) {
+                sum = sum.add(currentNode.deposit.amount);
             }
-            current = list.nodes[current].next;
+            current = currentNode.next;
         }
 
         return sum;
@@ -74,8 +75,9 @@ library DepositsLinkedList {
 
     function getDepositById(List storage list, uint id) internal view returns (Deposit memory) {
         require(id != NULL, "Invalid ID: ID cannot be zero.");
-        require(list.nodes[id].next != NULL || id == list.head, "Node does not exist.");
+        Node memory node = list.nodes[id];
+        require(node.next != NULL || id == list.head, "Node does not exist.");
 
-        return list.nodes[id].deposit;
+        return node.deposit;
     }
 }
