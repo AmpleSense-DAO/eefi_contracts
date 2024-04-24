@@ -61,6 +61,8 @@ library DepositsLinkedList {
             Node memory currentNode = list.nodes[current];
             if (lock_duration == 0 || ((block.timestamp.sub(currentNode.deposit.timestamp)) > lock_duration)) {
                 sum = sum.add(currentNode.deposit.amount);
+            } else {
+                break;
             }
             current = currentNode.next;
         }
