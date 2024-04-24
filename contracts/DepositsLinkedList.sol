@@ -72,6 +72,8 @@ library DepositsLinkedList {
 
     function modifyDepositAmount(List storage list, uint nodeID, uint256 newAmount) internal {
         Node storage node = list.nodes[nodeID];
+        require(nodeID < list.nodeIdCounter, "Invalid ID: ID does not exist.");
+        require(node.deposit.amount != 0, "Invalid amount: Deposit does not exist.");
         node.deposit.amount = uint208(newAmount);
     }
 
