@@ -28,7 +28,6 @@ library DepositsLinkedList {
     uint private constant NULL = 0; // Represent the 'null' pointer
 
     function initialize(List storage list) internal {
-        list.head = list.tail = NULL;
         list.nodeIdCounter = 1; // Initialize node ID counter
     }
 
