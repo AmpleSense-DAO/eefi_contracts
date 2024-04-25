@@ -295,7 +295,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         }
         // compute the current ampl count representing user shares
         uint256 ampl_to_withdraw = _convertToAMPL(amount);
-                ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
+        ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
         
         // unstake the shares also from the rewards pool
         rewards_eefi.unstakeFrom(msg.sender, amount);
