@@ -162,6 +162,17 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     }
 
     /**
+        @dev Returns the first deposit of the user (frontend utility function)
+        @param account Account to check the first deposit of
+    */
+    function firstDeposit(address account) public view returns (uint256 ampl, uint256 timestamp) {
+        if(_deposits[account].nodeIdCounter == 0) return (0, 0);
+        DepositsLinkedList.Deposit memory deposit = _deposits[account].getDepositById(_deposits[account].head);
+        ampl = _convertToAMPL(deposit.amount);
+        timestamp = deposit.timestamp;
+    }
+
+    /**
         @dev Called only once by the owner; this function sets up the vaults
         @param _staking_pool Address of the LP staking pool (EEFI/OHM Uniswap V2 LP token staking pool)
         @param _treasury Address of the treasury (Address of Elastic Finance DAO Treasury)
@@ -269,7 +280,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @param amount Amount of shares to withdraw
         !!! This isn't the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
-    function withdraw(uint256 amount) _rebaseSynced() nonReentrant() public {
+    function withdraw(uint256 amount) _rebaseSynced() nonReentrant() public returns (uint256 ampl_to_withdraw) {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
@@ -294,7 +305,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
             
         }
         // compute the current ampl count representing user shares
-        uint256 ampl_to_withdraw = _convertToAMPL(amount);
+        ampl_to_withdraw = _convertToAMPL(amount);
         ampl_token.safeTransfer(msg.sender, ampl_to_withdraw);
         
         // unstake the shares also from the rewards pool
