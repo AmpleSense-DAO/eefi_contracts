@@ -71,6 +71,7 @@ library DepositsLinkedList {
     }
 
     function modifyDepositAmount(List storage list, uint nodeID, uint256 newAmount) internal {
+        require(newAmount <= type(uint208).max, "Invalid amount: Amount exceeds maximum deposit amount.");
         Node storage node = list.nodes[nodeID];
         require(nodeID < list.nodeIdCounter, "Invalid ID: ID does not exist.");
         require(node.deposit.amount != 0, "Invalid amount: Deposit does not exist.");
