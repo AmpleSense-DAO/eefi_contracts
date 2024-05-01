@@ -83,7 +83,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35; 
     uint256 constant public TRADE_NEUTRAL_NEG_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
-    uint256 constant public MINTING_DECAY = 45 days;
+    uint256 constant public MINTING_DECAY = 30 days;
     uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
     uint256 constant public CHANGE_COOLDOWN = 1 days;
 
