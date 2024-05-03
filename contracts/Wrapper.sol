@@ -24,8 +24,8 @@ abstract contract Wrapper {
     function _ampleTowaample(uint256 amples)
         internal
         view
-        returns (uint256)
+        returns (uint208)
     {
-        return amples.mul(MAX_WAAMPL_SUPPLY).divDown(ampl.totalSupply());
+        return uint208(amples.mul(MAX_WAAMPL_SUPPLY).divDown(ampl.totalSupply())); // maximum value is 10_000_000e12 and always fits into uint208
     }
 }
