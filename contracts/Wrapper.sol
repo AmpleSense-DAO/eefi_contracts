@@ -26,6 +26,9 @@ abstract contract Wrapper {
         view
         returns (uint208)
     {
-        return uint208(amples.mul(MAX_WAAMPL_SUPPLY).divDown(ampl.totalSupply())); // maximum value is 10_000_000e12 and always fits into uint208
+        uint256 waamples = amples.mul(MAX_WAAMPL_SUPPLY).divDown(ampl.totalSupply());
+        // maximum value is 10_000_000e12 and always fits into uint208
+        require(waamples <= type(uint208).max, "Wrapper: waampl supply overflow");
+        return uint208(waamples); 
     }
 }
