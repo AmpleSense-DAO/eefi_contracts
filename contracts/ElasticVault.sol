@@ -64,7 +64,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     - Trade Positive LP Staking_100: Upon positive rebase, send 35% of OHM rewards to users staking LP tokens (EEFI/OHM)
     - Trade Neutral/Negative Rewards: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault
     - Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
-    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 45 days, do not mint EEFI, distribute rewards to stakers
+    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 30 days, do not mint EEFI, distribute rewards to stakers
     - Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
     - Max Rebase Reward: Immutable maximum amount of EEFI that can be minted to rebase caller
     - Trader Change Cooldown: Cooldown period for updates to authorized trader address
@@ -263,7 +263,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // Mint deposit reward to sender; send deposit fee to Treasury 
-        if(last_positive + MINTING_DECAY > block.timestamp) { // if 45 days without positive rebase do not mint EEFI
+        if(last_positive + MINTING_DECAY > block.timestamp) { // if 30 days without positive rebase do not mint EEFI
             IEEFIToken(address(eefi_token)).mint(treasury, deposit_fee);
             IEEFIToken(address(eefi_token)).mint(msg.sender, to_mint.sub(deposit_fee));
         }
