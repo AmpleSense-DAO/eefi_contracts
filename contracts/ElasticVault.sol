@@ -263,7 +263,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // Mint deposit reward to sender; send deposit fee to Treasury 
-        if(last_positive + MINTING_DECAY > block.timestamp) { // if 30 days without positive rebase do not mint EEFI
+        if(last_positive + MINTING_DECAY > block.timestamp) { // if 20 days without positive rebase do not mint EEFI
             IEEFIToken(address(eefi_token)).mint(treasury, deposit_fee);
             IEEFIToken(address(eefi_token)).mint(msg.sender, to_mint.sub(deposit_fee));
         }
