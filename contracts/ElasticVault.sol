@@ -26,7 +26,7 @@ contract TokenStorage is Ownable {
     }
 }
 
-contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
+contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
     using DepositsLinkedList for DepositsLinkedList.List;
@@ -117,12 +117,11 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     mapping(address => DepositsLinkedList.List) private _deposits;
     
 // Contract can mint new EEFI, and distribute OHM and EEFI rewards     
-    constructor(IERC20 _eefi_token, IERC20 ampl_token)
-    AMPLRebaser(ampl_token)
-    Wrapper(ampl_token)
+    constructor(IERC20 _eefi_token, IERC20 _ampl_token)
+    AMPLRebaser(_ampl_token)
     Ownable() {
         require(address(_eefi_token) != address(0), "ElasticVault: Invalid eefi token");
-        require(address(ampl_token) != address(0), "ElasticVault: Invalid ampl token");
+        require(address(_ampl_token) != address(0), "ElasticVault: Invalid ampl token");
         eefi_token = _eefi_token;
         // we're staking wampl which is 12 digits, reward eefi is 18 digits
         rewards_eefi = new Distribute(12, 18, IERC20(eefi_token));
@@ -252,13 +251,21 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @param amount Amount of AMPL to take from the user
     */
     function makeDeposit(uint256 amount) _rebaseSynced() nonReentrant() external {
+        uint256 current_balance = ampl_token.balanceOf(address(this));
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
-        uint208 waampl = _ampleTowaample(amount);
+
+        uint208 shares;
+        
+        if(current_balance == 0) {
+            shares = uint208(amount);
+        } else {
+            shares = uint208(amount.mul(totalStaked()).divDown(current_balance));
+        }
         // first deposit needs to initialize the linked list
         if(_deposits[msg.sender].nodeIdCounter == 0) {
             _deposits[msg.sender].initialize();
         }
-        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: waampl, timestamp:uint48(block.timestamp)}));
+        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: shares, timestamp:uint48(block.timestamp)}));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -269,8 +276,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         }
         
         // stake the shares also in the rewards pool
-        rewards_eefi.stakeFor(msg.sender, waampl);
-        rewards_ohm.stakeFor(msg.sender, waampl);
+        rewards_eefi.stakeFor(msg.sender, shares);
+        rewards_ohm.stakeFor(msg.sender, shares);
         emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
         emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
@@ -346,9 +353,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
             uint256 changeRatio18Digits = last_ampl_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
-
-            // transfer surplus to sell pool
-            ampl_token.safeTransfer(address(token_storage), surplus);
+            // send 70% of the surplus to the token_storage
+            uint256 to_sell = surplus.mul(TRADE_POSITIVE_EEFI_100 + TRADE_POSITIVE_OHM_100 + TRADE_POSITIVE_TREASURY_100).divDown(100);
+            ampl_token.safeTransfer(address(token_storage), to_sell);
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
@@ -389,6 +396,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
         uint256 for_treasury = balance.mul(TRADE_POSITIVE_TREASURY_100).divDown(100);
 
+        uint256 ampl_balance = ampl_token.balanceOf(address(this));
         token_storage.claim(address(ampl_token));
 
         ampl_token.approve(address(trader), for_eefi.add(for_ohm));
@@ -396,6 +404,11 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         eefi_purchased = trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
         // buy OHM
         ohm_purchased = trader.sellAMPLForOHM(for_ohm, minimalExpectedOHM);
+        // send AMPL dust back to the token_storage so shares accounting remains correct to the dot
+        uint256 ampl_dust = ampl_token.balanceOf(address(this)).sub(ampl_balance);
+        if(ampl_dust > 0) {
+            ampl_token.safeTransfer(address(token_storage), ampl_dust);
+        }
 
         // 10% of purchased EEFI is sent to the DAO Treasury.
         IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(100));
