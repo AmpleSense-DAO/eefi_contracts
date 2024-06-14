@@ -7,7 +7,6 @@ import './Distribute.sol';
 import './DepositsLinkedList.sol';
 import './interfaces/IStakingDoubleERC20.sol';
 import './AMPLRebaser.sol';
-import './Wrapper.sol';
 import './interfaces/ITrader.sol';
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
@@ -46,7 +45,8 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     uint256 public trader_change_request_time;
     uint256 public authorized_trader_change_request_time;
-    bool emergencyWithdrawalEnabled;
+    bool public emergencyWithdrawalEnabled;
+    bool public depositsDisabled;
     
     /* 
 
@@ -113,6 +113,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     event TraderChanged(address trader);
     event AuthorizedTraderChanged(address trader);
     event EmergencyWithdrawal(bool enabled);
+    event DepositsDisabled(bool disabled);
 
     mapping(address => DepositsLinkedList.List) private _deposits;
     
@@ -123,9 +124,9 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         require(address(_eefi_token) != address(0), "ElasticVault: Invalid eefi token");
         require(address(_ampl_token) != address(0), "ElasticVault: Invalid ampl token");
         eefi_token = _eefi_token;
-        // we're staking wampl which is 12 digits, reward eefi is 18 digits
-        rewards_eefi = new Distribute(12, 18, IERC20(eefi_token));
-        rewards_ohm = new Distribute(12, 9, IERC20(ohm_token));
+        // we're staking shares which are 9 digits, reward eefi is 18 digits
+        rewards_eefi = new Distribute(9, 18, IERC20(eefi_token));
+        rewards_ohm = new Distribute(9, 9, IERC20(ohm_token));
         token_storage = new TokenStorage();
     }
 
@@ -178,7 +179,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         @param _trader Address of the initial trader contract
     */
     function initialize(IStakingDoubleERC20 _staking_pool, address payable _treasury, address _trader) external
-    onlyOwner() 
+    onlyOwner
     {
         require(address(_staking_pool) != address(0), "ElasticVault: invalid staking pool");
         require(_treasury != address(0), "ElasticVault: invalid treasury");
@@ -196,7 +197,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         Additionally, the trader change request is subject to a 1 day cooldown
         @param _trader Address of the trader contract
     */
-    function setTraderRequest(ITrader _trader) external onlyOwner() {
+    function setTraderRequest(ITrader _trader) external onlyOwner {
         require(address(_trader) != address(0), "ElasticVault: invalid trader");
         pending_trader = _trader;
         trader_change_request_time = block.timestamp;
@@ -206,7 +207,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     /**
         @dev Contract owner can set the trader contract after the cooldown period
     */
-    function setTrader() external onlyOwner() {
+    function setTrader() external onlyOwner {
         require(address(pending_trader) != address(0), "ElasticVault: invalid trader");
         require(block.timestamp > trader_change_request_time + CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
         trader = pending_trader;
@@ -218,9 +219,18 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         Contract owner can enable or disable emergency withdrawal allowing users to withdraw their deposits before the end of lock time
         @param _emergencyWithdrawalEnabled Boolean to enable or disable emergency withdrawal
     */
-    function setEmergencyWithdrawal(bool _emergencyWithdrawalEnabled) external onlyOwner() {
+    function setEmergencyWithdrawal(bool _emergencyWithdrawalEnabled) external onlyOwner {
         emergencyWithdrawalEnabled = _emergencyWithdrawalEnabled;
         emit EmergencyWithdrawal(emergencyWithdrawalEnabled);
+    }
+
+    /**
+        Contract owner can enable or disable vault deposits
+        @param _depositsDisabled Boolean to enable or disable deposits
+    */
+    function setDepositStatus(bool _depositsDisabled) external onlyOwner {
+        depositsDisabled = _depositsDisabled;
+        emit DepositsDisabled(depositsDisabled);
     }
 
     /**
@@ -228,7 +238,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         The change request is subject to a 1 day cooldown
         @param _authorized_trader Address of the authorized trader
     */
-    function setAuthorizedTraderRequest(address _authorized_trader) external onlyOwner() {
+    function setAuthorizedTraderRequest(address _authorized_trader) external onlyOwner {
         require(address(_authorized_trader) != address(0), "ElasticVault: invalid authorized trader");
         pending_authorized_trader = _authorized_trader;
         authorized_trader_change_request_time = block.timestamp;
@@ -238,7 +248,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     /**
         @dev Contract owner can set the authorized trader after the cooldown period
     */
-    function setAuthorizedTrader() external onlyOwner() {
+    function setAuthorizedTrader() external onlyOwner {
         require(address(pending_authorized_trader) != address(0), "ElasticVault: invalid trader");
         require(block.timestamp > authorized_trader_change_request_time + CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
         authorized_trader = pending_authorized_trader;
@@ -250,7 +260,10 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         @dev Deposits AMPL into the contract
         @param amount Amount of AMPL to take from the user
     */
-    function makeDeposit(uint256 amount) _rebaseSynced() nonReentrant() external {
+    function makeDeposit(uint256 amount) _rebaseSynced nonReentrant external {
+        if (msg.sender != treasury) {
+            require(!depositsDisabled, "ElasticVault: Vault deposits disabled");
+        }
         uint256 current_balance = ampl_token.balanceOf(address(this));
         ampl_token.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -287,7 +300,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         @param amount Amount of shares to withdraw
         !!! This isn't the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
-    function withdraw(uint256 amount) _rebaseSynced() nonReentrant() public returns (uint256 ampl_to_withdraw) {
+    function withdraw(uint256 amount) _rebaseSynced nonReentrant public returns (uint256 ampl_to_withdraw) {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
@@ -336,14 +349,14 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     * @param new_rebase_reward New rebase reward
     !!!!!!!! This function is only callable by the owner
     */
-    function setRebaseReward(uint256 new_rebase_reward) external onlyOwner() {
+    function setRebaseReward(uint256 new_rebase_reward) external onlyOwner {
         require(new_rebase_reward <= MAX_REBASE_REWARD, "ElasticVault: invalid rebase reward"); //Max Rebase reward can't go above maximum 
         rebase_caller_reward = new_rebase_reward;
         emit RebaseRewardChanged(new_rebase_reward);
     }
 
     //Functions called depending on AMPL rebase status
-    function _rebase(uint256 new_supply) internal override nonReentrant() {
+    function _rebase(uint256 new_supply) internal override nonReentrant {
         uint256 new_balance = ampl_token.balanceOf(address(this));
 
         if(new_supply > last_ampl_supply) {
@@ -390,7 +403,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
      * @param minimalExpectedOHM Minimal amount of OHM to be received from the trade
      !!!!!!!! This function is only callable by the authorized trader
     */
-    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader() returns (uint256 eefi_purchased, uint256 ohm_purchased) {
+    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader returns (uint256 eefi_purchased, uint256 ohm_purchased) {
         uint256 balance = ampl_token.balanceOf(address(token_storage));
         uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
         uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
@@ -434,7 +447,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     /**
      * Claims OHM and EEFI rewards for the user
     */
-    function claim() external nonReentrant() { 
+    function claim() external nonReentrant { 
         (uint256 ohm, uint256 eefi) = getReward(msg.sender);
         rewards_ohm.withdrawFrom(msg.sender, rewards_ohm.totalStakedFor(msg.sender));
         rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStakedFor(msg.sender));
