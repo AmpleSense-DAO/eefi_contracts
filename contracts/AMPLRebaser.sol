@@ -22,7 +22,7 @@ abstract contract AMPLRebaser {
     constructor(IERC20 _ampl_token) {
         ampl_token = _ampl_token;
         last_ampl_supply = _ampl_token.totalSupply();
-        last_rebase_call = block.timestamp;
+        last_rebase_call = UFragmentsPolicy(0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea).lastRebaseTimestampSec();
     }
 
     function rebase() external {
