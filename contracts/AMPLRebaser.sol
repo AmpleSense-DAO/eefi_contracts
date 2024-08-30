@@ -37,7 +37,7 @@ abstract contract AMPLRebaser {
 
     function _rebase(uint256 new_supply) internal virtual;
 
-    modifier _rebaseSynced() {
+    modifier rebaseSynced() {
         require(last_ampl_supply == ampl_token.totalSupply(), "AMPLRebaser: Operation unavailable mid-rebase");
         _;
     }

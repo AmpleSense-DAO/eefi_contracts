@@ -263,7 +263,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         @dev Deposits AMPL into the contract
         @param amount Amount of AMPL to take from the user
     */
-    function makeDeposit(uint256 amount) _rebaseSynced nonReentrant external {
+    function makeDeposit(uint256 amount) rebaseSynced nonReentrant external {
         if (msg.sender != treasury) {
             require(!depositsDisabled, "ElasticVault: Vault deposits disabled");
         }
@@ -305,7 +305,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         @param amount Amount of shares to withdraw
         !!! This isn't the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
-    function withdraw(uint256 amount) _rebaseSynced nonReentrant public returns (uint256 ampl_to_withdraw) {
+    function withdraw(uint256 amount) rebaseSynced nonReentrant public returns (uint256 ampl_to_withdraw) {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
