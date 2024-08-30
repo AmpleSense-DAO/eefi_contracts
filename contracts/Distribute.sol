@@ -166,6 +166,7 @@ contract Distribute is Ownable, ReentrancyGuard {
             reward_token.safeTransferFrom(from, address(this), amount);
             require(msg.value == 0, "Distribute: Illegal distribution");
         } else {
+            if(msg.value == 0) return;
             amount = msg.value;
         }
         // bond precision is always based on 1 unit of staked token
