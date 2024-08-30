@@ -7,6 +7,10 @@ import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol';
 
+interface IERC20Decimals {
+    function decimals() external view returns (uint8);
+}
+
 /**
  * staking contract for ERC20 tokens or ETH
  */
@@ -74,7 +78,7 @@ contract Distribute is Ownable, ReentrancyGuard {
      * @return decimals The number of decimals the token uses, or 0 if the call failed.
      */
     function tryGetDecimals(address tokenAddress) public view returns (bool success, uint8 decimals) {
-        bytes memory payload = abi.encodeWithSignature("decimals()");
+        bytes memory payload = abi.encodeWithSelector(IERC20Decimals.decimals.selector);
         // Low-level call to the token contract
         bytes memory returnData;
         (success, returnData) = tokenAddress.staticcall(payload);
