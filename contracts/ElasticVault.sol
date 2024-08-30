@@ -41,7 +41,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     Distribute immutable public rewards_ohm;
     address payable public treasury;
     uint256 public last_positive = block.timestamp;
-    uint256 public rebase_caller_reward = 0; // The amount of EEFI to be minted to the rebase caller as a reward
+    uint256 public rebase_caller_reward; // The amount of EEFI to be minted to the rebase caller as a reward
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     uint256 public trader_change_request_time;
     uint256 public authorized_trader_change_request_time;
