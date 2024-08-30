@@ -44,7 +44,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     mapping(address => uint256) private _bond_value_addr;
     mapping(address => uint256) private _stakes;
     mapping(address => uint256) private pending_rewards;
-    uint256 immutable staking_decimals;
+    uint256 immutable public staking_decimals;
 
     /// @dev token to distribute
     IERC20 immutable public reward_token;
