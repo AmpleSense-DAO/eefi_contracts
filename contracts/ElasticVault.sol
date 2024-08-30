@@ -33,7 +33,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     TokenStorage public token_storage;
     IStakingDoubleERC20 public staking_pool;
     ITrader public trader;
-    ITrader pending_trader;
+    ITrader public pending_trader;
     address public authorized_trader;
     address public pending_authorized_trader;
     IERC20 public eefi_token;
