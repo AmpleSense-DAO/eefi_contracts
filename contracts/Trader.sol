@@ -28,17 +28,21 @@ contract Trader is ITrader {
     IUniswapV2Router02 public constant uniswapV2Router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     IERC20 public immutable eefiToken;
 
-    address[] public pathAMPLETH = new address[](2);
-    address[] public pathOHMEEFI = new address[](2);
-
-
     constructor(IERC20 _eefiToken) {
         require(address(_eefiToken) != address(0), "Trader: Invalid eefi token address");
         eefiToken = IERC20(_eefiToken);
-        pathAMPLETH[0] = address(amplToken);
-        pathAMPLETH[1] = address(wethToken);
-        pathOHMEEFI[0] = address(ohmToken);
-        pathOHMEEFI[1] = address(_eefiToken);
+    }
+
+    function getPathAMPLETH() internal pure returns (address[] memory path) {
+        path = new address[](2);
+        path[0] = address(amplToken);
+        path[1] = address(wethToken);
+    }
+
+    function getPathOHMEEFI() internal view returns (address[] memory path) {
+        path = new address[](2);
+        path[0] = address(ohmToken);
+        path[1] = address(eefiToken);
     }
 
     /**
@@ -49,7 +53,7 @@ contract Trader is ITrader {
     function sellAMPLForOHM(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 ohmAmount) {
         amplToken.safeTransferFrom(msg.sender, address(this), amount);
         amplToken.approve(address(uniswapV2Router), amount);
-        uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, pathAMPLETH, address(this), block.timestamp);
+        uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, getPathAMPLETH(), address(this), block.timestamp);
         uint256 ethAmount = amounts[1];
         wethToken.approve(address(uniswapV3Router), ethAmount);
         ohmAmount = uniswapV3Router.exactInputSingle(
@@ -77,7 +81,7 @@ contract Trader is ITrader {
     function sellAMPLForEEFI(uint256 amount, uint256 minimalExpectedAmount) external override returns (uint256 eefiAmount) {
         amplToken.safeTransferFrom(msg.sender, address(this), amount);
         amplToken.approve(address(uniswapV2Router), amount);
-        uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, pathAMPLETH, address(this), block.timestamp);
+        uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(amount, 0, getPathAMPLETH(), address(this), block.timestamp);
         uint256 ethAmount = amounts[1];
         wethToken.approve(address(uniswapV3Router), ethAmount);
         uint256 ohmAmount = uniswapV3Router.exactInputSingle(
@@ -94,7 +98,7 @@ contract Trader is ITrader {
         );
         // purchase EEFI
         ohmToken.approve(address(uniswapV2Router), ohmAmount);
-        amounts = uniswapV2Router.swapExactTokensForTokens(ohmAmount, 0, pathOHMEEFI, msg.sender, block.timestamp);
+        amounts = uniswapV2Router.swapExactTokensForTokens(ohmAmount, 0, getPathOHMEEFI(), msg.sender, block.timestamp);
         eefiAmount = amounts[1];
         require(eefiAmount >= minimalExpectedAmount, "Trader: minimalExpectedAmount not acquired");
 
