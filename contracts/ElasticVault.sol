@@ -423,11 +423,6 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         eefi_purchased = trader.sellAMPLForEEFI(for_eefi, minimalExpectedEEFI);
         // buy OHM
         ohm_purchased = trader.sellAMPLForOHM(for_ohm, minimalExpectedOHM);
-        // send AMPL dust back to the token_storage so shares accounting remains correct to the dot
-        uint256 ampl_dust = ampl_token.balanceOf(address(this)).sub(ampl_balance);
-        if(ampl_dust > 0) {
-            ampl_token.safeTransfer(address(token_storage), ampl_dust);
-        }
 
         // 10% of purchased EEFI is sent to the DAO Treasury.
         IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(PERCENT_DIVIDER));
@@ -448,6 +443,12 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         ohm_token.safeTransfer(treasury, ohm_token.balanceOf(address(this)));
         // distribute the remainder of AMPL to the DAO treasury
         ampl_token.safeTransfer(treasury, for_treasury);
+
+        // send AMPL dust back to the token_storage so shares accounting remains correct to the dot
+        uint256 ampl_dust = ampl_token.balanceOf(address(this)).sub(ampl_balance);
+        if(ampl_dust > 0) {
+            ampl_token.safeTransfer(address(token_storage), ampl_dust);
+        }
     }
 
     /**
