@@ -20,6 +20,7 @@ abstract contract AMPLRebaser {
     UFragmentsPolicy immutable public policy = UFragmentsPolicy(0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea);
 
     constructor(IERC20 _ampl_token) {
+        require(address(_ampl_token) != address(0), "AMPLRebaser: Invalid AMPL token address");
         ampl_token = _ampl_token;
         last_ampl_supply = _ampl_token.totalSupply();
         last_rebase_call = UFragmentsPolicy(0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea).lastRebaseTimestampSec();
