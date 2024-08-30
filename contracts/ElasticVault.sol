@@ -204,7 +204,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         require(address(_trader) != address(0), "ElasticVault: invalid trader");
         pending_trader = _trader;
         trader_change_request_time = block.timestamp;
-        emit TraderChangeRequest(address(trader), address(pending_trader));
+        emit TraderChangeRequest(address(trader), address(_trader));
     }
 
     /**
@@ -214,8 +214,8 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         require(address(pending_trader) != address(0), "ElasticVault: invalid trader");
         require(block.timestamp > trader_change_request_time + CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
         trader = pending_trader;
+        emit TraderChanged(address(pending_trader));
         pending_trader = ITrader(address(0));
-        emit TraderChanged(address(trader));
     }
 
     /**
@@ -224,7 +224,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     */
     function setEmergencyWithdrawal(bool _emergencyWithdrawalEnabled) external onlyOwner {
         emergencyWithdrawalEnabled = _emergencyWithdrawalEnabled;
-        emit EmergencyWithdrawal(emergencyWithdrawalEnabled);
+        emit EmergencyWithdrawal(_emergencyWithdrawalEnabled);
     }
 
     /**
@@ -233,7 +233,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     */
     function setDepositStatus(bool _depositsDisabled) external onlyOwner {
         depositsDisabled = _depositsDisabled;
-        emit DepositsDisabled(depositsDisabled);
+        emit DepositsDisabled(_depositsDisabled);
     }
 
     /**
@@ -245,7 +245,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         require(address(_authorized_trader) != address(0), "ElasticVault: invalid authorized trader");
         pending_authorized_trader = _authorized_trader;
         authorized_trader_change_request_time = block.timestamp;
-        emit AuthorizedTraderChangeRequest(authorized_trader, pending_authorized_trader);
+        emit AuthorizedTraderChangeRequest(authorized_trader, _authorized_trader);
     }
 
     /**
@@ -255,8 +255,8 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         require(address(pending_authorized_trader) != address(0), "ElasticVault: invalid trader");
         require(block.timestamp > authorized_trader_change_request_time + CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
         authorized_trader = pending_authorized_trader;
+        emit AuthorizedTraderChanged(pending_authorized_trader);
         pending_authorized_trader = address(0);
-        emit AuthorizedTraderChanged(authorized_trader);
     }
 
     /**
