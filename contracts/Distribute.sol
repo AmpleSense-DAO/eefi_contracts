@@ -88,8 +88,8 @@ contract Distribute is Ownable, ReentrancyGuard {
             // Decode the return data
             decimals = abi.decode(returnData, (uint8));
         } else {
-            // Default to 0 decimals if call failed or returned unexpected data
-            return (false, 0);
+            // Default to 18 decimals if call failed or returned unexpected data
+            return (false, 18);
         }
     }
 
