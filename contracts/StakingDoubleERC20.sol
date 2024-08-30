@@ -11,7 +11,7 @@ contract StakingDoubleERC20 is IERC900  {
     using SafeERC20 for IERC20;
 
     /// @dev handle to access ERC20 token token contract to make transfers
-    IERC20 private _token;
+    IERC20 immutable private _token;
     Distribute immutable public staking_contract_ohm;
     Distribute immutable public staking_contract_eefi;
 
