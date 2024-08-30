@@ -86,6 +86,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     uint256 constant public MINTING_DECAY = 20 days;
     uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
     uint256 constant public CHANGE_COOLDOWN = 1 days;
+    uint256 constant public PERCENT_DIVIDER = 100;
 
     /* 
     Event Definitions:
@@ -367,7 +368,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
             uint256 changeRatio18Digits = last_ampl_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
             // send 70% of the surplus to the token_storage
-            uint256 to_sell = surplus.mul(TRADE_POSITIVE_EEFI_100 + TRADE_POSITIVE_OHM_100 + TRADE_POSITIVE_TREASURY_100).divDown(100);
+            uint256 to_sell = surplus.mul(TRADE_POSITIVE_EEFI_100 + TRADE_POSITIVE_OHM_100 + TRADE_POSITIVE_TREASURY_100).divDown(PERCENT_DIVIDER);
             ampl_token.safeTransfer(address(token_storage), to_sell);
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
@@ -382,8 +383,8 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
                 */
 
 
-                uint256 to_rewards = to_mint.mul(TRADE_NEUTRAL_NEG_EEFI_REWARDS_100).divDown(100);
-                uint256 to_lp_staking = to_mint.mul(TRADE_NEUTRAL_NEG_LPSTAKING_100).divDown(100);
+                uint256 to_rewards = to_mint.mul(TRADE_NEUTRAL_NEG_EEFI_REWARDS_100).divDown(PERCENT_DIVIDER);
+                uint256 to_lp_staking = to_mint.mul(TRADE_NEUTRAL_NEG_LPSTAKING_100).divDown(PERCENT_DIVIDER);
 
                 eefi_token.approve(address(rewards_eefi), to_rewards);
                 eefi_token.safeTransfer(address(staking_pool), to_lp_staking); 
@@ -405,9 +406,9 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     */
     function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader returns (uint256 eefi_purchased, uint256 ohm_purchased) {
         uint256 balance = ampl_token.balanceOf(address(token_storage));
-        uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
-        uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
-        uint256 for_treasury = balance.mul(TRADE_POSITIVE_TREASURY_100).divDown(100);
+        uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(PERCENT_DIVIDER);
+        uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(PERCENT_DIVIDER);
+        uint256 for_treasury = balance.mul(TRADE_POSITIVE_TREASURY_100).divDown(PERCENT_DIVIDER);
 
         uint256 ampl_balance = ampl_token.balanceOf(address(this));
         token_storage.claim(address(ampl_token));
@@ -424,15 +425,15 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         }
 
         // 10% of purchased EEFI is sent to the DAO Treasury.
-        IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(100));
+        IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(PERCENT_DIVIDER));
         // burn the rest
         uint256 to_burn = eefi_token.balanceOf(address(this));
         emit Burn(to_burn);
         IEEFIToken(address(eefi_token)).burn(to_burn);
         
         // distribute ohm to vaults
-        uint256 to_rewards = ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).divDown(100);
-        uint256 to_lp_staking = ohm_purchased.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+        uint256 to_rewards = ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).divDown(PERCENT_DIVIDER);
+        uint256 to_lp_staking = ohm_purchased.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(PERCENT_DIVIDER);
         ohm_token.approve(address(rewards_ohm), to_rewards);
         rewards_ohm.distribute(to_rewards, address(this));
         ohm_token.safeTransfer(address(staking_pool), to_lp_staking);
