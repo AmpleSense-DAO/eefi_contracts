@@ -64,11 +64,10 @@ contract Trader is ITrader {
                 msg.sender,
                 block.timestamp,
                 ethAmount,
-                0,
+                minimalExpectedAmount,
                 0
             )
         );
-        require(ohmAmount >= minimalExpectedAmount, "Trader: minimalExpectedAmount not acquired");
 
         emit Sale_OHM(amount, ohmAmount);
     }
@@ -98,9 +97,8 @@ contract Trader is ITrader {
         );
         // purchase EEFI
         ohmToken.approve(address(uniswapV2Router), ohmAmount);
-        amounts = uniswapV2Router.swapExactTokensForTokens(ohmAmount, 0, getPathOHMEEFI(), msg.sender, block.timestamp);
+        amounts = uniswapV2Router.swapExactTokensForTokens(ohmAmount, minimalExpectedAmount, getPathOHMEEFI(), msg.sender, block.timestamp);
         eefiAmount = amounts[1];
-        require(eefiAmount >= minimalExpectedAmount, "Trader: minimalExpectedAmount not acquired");
 
         emit Sale_EEFI(amount, eefiAmount);
     }
