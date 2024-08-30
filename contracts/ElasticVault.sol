@@ -137,10 +137,11 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
      */
 
     function totalStakedFor(address account) public view returns (uint256 total) {
+        DepositsLinkedList.List storage deposits = _deposits[account];
         // if deposits are not initialized for this account then we have no deposits to sum
-        if(_deposits[account].nodeIdCounter == 0) return 0;
+        if(deposits.nodeIdCounter == 0) return 0;
         // use 0 as lock duration to sum all deposit amounts
-        return _deposits[account].sumExpiredDeposits(0);
+        return deposits.sumExpiredDeposits(0);
     }
 
     /**
@@ -167,8 +168,9 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         @param account Account to check the first deposit of
     */
     function firstDeposit(address account) public view returns (uint256 ampl, uint256 timestamp) {
-        if(_deposits[account].nodeIdCounter == 0) return (0, 0);
-        DepositsLinkedList.Deposit memory deposit = _deposits[account].getDepositById(_deposits[account].head);
+        DepositsLinkedList.List storage deposits = _deposits[account];
+        if(deposits.nodeIdCounter == 0) return (0, 0);
+        DepositsLinkedList.Deposit memory deposit = deposits.getDepositById(deposits.head);
         ampl = _convertToAMPL(deposit.amount);
         timestamp = deposit.timestamp;
     }
@@ -275,11 +277,13 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         } else {
             shares = uint208(amount.mul(totalStaked()).divDown(current_balance));
         }
+
+        DepositsLinkedList.List storage deposits = _deposits[msg.sender];
         // first deposit needs to initialize the linked list
-        if(_deposits[msg.sender].nodeIdCounter == 0) {
-            _deposits[msg.sender].initialize();
+        if(deposits.nodeIdCounter == 0) {
+            deposits.initialize();
         }
-        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: shares, timestamp:uint48(block.timestamp)}));
+        deposits.insertEnd(DepositsLinkedList.Deposit({amount: shares, timestamp:uint48(block.timestamp)}));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -292,7 +296,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         // stake the shares also in the rewards pool
         rewards_eefi.stakeFor(msg.sender, shares);
         rewards_ohm.stakeFor(msg.sender, shares);
-        emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
+        emit Deposit(msg.sender, amount, deposits.length);
         emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 
@@ -307,20 +311,21 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         uint256 to_withdraw = amount;
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
+            DepositsLinkedList.List storage deposits = _deposits[msg.sender];
             // either liquidate the deposit, or reduce it
-            if(_deposits[msg.sender].length > 0) {
-                DepositsLinkedList.Deposit memory deposit = _deposits[msg.sender].getDepositById(_deposits[msg.sender].head);
+            if(deposits.length > 0) {
+                DepositsLinkedList.Deposit memory deposit = deposits.getDepositById(deposits.head);
                 // if emergency withdrawal is enabled, allow the user to withdraw all of their deposits
                 if(!emergencyWithdrawalEnabled) {
                     // if the first deposit is not unlocked return an error
                     require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
                 }
                 if(deposit.amount > to_withdraw) {
-                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head, uint256(deposit.amount).sub(to_withdraw));
+                    deposits.modifyDepositAmount(deposits.head, uint256(deposit.amount).sub(to_withdraw));
                     to_withdraw = 0;
                 } else {
                     to_withdraw = to_withdraw.sub(deposit.amount);
-                    _deposits[msg.sender].popHead();
+                    deposits.popHead();
                 }
             }
             
