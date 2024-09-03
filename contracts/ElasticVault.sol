@@ -46,7 +46,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     uint256 public trader_change_request_time;
     uint256 public authorized_trader_change_request_time;
     bool public emergencyWithdrawalEnabled;
-    bool public depositsDisabled;
+    bool public depositsDisabled = true;
     
     /* 
 
