@@ -39,6 +39,18 @@ describe('Trader Contract', () => {
   let ohmToken : EEFIToken;
 
   before(async () => {
+    //manually set the fork to a specific block here
+    await hre.network.provider.request({
+      method: "hardhat_reset",
+      params: [{
+        forking: {
+          //get the url from current hardhat config
+
+          jsonRpcUrl: "https://eth-mainnet.alchemyapi.io/v2/EkC-rSDdHIgfpIygkCZLHetwZkz3a5Sy",
+          blockNumber: 18109783
+        }
+      }]
+    });
     const router = await ethers.getContractAt("UniswapV2Router02", router_address) as UniswapV2Router02;
     ohmToken = await ethers.getContractAt("EEFIToken", ohm_token_address) as EEFIToken;
 
@@ -76,11 +88,11 @@ describe('Trader Contract', () => {
   });
 
   it('sellAMPLForOHM should fail if minimal amount fails to be reached', async () => {
-    await expect(trader.sellAMPLForOHM("5000000000000", "999999999999999999999")).to.be.revertedWith("Trader: minimalExpectedAmount not acquired");
+    await expect(trader.sellAMPLForOHM("5000000000000", "999999999999999999999")).to.be.revertedWith("Too little received");
   });
 
   it('sellAMPLForEEFI should fail if minimal amount fails to be reached', async () => {
-    await expect(trader.sellAMPLForEEFI("5000000000000", "999999999999999999999")).to.be.revertedWith("Trader: minimalExpectedAmount not acquired");
+    await expect(trader.sellAMPLForEEFI("5000000000000", "999999999999999999999")).to.be.revertedWith("UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT");
   });
 
   it('sellAMPLForOHM should work', async () => {

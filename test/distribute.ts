@@ -64,7 +64,7 @@ describe('Distribute Contract', () => {
       erc20Factory.deploy('9') as Promise<FakeERC20>,
     ]);
     
-    distribute = await distributeFactory.deploy('9', rewardToken.address) as Distribute;
+    distribute = await distributeFactory.deploy('9', '9', rewardToken.address) as Distribute;
   });
 
   it('Should have been deployed correctly', async () => {
@@ -208,10 +208,10 @@ describe('Distribute Contract', () => {
         // Distribute transaction
         await distribute.distribute(BigNumber.from(distributedAmount), owner);
         const { userReward: userAReward } = await getInfo(distribute, userA);
-        const precisionAdjustedRewardA = userAReward.div(BigNumber.from(await distribute.PRECISION()));
+        const precisionAdjustedRewardA = userAReward.div(BigNumber.from(await distribute.DECIMALS_ADJUSTMENT()));
         await distribute.stakeFor(userA, BigNumber.from(1));
         const { userReward: userAReward2 } = await getInfo(distribute, userA);
-        const precisionAdjustedRewardA2 = userAReward2.div(BigNumber.from(await distribute.PRECISION()));
+        const precisionAdjustedRewardA2 = userAReward2.div(BigNumber.from(await distribute.DECIMALS_ADJUSTMENT()));
         expect(precisionAdjustedRewardA).to.be.equal(precisionAdjustedRewardA2);
       });
 
@@ -227,14 +227,14 @@ describe('Distribute Contract', () => {
         ]);
 
         const distributedAmount = BigNumber.from(getRandomInt(10**9, 999*10**9));
-        const expectedIncrease = distributedAmount.div(totalStake.div(await distribute.PRECISION()));
+        const expectedIncrease = distributedAmount.div(totalStake.div(await distribute.DECIMALS_ADJUSTMENT()));
         const expectedNewBondValue = initialBondValue.add(expectedIncrease);
-        const expectedRemaining = distributedAmount.mod(totalStake.div(await distribute.PRECISION()));
-        const expectedUserAReward = userAStake.div(await distribute.PRECISION()).mul(expectedIncrease);
-        const expectedUserBReward = userBStake.div(await distribute.PRECISION()).mul(expectedIncrease);
+        const expectedRemaining = distributedAmount.mod(totalStake.div(await distribute.DECIMALS_ADJUSTMENT()));
+        const expectedUserAReward = userAStake.div(await distribute.DECIMALS_ADJUSTMENT()).mul(expectedIncrease);
+        const expectedUserBReward = userBStake.div(await distribute.DECIMALS_ADJUSTMENT()).mul(expectedIncrease);
 
         // Distribute transaction
-        await distribute.distribute(BigNumber.from(distributedAmount), owner);
+        await distribute.distribute(distributedAmount, owner);
 
         // Retrieve actual values from teh smart-contract
         const [
@@ -246,6 +246,7 @@ describe('Distribute Contract', () => {
         ]);
         
         // Check actual values against expected values
+        console.log('expectedIncrease', expectedIncrease.toString(), distributedAmount.toString());
         expect(bondValue).to.be.equal(expectedNewBondValue);
         expect(toDistribute).to.be.equal(expectedRemaining);
 

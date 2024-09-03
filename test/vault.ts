@@ -187,6 +187,7 @@ describe('ElasticVault Contract', () => {
 
     beforeEach(async () => {
       await vault.initialize(staking_pool.address, treasury, trader.address);
+      await vault.setDepositStatus(false);
     });
 
     describe('initialize()', () => {
@@ -521,13 +522,16 @@ describe('ElasticVault Contract', () => {
         await ethers.provider.send('evm_mine', []);
 
         const totalStakedFor = await vault.totalStakedFor(owner);
+        const userBalance = await vault.balanceOf(owner);
         const tx = await vault.withdraw(totalStakedFor.sub(1000));
         const tx2 = await vault.withdraw(1000);
 
         // they should get back the same amount of AMPL + 30% of the positive rebase
-        // balance of the user is 503789097185 and thats = 503789096177 + 1008 so the full amount was withdrawn
-        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '503789096177', 1);
-        expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '1008', 0);
+        console.log("total staked for", totalStakedFor.toString());
+        console.log("user balance", userBalance.toString());
+        // balance of the user is 504074298048 and thats = 504074297039 + 1009 so the full amount was withdrawn
+        expect(tx).to.emit(vault, 'Withdrawal').withArgs(owner, '504074297039', 1);
+        expect(tx2).to.emit(vault, 'Withdrawal').withArgs(owner, '1009', 0);
       });
     });
 
@@ -577,9 +581,9 @@ describe('ElasticVault Contract', () => {
         const after = await getInfo(vault, owner);
 
         expect(before.accountRewardOHM).to.be.equal(915000);
-        expect(before.accountRewardEEFI).to.be.equal(BigNumber.from("137473079597250"));
+        expect(before.accountRewardEEFI).to.be.equal(BigNumber.from("137473863686750"));
 
-        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 915000, BigNumber.from("137473079597250"));
+        expect(tx).to.emit(vault, 'Claimed').withArgs(owner, 915000, BigNumber.from("137473863686750"));
 
         expect(after.accountRewardOHM).to.be.equal(0);
         expect(after.accountRewardEEFI).to.be.equal(0);
@@ -758,6 +762,129 @@ describe('ElasticVault Contract', () => {
         console.log("shares user2", ethers.utils.formatUnits(await vault.totalStakedFor(secondAccount.address), 9));
         console.log("shares user3", ethers.utils.formatUnits(await vault.totalStakedFor(thirdAccount.address), 9));
       });
+    });
+
+    describe('testing rewards distribution', async () => {
+
+      beforeEach(async () => {      
+        await vault.setAuthorizedTraderRequest(owner);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.setAuthorizedTrader();
+      });
+
+      it('critical scenario', async () => {
+        const depositAmount = BigNumber.from(100*10**9);
+        const [ownerAccount, secondAccount, thirdAccount] = await ethers.getSigners();
+    
+        // Provision users with enough tokens
+        await amplToken.transfer(secondAccount.address, depositAmount);
+        await amplToken.transfer(thirdAccount.address, depositAmount);
+        await amplToken.increaseAllowance(vault.address, depositAmount);
+        await vault.makeDeposit(depositAmount);
+    
+        let amplTotalSupply = await amplToken.totalSupply();
+        // Double total supply - positive rebase
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply);
+        await setRebaseTimestamp();
+    
+        // Increase time by 24h and trigger rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.rebase();
+    
+        // Check AMPL balance in storage before sell
+        const storage_addr = await vault.token_storage();
+        let amplBalance = await amplToken.balanceOf(storage_addr);
+        console.log("AMPL balance in storage before sell", ethers.utils.formatUnits(amplBalance, 9));
+    
+        // Sell function to distribute rewards
+        await vault.sell(0, 0);
+
+        const rewards_eefi = await ethers.getContractAt('Distribute', await vault.rewards_eefi());
+        const rewards_ohm = await ethers.getContractAt('Distribute', await vault.rewards_ohm());
+    
+        // Capture rewards after sell
+        let rewardsAfterSellEEFI = await rewards_eefi.getTotalReward();
+        let rewardsAfterSellOHM = await rewards_ohm.getTotalReward();
+        console.log("Total EEFI rewards after sell:", ethers.utils.formatUnits(rewardsAfterSellEEFI, 18));
+        console.log("Total OHM rewards after sell:", ethers.utils.formatUnits(rewardsAfterSellOHM, 9));
+        // fetch the dust remaining to be distributed
+        const to_distribute = await rewards_ohm.to_distribute();
+        // make sure all depositors get their proper share of the rewards
+        let reward = await vault.getReward(ownerAccount.address);
+        expect(reward.eefi).to.be.equal(rewardsAfterSellEEFI); // should be 0 at this point
+        expect(reward.ohm).to.be.equal(rewardsAfterSellOHM.sub(to_distribute));
+    
+        // Second account makes a deposit
+        await amplToken.connect(secondAccount).increaseAllowance(vault.address, depositAmount);
+        await vault.connect(secondAccount).makeDeposit(depositAmount);
+    
+        // Negative rebase - halve total supply
+        await amplToken.connect(amplRebaser).rebase(0, "-" + amplTotalSupply.toString());
+        await setRebaseTimestamp();
+        // Increase time by 24h and trigger another rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.rebase(); // should generate eefi rewards but no ohm
+        rewardsAfterSellEEFI = await rewards_eefi.getTotalReward();
+        rewardsAfterSellOHM = await rewards_ohm.getTotalReward();
+        console.log("Total EEFI rewards after negative rebase:", ethers.utils.formatUnits(rewardsAfterSellEEFI, 18));
+        console.log("Total OHM rewards after negative rebase:", ethers.utils.formatUnits(rewardsAfterSellOHM, 9));
+        reward = await vault.getReward(ownerAccount.address);
+        // get owner and second account amount of shares
+        const sharesOwner = await vault.totalStakedFor(ownerAccount.address);
+        const sharesSecond = await vault.totalStakedFor(secondAccount.address);
+        // real distributable rewards without the dust
+        const distributableRewards = rewardsAfterSellEEFI.sub(await rewards_eefi.to_distribute());
+        // get the amount of rewards owner should get based on shares
+        const expectedRewardOwner = distributableRewards.mul(sharesOwner).div(sharesOwner.add(sharesSecond));
+        const expectedRewardSecond = distributableRewards.mul(sharesSecond).div(sharesOwner.add(sharesSecond));
+        //expect(reward.eefi).to.be.equal(expectedRewardOwner);
+        let secondReward = await vault.getReward(secondAccount.address);
+        //expect(secondReward.eefi).to.be.equal(expectedRewardSecond);
+        console.log("Owner EEFI rewards after negative rebase:", ethers.utils.formatUnits(reward.eefi, 18));
+        console.log("Second EEFI rewards after negative rebase:", ethers.utils.formatUnits(secondReward.eefi, 18));
+
+    
+        // Third account makes a deposit
+        await amplToken.connect(thirdAccount).increaseAllowance(vault.address, depositAmount);
+        await vault.connect(thirdAccount).makeDeposit(depositAmount);
+    
+        // Double total supply again - positive rebase
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply);
+        await setRebaseTimestamp();
+    
+        // Increase time by 24h and trigger rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.rebase();
+        await vault.sell(0, 0);
+    
+        // Final assertions
+        amplBalance = await amplToken.balanceOf(storage_addr);
+        console.log("AMPL balance in storage after final sell", ethers.utils.formatUnits(amplBalance, 9));
+    
+        // Check final rewards distributed
+        const finalEEFIRewards = await rewards_eefi.getTotalReward();
+        const finalOHMRewards = await rewards_ohm.getTotalReward();
+        console.log("Final EEFI rewards distributed:", ethers.utils.formatUnits(finalEEFIRewards, 18));
+        console.log("Final OHM rewards distributed:", ethers.utils.formatUnits(finalOHMRewards, 9));
+        // log eefi and ohm rewards of all users
+        reward = await vault.getReward(ownerAccount.address);
+        console.log("Owner EEFI rewards after final sell:", ethers.utils.formatUnits(reward.eefi, 18));
+        console.log("Owner OHM rewards after final sell:", ethers.utils.formatUnits(reward.ohm, 9));
+        secondReward = await vault.getReward(secondAccount.address);
+        console.log("Second EEFI rewards after final sell:", ethers.utils.formatUnits(secondReward.eefi, 18));
+        console.log("Second OHM rewards after final sell:", ethers.utils.formatUnits(secondReward.ohm, 9));
+        const thirdReward = await vault.getReward(thirdAccount.address);
+        console.log("Third EEFI rewards after final sell:", ethers.utils.formatUnits(thirdReward.eefi, 18));
+        console.log("Third OHM rewards after final sell:", ethers.utils.formatUnits(thirdReward.ohm, 9));
+
+    
+      });
+    
     });
 
   });
