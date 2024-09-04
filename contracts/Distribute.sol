@@ -154,8 +154,30 @@ contract Distribute is Ownable, ReentrancyGuard {
         @param amount Amount to remove from the stake
     */
     function withdrawFrom(address payable account, uint256 amount) external onlyOwner {
-        unstakeFrom(account, amount);
-        stakeFor(account, amount);
+        require(account != address(0), "Distribute: Invalid account");
+        require(amount > 0, "Distribute: Amount must be greater than zero");
+
+        // Calculate the reward based on the current stake
+        uint256 stake = _stakes[account];
+        require(stake >= amount, "Distribute: Insufficient staked amount");
+        uint256 total_accumulated_reward = _getReward(account, stake);
+        // the part of rewards corresponding to the amount to withdraw
+        uint256 accumulated_reward_stakes = _getReward(account, amount);
+        require(accumulated_reward_stakes > 0, "Distribute: No rewards to withdraw");
+
+        // Reset pending rewards to remove the ones we are about to distribute
+        // pending_rewards always needs to be updated before we reset the bond value for the account
+        pending_rewards[account] = total_accumulated_reward.sub(accumulated_reward_stakes);
+
+        // Update bond value for the account
+        _bond_value_addr[account] = bond_value;
+
+        // Transfer the reward to the account
+        if (address(reward_token) != address(0)) {
+            reward_token.safeTransfer(account, accumulated_reward_stakes);
+        } else {
+            Address.sendValue(account, accumulated_reward_stakes);
+        }
     }
 
     /**
