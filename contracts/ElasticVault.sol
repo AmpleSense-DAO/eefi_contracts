@@ -272,7 +272,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
 
         uint208 shares;
         
-        if(current_balance == 0) {
+        if(totalStaked() == 0) {
             shares = uint208(amount);
         } else {
             shares = uint208(amount.mul(totalStaked()).divDown(current_balance));
