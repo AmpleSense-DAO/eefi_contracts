@@ -27,9 +27,10 @@ abstract contract AMPLRebaser {
     }
 
     function rebase() external {
-        require(policy.lastRebaseTimestampSec() > last_rebase_call, "AMPLRebaser: Rebase not available yet");
+        uint256 policyTimestamp = policy.lastRebaseTimestampSec();
+        require(policyTimestamp > last_rebase_call, "AMPLRebaser: Rebase not available yet");
         uint256 new_supply = ampl_token.totalSupply();
-        last_rebase_call = block.timestamp;
+        last_rebase_call = policyTimestamp;
         
         _rebase(new_supply);
         emit Rebase(last_ampl_supply, new_supply);
