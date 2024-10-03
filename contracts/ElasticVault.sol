@@ -25,6 +25,20 @@ contract TokenStorage is Ownable {
     }
 }
 
+/**
+ * @dev Expressed weights to apply to % of rebase permil points
+ * For example a 1% positive rebase would result in a score increment of 10 * positive_rebase
+ * A negative 0.5% rebase would result in a score decrement of 5 * negative_rebase
+ * An equliibrium rebase has no % and would result in a score decrement of equilibrium_rebase
+*/
+struct RebaseWeights {
+    uint24 negative_rebase;
+    uint24 positive_rebase;
+    uint24 equilibrium_rebase;
+    int24 minting_threshold; // score threshold to enable minting
+    uint24 cap; // minimal and maximal score cap
+}
+
 contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
@@ -47,6 +61,10 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     uint256 public authorized_trader_change_request_time;
     bool public emergencyWithdrawalEnabled;
     bool public depositsDisabled = true;
+    // Used to compute the rebase score and enable or disable minting
+    int24 public rebase_score;
+    // weights to apply to rebase permil points
+    RebaseWeights public rebase_weights;
     
     /* 
 
@@ -64,7 +82,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     - Trade Positive LP Staking_100: Upon positive rebase, send 35% of OHM rewards to users staking LP tokens (EEFI/OHM)
     - Trade Neutral/Negative Rewards: Upon neutral/negative rebase, send 55% of EEFI rewards to users staking AMPL in vault
     - Trade Neutral/Negative LP Staking: Upon neutral/negative rebase, send 35% of EEFI rewards to users staking LP tokens (EEFI/OHM)
-    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 20 days, do not mint EEFI, distribute rewards to stakers
+    - Minting Decay: If AMPL does not experience a positive rebase (increase in AMPL supply) for 15 days, do not mint EEFI, distribute rewards to stakers
     - Treasury EEFI_100: Amount of EEFI distributed to DAO Treasury after EEFI buy and burn; 10% of purchased EEFI distributed to Treasury
     - Max Rebase Reward: Immutable maximum amount of EEFI that can be minted to rebase caller
     - Trader Change Cooldown: Cooldown period for updates to authorized trader address
@@ -83,7 +101,7 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     uint256 constant public TRADE_POSITIVE_LPSTAKING_100 = 35; 
     uint256 constant public TRADE_NEUTRAL_NEG_LPSTAKING_100 = 35;
     uint256 constant public TREASURY_EEFI_100 = 10;
-    uint256 constant public MINTING_DECAY = 20 days;
+    uint256 constant public MINTING_DECAY = 15 days;
     uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
     uint256 constant public CHANGE_COOLDOWN = 1 days;
     uint256 constant public PERCENT_DIVIDER = 100;
@@ -115,6 +133,8 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     event AuthorizedTraderChanged(address trader);
     event EmergencyWithdrawal(bool enabled);
     event DepositsDisabled(bool disabled);
+    event RebaseWeightsChanged(uint24 negativeRebase, uint24 positiveRebase, uint24 equilibriumRebase, int24 mintingThreshold, uint24 cap);
+    event RebaseScore(int24 score);
 
     mapping(address => DepositsLinkedList.List) private _deposits;
     
@@ -129,6 +149,11 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         rewards_eefi = new Distribute(9, 18, IERC20(eefi_token));
         rewards_ohm = new Distribute(9, 9, IERC20(ohm_token));
         token_storage = new TokenStorage();
+        rebase_weights = RebaseWeights(5,   // negative
+                                        10, // positive
+                                        10000,  // equilibrium
+                                        0,  // threshold
+                                        100000); // cap
     }
 
     /**
@@ -219,6 +244,18 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     }
 
     /**
+        @dev Contract owner can set the weights to apply to compute rebases scores
+    */
+    function setRebaseWeights(RebaseWeights calldata _newWeights) external onlyOwner {
+        rebase_weights = _newWeights;
+        emit RebaseWeightsChanged(_newWeights.negative_rebase,
+                                  _newWeights.positive_rebase,
+                                  _newWeights.equilibrium_rebase,
+                                  _newWeights.minting_threshold,
+                                  _newWeights.cap);
+    }
+
+    /**
         Contract owner can enable or disable emergency withdrawal allowing users to withdraw their deposits before the end of lock time
         @param _emergencyWithdrawalEnabled Boolean to enable or disable emergency withdrawal
     */
@@ -285,10 +322,10 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         }
         deposits.insertEnd(DepositsLinkedList.Deposit({amount: shares, timestamp:uint48(block.timestamp)}));
 
-        uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
-        uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
         // Mint deposit reward to sender; send deposit fee to Treasury 
-        if(last_positive + MINTING_DECAY > block.timestamp) { // if 20 days without positive rebase do not mint EEFI
+        if(_canMint()) { // if 15 days without positive rebase do not mint EEFI
+            uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
+            uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
             IEEFIToken(address(eefi_token)).mint(treasury, deposit_fee);
             IEEFIToken(address(eefi_token)).mint(msg.sender, to_mint.sub(deposit_fee));
         }
@@ -350,6 +387,10 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         return ampl_token.balanceOf(address(this)).mul(stake).divDown(totalStaked());
     }
 
+    function _canMint() internal view returns (bool) {
+        return last_positive + MINTING_DECAY > block.timestamp && rebase_score >= rebase_weights.minting_threshold;
+    }
+
     /**
     * Change the rebase reward
     * @param new_rebase_reward New rebase reward
@@ -368,6 +409,14 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
         if(new_supply > last_ampl_supply) {
             // This is a positive AMPL rebase and initates trading and distribuition of AMPL according to parameters (see parameters definitions)
             last_positive = block.timestamp;
+            // update rebase score
+            // compute the % of the positive rebase
+            uint256 changePermil19Digits = new_supply.sub(last_ampl_supply).mul(10**21).divDown(last_ampl_supply); //10**21 = 10**18 * 1000
+            rebase_score += int24(changePermil19Digits.mul(rebase_weights.positive_rebase).divDown(10**18));
+            if(rebase_score > int24(rebase_weights.cap)) {
+                rebase_score = int24(rebase_weights.cap);
+            }
+            emit RebaseScore(rebase_score);
             require(address(trader) != address(0), "ElasticVault: trader not set");
 
             uint256 changeRatio18Digits = last_ampl_supply.mul(10**18).divDown(new_supply);
@@ -376,8 +425,20 @@ contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
             uint256 to_sell = surplus.mul(TRADE_POSITIVE_EEFI_100 + TRADE_POSITIVE_OHM_100 + TRADE_POSITIVE_TREASURY_100).divDown(PERCENT_DIVIDER);
             ampl_token.safeTransfer(address(token_storage), to_sell);
         } else {
+            // update rebase score
+            // compute the % of the negative or neutral rebase
+            uint256 changePermil19Digits = last_ampl_supply.sub(new_supply).mul(10**21).divDown(last_ampl_supply); //10**21 = 10**18 * 1000
+            if(changePermil19Digits > 0) {
+                rebase_score -= int24(changePermil19Digits.mul(rebase_weights.negative_rebase).divDown(10**18));
+            } else {
+                rebase_score -= int24(rebase_weights.equilibrium_rebase);
+            }
+            if(rebase_score < -int24(rebase_weights.cap)) {
+                rebase_score = -int24(rebase_weights.cap);
+            }
+            emit RebaseScore(rebase_score);
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
-            if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
+            if(_canMint()) { //if 15 days without positive rebase do not mint
                 uint256 to_mint = new_balance.mul(10**9).divDown(new_supply < last_ampl_supply ? EEFI_NEGATIVE_REBASE_RATE : EEFI_EQULIBRIUM_REBASE_RATE); /*multiplying by 10^9 because EEFI is 18 digits and not 9*/
                 IEEFIToken(address(eefi_token)).mint(address(this), to_mint);
                 /* 

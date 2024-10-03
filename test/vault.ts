@@ -312,6 +312,9 @@ describe('ElasticVault Contract', () => {
 
         await amplToken.increaseAllowance(vault.address, 500 * 10**9);
         await vault.makeDeposit(500 * 10**9);
+
+        // set minting cap to a very low number to test the rebase
+        await vault.setRebaseWeights({ negative_rebase: 5, positive_rebase: 10, equilibrium_rebase : 10000, minting_threshold: -500000, cap: 100000})
       });
 
       it('rebasing shall fail unless ampl also rebased', async () => {
@@ -883,6 +886,170 @@ describe('ElasticVault Contract', () => {
         console.log("Third OHM rewards after final sell:", ethers.utils.formatUnits(thirdReward.ohm, 9));
 
     
+      });
+    
+    });
+
+    describe('testing minting restrictions', async () => {
+
+      beforeEach(async () => {      
+        await vault.setAuthorizedTraderRequest(owner);
+        const cooldown = await vault.CHANGE_COOLDOWN();
+        await ethers.provider.send('evm_increaseTime', [cooldown.toNumber()]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.setAuthorizedTrader();
+      });
+
+      it('should be able to mint', async () => {
+        const weights = await vault.rebase_weights();
+        const depositAmount = BigNumber.from(100*10**9);
+
+        await amplToken.increaseAllowance(vault.address, depositAmount);
+        await vault.makeDeposit(depositAmount);
+    
+        let amplTotalSupply = await amplToken.totalSupply();
+        // Double total supply - positive rebase
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply);
+        await setRebaseTimestamp();
+    
+        // Increase time by 24h and trigger rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        let tx = await vault.rebase();
+        // this is a 100% positive rebase so 1000 permil. 
+        let score = 1000 * weights.positive_rebase
+        // check that tx emits the RebaseScore event
+        expect(tx).to.emit(vault, 'RebaseScore').withArgs(score);
+        console.log("Rebase score after positive rebase:", score);
+
+        await setRebaseTimestamp();
+        tx = await vault.rebase();
+        score -= weights.equilibrium_rebase;
+        expect(tx).to.emit(vault, 'RebaseScore').withArgs(score);
+        console.log("Rebase score after equilibrium rebase:", score);
+
+        // negative rebase
+        await amplToken.connect(amplRebaser).rebase(0, "-" + amplTotalSupply.toString());
+        await setRebaseTimestamp();
+        tx = await vault.rebase();
+        // this is a 50% negative rebase so 500 permil.
+        score -= 500 * weights.negative_rebase;
+        expect(tx).to.emit(vault, 'RebaseScore').withArgs(score);
+        console.log("Rebase score after negative rebase:", score);
+
+        // small positive rebase, about 1%
+        // so score should increase by approx 10 * positive rebase weight
+        // however due to math imprecision, a rebase of 1% exactly its actually 9.9 permil
+        score += 9.9 * weights.positive_rebase;
+        amplTotalSupply = await amplToken.totalSupply();
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply.div(100));
+        await setRebaseTimestamp();
+        tx = await vault.rebase();
+        expect(tx).to.emit(vault, 'RebaseScore').withArgs(score);
+      });
+
+      it('should not exceed max score', async () => {
+        const weights = await vault.rebase_weights();
+        const depositAmount = BigNumber.from(100*10**9);
+
+        await amplToken.increaseAllowance(vault.address, depositAmount);
+        await vault.makeDeposit(depositAmount);
+    
+        let amplTotalSupply = await amplToken.totalSupply();
+        // Increase total supply by a lot - positive rebase
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply.mul(10));
+        await setRebaseTimestamp();
+    
+        // Increase time by 24h and trigger rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.rebase();
+
+        let rebase_score = await vault.rebase_score();
+        expect(rebase_score).to.be.equal(weights.cap);
+
+        // Increase supply again - positive rebase
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply);
+        await setRebaseTimestamp();
+    
+        // Increase time by 24h and trigger rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        await vault.rebase();
+        // rebase score should be capped still
+        rebase_score = await vault.rebase_score();
+        expect(rebase_score).to.be.equal(weights.cap);
+      });
+
+      it('should not go below min score', async () => {
+        const weights = await vault.rebase_weights();
+        const depositAmount = BigNumber.from(100*10**9);
+    
+        await amplToken.increaseAllowance(vault.address, depositAmount);
+        await vault.makeDeposit(depositAmount);
+    
+        // lets just do a lot of equilibrium rebases
+        for(let i = 0; i < 100; i++) {
+          await setRebaseTimestamp();
+      
+          // Increase time by 24h and trigger rebase
+          await ethers.provider.send('evm_increaseTime', [3600*24]);
+          await ethers.provider.send('evm_mine', []);
+          await vault.rebase();
+        }
+
+        let rebase_score = await vault.rebase_score();
+        expect(rebase_score).to.be.equal(-weights.cap);
+      });
+
+      it('should prevent minting if below minting threshold', async () => {
+        const weights = await vault.rebase_weights();
+        const depositAmount = BigNumber.from(100*10**9);
+    
+        await amplToken.increaseAllowance(vault.address, depositAmount);
+        // deposit only half
+        let eefiBalanceBefore = await eefiToken.balanceOf(owner);
+        await vault.makeDeposit(depositAmount.div(2));
+        let eefiBalanceAfter = await eefiToken.balanceOf(owner);
+        expect(eefiBalanceAfter).to.be.gt(eefiBalanceBefore); // check that we minted eefi on deposit
+
+        // perform positive rebase to increase score
+        let amplTotalSupply = await amplToken.totalSupply();
+        await amplToken.connect(amplRebaser).rebase(0, amplTotalSupply.div(100));
+        await setRebaseTimestamp();
+
+        // Increase time by 24h and trigger rebase
+        await ethers.provider.send('evm_increaseTime', [3600*24]);
+        await ethers.provider.send('evm_mine', []);
+        
+        await vault.rebase();
+
+        // perform a small negative rebase and check that eefi is minted
+        await amplToken.connect(amplRebaser).rebase(0, "-" + amplTotalSupply.div(100).toString());
+        await setRebaseTimestamp();
+        let treasuryEefiBeforeRebase = await eefiToken.balanceOf(treasury);
+        await vault.rebase();
+        let treasuryEefiAfterRebase = await eefiToken.balanceOf(treasury);
+        console.log("rebase score", await vault.rebase_score());
+        expect(treasuryEefiAfterRebase).to.be.gt(treasuryEefiBeforeRebase); // check that we minted eefi on rebase
+
+        // perform a big negative rebase and check that eefi is not minted
+        await amplToken.connect(amplRebaser).rebase(0, "-" + amplTotalSupply.div(10).toString());
+        await setRebaseTimestamp();
+        treasuryEefiBeforeRebase = await eefiToken.balanceOf(treasury);
+        await vault.rebase();
+        treasuryEefiAfterRebase = await eefiToken.balanceOf(treasury);
+        console.log("rebase score", await vault.rebase_score());
+        expect(treasuryEefiAfterRebase).to.be.eq(treasuryEefiBeforeRebase); // check that we didnt mint eefi on rebase
+
+
+        // check that eefi is no longer minted on deposit either
+
+        eefiBalanceBefore = await eefiToken.balanceOf(owner);
+        await vault.makeDeposit(depositAmount.div(2));
+        eefiBalanceAfter = await eefiToken.balanceOf(owner);
+        expect(eefiBalanceAfter).to.be.eq(eefiBalanceBefore); // check that we didnt mint eefi on deposit
+        
       });
     
     });
