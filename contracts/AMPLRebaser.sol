@@ -2,6 +2,7 @@
 pragma solidity 0.7.6;
 
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/IERC20.sol";
+import "./interfaces/UFragmentsPolicy.sol";
 
 abstract contract AMPLRebaser {
 
@@ -16,18 +17,20 @@ abstract contract AMPLRebaser {
 
     IERC20 immutable public ampl_token;
 
+    UFragmentsPolicy immutable public policy = UFragmentsPolicy(0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea);
+
     constructor(IERC20 _ampl_token) {
+        require(address(_ampl_token) != address(0), "AMPLRebaser: Invalid AMPL token address");
         ampl_token = _ampl_token;
         last_ampl_supply = _ampl_token.totalSupply();
-        last_rebase_call = block.timestamp;
+        last_rebase_call = UFragmentsPolicy(0x1B228a749077b8e307C5856cE62Ef35d96Dca2ea).lastRebaseTimestampSec();
     }
 
     function rebase() external {
+        uint256 policyTimestamp = policy.lastRebaseTimestampSec();
+        require(policyTimestamp > last_rebase_call, "AMPLRebaser: Rebase not available yet");
         uint256 new_supply = ampl_token.totalSupply();
-        // require timestamp to exceed 24 hours in order to execute function OR if ampl supply changed
-        if(new_supply == last_ampl_supply)
-            require(block.timestamp - 24 hours > last_rebase_call, "AMPLRebaser: rebase can only be called once every 24 hours");
-        last_rebase_call = block.timestamp;
+        last_rebase_call = policyTimestamp;
         
         _rebase(new_supply);
         emit Rebase(last_ampl_supply, new_supply);
@@ -36,7 +39,7 @@ abstract contract AMPLRebaser {
 
     function _rebase(uint256 new_supply) internal virtual;
 
-    modifier _rebaseSynced() {
+    modifier rebaseSynced() {
         require(last_ampl_supply == ampl_token.totalSupply(), "AMPLRebaser: Operation unavailable mid-rebase");
         _;
     }

@@ -40,7 +40,7 @@ async function getInfo(distribute: Distribute, userAddress: string) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-describe('Distribute Contract', () => {
+describe('Distribute Contract with 9 digits staking and rewards tokens', () => {
 
   let rewardToken: FakeERC20;
   let distribute: Distribute;
@@ -227,11 +227,12 @@ describe('Distribute Contract', () => {
         ]);
 
         const distributedAmount = BigNumber.from(getRandomInt(10**9, 999*10**9));
-        const expectedIncrease = distributedAmount.div(totalStake.div(await distribute.DECIMALS_ADJUSTMENT()));
+        const bonds = totalStake.div(10**9);
+        const expectedIncrease = distributedAmount.mul(await distribute.DECIMALS_ADJUSTMENT()).div(bonds);
         const expectedNewBondValue = initialBondValue.add(expectedIncrease);
-        const expectedRemaining = distributedAmount.mod(totalStake.div(await distribute.DECIMALS_ADJUSTMENT()));
-        const expectedUserAReward = userAStake.div(await distribute.DECIMALS_ADJUSTMENT()).mul(expectedIncrease);
-        const expectedUserBReward = userBStake.div(await distribute.DECIMALS_ADJUSTMENT()).mul(expectedIncrease);
+        const expectedRemaining = distributedAmount.mul(await distribute.DECIMALS_ADJUSTMENT()).mod(bonds);
+        const expectedUserAReward = userAStake.div(10**9).mul(expectedIncrease).div(await distribute.DECIMALS_ADJUSTMENT());
+        const expectedUserBReward = userBStake.div(10**9).mul(expectedIncrease).div(await distribute.DECIMALS_ADJUSTMENT());
 
         // Distribute transaction
         await distribute.distribute(distributedAmount, owner);
@@ -246,7 +247,6 @@ describe('Distribute Contract', () => {
         ]);
         
         // Check actual values against expected values
-        console.log('expectedIncrease', expectedIncrease.toString(), distributedAmount.toString());
         expect(bondValue).to.be.equal(expectedNewBondValue);
         expect(toDistribute).to.be.equal(expectedRemaining);
 

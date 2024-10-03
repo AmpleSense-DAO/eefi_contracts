@@ -40,7 +40,7 @@ async function getInfo(distribute: Distribute, userAddress: string) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-describe('Distribute Contract', () => {
+describe('Distribute Contract with 9 digits stake token and 18 digits rewards token', () => {
 
   let rewardToken: FakeERC20;
   let distribute: Distribute;
@@ -61,10 +61,10 @@ describe('Distribute Contract', () => {
     userB = accounts[2].address,
 
     [ rewardToken ] = await Promise.all([
-      erc20Factory.deploy('9') as Promise<FakeERC20>,
+      erc20Factory.deploy('18') as Promise<FakeERC20>,
     ]);
     
-    distribute = await distributeFactory.deploy('9', '9', rewardToken.address) as Distribute;
+    distribute = await distributeFactory.deploy('9', '18', rewardToken.address) as Distribute;
   });
 
   it('Should have been deployed correctly', async () => {
@@ -179,7 +179,7 @@ describe('Distribute Contract', () => {
 
       await Promise.all([
         rewardToken.mint(BigNumber.from(1_000), owner), // mint 100 token to `owner` address
-        rewardToken.approve(distribute.address, BigNumber.from("1000000000000000000")), // allow Distribute contract to spend `owner`'s token
+        rewardToken.approve(distribute.address, BigNumber.from(999).mul(BigNumber.from(10).pow(18))), // allow Distribute contract to spend `owner`'s token
       ]);
     });
 
@@ -203,7 +203,7 @@ describe('Distribute Contract', () => {
       });
 
       it('Should not change the reward after a second stake', async () => {
-        const distributedAmount = BigNumber.from(getRandomInt(10000000000, 9990000000000));
+        const distributedAmount = BigNumber.from(getRandomInt(10, 999)).mul(BigNumber.from(10).pow(18));
         await distribute.stakeFor(userA, BigNumber.from("10000000000000000"));
         // Distribute transaction
         await distribute.distribute(BigNumber.from(distributedAmount), owner);
@@ -225,13 +225,13 @@ describe('Distribute Contract', () => {
           getInfo(distribute, userA),
           getInfo(distribute, userB),
         ]);
-
-        const distributedAmount = BigNumber.from(getRandomInt(10**9, 999*10**9));
-        const expectedIncrease = distributedAmount.div(totalStake.div(await distribute.DECIMALS_ADJUSTMENT()));
+        const distributedAmount = BigNumber.from(getRandomInt(10, 999)).mul(BigNumber.from(10).pow(18));
+        const bonds = totalStake.div(10**9);
+        const expectedIncrease = distributedAmount.mul(await distribute.DECIMALS_ADJUSTMENT()).div(bonds);
         const expectedNewBondValue = initialBondValue.add(expectedIncrease);
-        const expectedRemaining = distributedAmount.mod(totalStake.div(await distribute.DECIMALS_ADJUSTMENT()));
-        const expectedUserAReward = userAStake.div(await distribute.DECIMALS_ADJUSTMENT()).mul(expectedIncrease);
-        const expectedUserBReward = userBStake.div(await distribute.DECIMALS_ADJUSTMENT()).mul(expectedIncrease);
+        const expectedRemaining = distributedAmount.mul(await distribute.DECIMALS_ADJUSTMENT()).mod(bonds);
+        const expectedUserAReward = userAStake.div(10**9).mul(expectedIncrease).div(await distribute.DECIMALS_ADJUSTMENT());
+        const expectedUserBReward = userBStake.div(10**9).mul(expectedIncrease).div(await distribute.DECIMALS_ADJUSTMENT());
 
         // Distribute transaction
         await distribute.distribute(distributedAmount, owner);
@@ -246,7 +246,6 @@ describe('Distribute Contract', () => {
         ]);
         
         // Check actual values against expected values
-        console.log('expectedIncrease', expectedIncrease.toString(), distributedAmount.toString());
         expect(bondValue).to.be.equal(expectedNewBondValue);
         expect(toDistribute).to.be.equal(expectedRemaining);
 
@@ -267,9 +266,9 @@ describe('Distribute Contract', () => {
 
       await Promise.all([
         rewardToken.mint(BigNumber.from(1_000), owner), // mint 1000 token to `owner` address
-        rewardToken.approve(distribute.address, BigNumber.from(1_000*10**9)), // allow Distribute contract to spend `owner`'s token
+        rewardToken.approve(distribute.address, BigNumber.from(200).mul(BigNumber.from(10).pow(18))), // allow Distribute contract to spend `owner`'s token
         distribute.stakeFor(userA, BigNumber.from(100*10**9)),
-        distribute.distribute(BigNumber.from(200*10**9), owner),
+        distribute.distribute(BigNumber.from(200).mul(BigNumber.from(10).pow(18)), owner),
       ]);
     });
 
@@ -290,11 +289,11 @@ describe('Distribute Contract', () => {
       expect(after.bondValue).to.be.equal(before.bondValue);
       expect(after.toDistribute).to.be.equal(0);
 
-      expect(before.userReward).to.be.equal(200*10**9);
-      expect(after.userReward).to.be.equal(100*10**9);
+      expect(before.userReward).to.be.equal(BigNumber.from(200).mul(BigNumber.from(10).pow(18)));
+      expect(after.userReward).to.be.equal(BigNumber.from(100).mul(BigNumber.from(10).pow(18)));
 
       expect(beforeBalance).to.be.equal(0);
-      expect(afterBalance).to.be.equal(100*10**9);
+      expect(afterBalance).to.be.equal(BigNumber.from(100).mul(BigNumber.from(10).pow(18)));
 
       expect(after.userStake).to.be.equal(before.userStake);
       expect(after.totalStake).to.be.equal(before.totalStake);

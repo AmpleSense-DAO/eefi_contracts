@@ -7,6 +7,10 @@ import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Ownable.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/Address.sol';
 import '@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol';
 
+interface IERC20Decimals {
+    function decimals() external view returns (uint8);
+}
+
 /**
  * staking contract for ERC20 tokens or ETH
  */
@@ -40,7 +44,7 @@ contract Distribute is Ownable, ReentrancyGuard {
     mapping(address => uint256) private _bond_value_addr;
     mapping(address => uint256) private _stakes;
     mapping(address => uint256) private pending_rewards;
-    uint256 immutable staking_decimals;
+    uint256 immutable public staking_decimals;
 
     /// @dev token to distribute
     IERC20 immutable public reward_token;
@@ -74,7 +78,7 @@ contract Distribute is Ownable, ReentrancyGuard {
      * @return decimals The number of decimals the token uses, or 0 if the call failed.
      */
     function tryGetDecimals(address tokenAddress) public view returns (bool success, uint8 decimals) {
-        bytes memory payload = abi.encodeWithSignature("decimals()");
+        bytes memory payload = abi.encodeWithSelector(IERC20Decimals.decimals.selector);
         // Low-level call to the token contract
         bytes memory returnData;
         (success, returnData) = tokenAddress.staticcall(payload);
@@ -84,8 +88,8 @@ contract Distribute is Ownable, ReentrancyGuard {
             // Decode the return data
             decimals = abi.decode(returnData, (uint8));
         } else {
-            // Default to 0 decimals if call failed or returned unexpected data
-            return (false, 0);
+            // Default to 18 decimals if call failed or returned unexpected data
+            return (false, 18);
         }
     }
 
@@ -150,8 +154,30 @@ contract Distribute is Ownable, ReentrancyGuard {
         @param amount Amount to remove from the stake
     */
     function withdrawFrom(address payable account, uint256 amount) external onlyOwner {
-        unstakeFrom(account, amount);
-        stakeFor(account, amount);
+        require(account != address(0), "Distribute: Invalid account");
+        require(amount > 0, "Distribute: Amount must be greater than zero");
+
+        // Calculate the reward based on the current stake
+        uint256 stake = _stakes[account];
+        require(stake >= amount, "Distribute: Insufficient staked amount");
+        uint256 total_accumulated_reward = _getReward(account, stake);
+        // the part of rewards corresponding to the amount to withdraw
+        uint256 accumulated_reward_stakes = _getReward(account, amount);
+        require(accumulated_reward_stakes > 0, "Distribute: No rewards to withdraw");
+
+        // Reset pending rewards to remove the ones we are about to distribute
+        // pending_rewards always needs to be updated before we reset the bond value for the account
+        pending_rewards[account] = total_accumulated_reward.sub(accumulated_reward_stakes);
+
+        // Update bond value for the account
+        _bond_value_addr[account] = bond_value;
+
+        // Transfer the reward to the account
+        if (address(reward_token) != address(0)) {
+            reward_token.safeTransfer(account, accumulated_reward_stakes);
+        } else {
+            Address.sendValue(account, accumulated_reward_stakes);
+        }
     }
 
     /**
@@ -166,6 +192,7 @@ contract Distribute is Ownable, ReentrancyGuard {
             reward_token.safeTransferFrom(from, address(this), amount);
             require(msg.value == 0, "Distribute: Illegal distribution");
         } else {
+            if(msg.value == 0) return;
             amount = msg.value;
         }
         // bond precision is always based on 1 unit of staked token

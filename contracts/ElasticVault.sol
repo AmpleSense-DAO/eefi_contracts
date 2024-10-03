@@ -7,7 +7,6 @@ import './Distribute.sol';
 import './DepositsLinkedList.sol';
 import './interfaces/IStakingDoubleERC20.sol';
 import './AMPLRebaser.sol';
-import './Wrapper.sol';
 import './interfaces/ITrader.sol';
 
 import '@balancer-labs/v2-solidity-utils/contracts/math/Math.sol';
@@ -26,7 +25,7 @@ contract TokenStorage is Ownable {
     }
 }
 
-contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
+contract ElasticVault is AMPLRebaser, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
     using DepositsLinkedList for DepositsLinkedList.List;
@@ -34,7 +33,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     TokenStorage public token_storage;
     IStakingDoubleERC20 public staking_pool;
     ITrader public trader;
-    ITrader pending_trader;
+    ITrader public pending_trader;
     address public authorized_trader;
     address public pending_authorized_trader;
     IERC20 public eefi_token;
@@ -42,11 +41,12 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     Distribute immutable public rewards_ohm;
     address payable public treasury;
     uint256 public last_positive = block.timestamp;
-    uint256 public rebase_caller_reward = 0; // The amount of EEFI to be minted to the rebase caller as a reward
+    uint256 public rebase_caller_reward; // The amount of EEFI to be minted to the rebase caller as a reward
     IERC20 public constant ohm_token = IERC20(0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5);
     uint256 public trader_change_request_time;
     uint256 public authorized_trader_change_request_time;
-    bool emergencyWithdrawalEnabled;
+    bool public emergencyWithdrawalEnabled;
+    bool public depositsDisabled = true;
     
     /* 
 
@@ -86,6 +86,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     uint256 constant public MINTING_DECAY = 20 days;
     uint256 constant public MAX_REBASE_REWARD = 2 ether; // 2 EEFI is the maximum reward for a rebase caller
     uint256 constant public CHANGE_COOLDOWN = 1 days;
+    uint256 constant public PERCENT_DIVIDER = 100;
 
     /* 
     Event Definitions:
@@ -113,20 +114,20 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     event TraderChanged(address trader);
     event AuthorizedTraderChanged(address trader);
     event EmergencyWithdrawal(bool enabled);
+    event DepositsDisabled(bool disabled);
 
     mapping(address => DepositsLinkedList.List) private _deposits;
     
 // Contract can mint new EEFI, and distribute OHM and EEFI rewards     
-    constructor(IERC20 _eefi_token, IERC20 ampl_token)
-    AMPLRebaser(ampl_token)
-    Wrapper(ampl_token)
+    constructor(IERC20 _eefi_token, IERC20 _ampl_token)
+    AMPLRebaser(_ampl_token)
     Ownable() {
         require(address(_eefi_token) != address(0), "ElasticVault: Invalid eefi token");
-        require(address(ampl_token) != address(0), "ElasticVault: Invalid ampl token");
+        require(address(_ampl_token) != address(0), "ElasticVault: Invalid ampl token");
         eefi_token = _eefi_token;
-        // we're staking wampl which is 12 digits, reward eefi is 18 digits
-        rewards_eefi = new Distribute(12, 18, IERC20(eefi_token));
-        rewards_ohm = new Distribute(12, 9, IERC20(ohm_token));
+        // we're staking shares which are 9 digits, reward eefi is 18 digits
+        rewards_eefi = new Distribute(9, 18, IERC20(eefi_token));
+        rewards_ohm = new Distribute(9, 9, IERC20(ohm_token));
         token_storage = new TokenStorage();
     }
 
@@ -136,10 +137,11 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
      */
 
     function totalStakedFor(address account) public view returns (uint256 total) {
+        DepositsLinkedList.List storage deposits = _deposits[account];
         // if deposits are not initialized for this account then we have no deposits to sum
-        if(_deposits[account].nodeIdCounter == 0) return 0;
+        if(deposits.nodeIdCounter == 0) return 0;
         // use 0 as lock duration to sum all deposit amounts
-        return _deposits[account].sumExpiredDeposits(0);
+        return deposits.sumExpiredDeposits(0);
     }
 
     /**
@@ -166,8 +168,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @param account Account to check the first deposit of
     */
     function firstDeposit(address account) public view returns (uint256 ampl, uint256 timestamp) {
-        if(_deposits[account].nodeIdCounter == 0) return (0, 0);
-        DepositsLinkedList.Deposit memory deposit = _deposits[account].getDepositById(_deposits[account].head);
+        DepositsLinkedList.List storage deposits = _deposits[account];
+        if(deposits.nodeIdCounter == 0) return (0, 0);
+        DepositsLinkedList.Deposit memory deposit = deposits.getDepositById(deposits.head);
         ampl = _convertToAMPL(deposit.amount);
         timestamp = deposit.timestamp;
     }
@@ -179,7 +182,7 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @param _trader Address of the initial trader contract
     */
     function initialize(IStakingDoubleERC20 _staking_pool, address payable _treasury, address _trader) external
-    onlyOwner() 
+    onlyOwner
     {
         require(address(_staking_pool) != address(0), "ElasticVault: invalid staking pool");
         require(_treasury != address(0), "ElasticVault: invalid treasury");
@@ -197,31 +200,40 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         Additionally, the trader change request is subject to a 1 day cooldown
         @param _trader Address of the trader contract
     */
-    function setTraderRequest(ITrader _trader) external onlyOwner() {
+    function setTraderRequest(ITrader _trader) external onlyOwner {
         require(address(_trader) != address(0), "ElasticVault: invalid trader");
         pending_trader = _trader;
         trader_change_request_time = block.timestamp;
-        emit TraderChangeRequest(address(trader), address(pending_trader));
+        emit TraderChangeRequest(address(trader), address(_trader));
     }
 
     /**
         @dev Contract owner can set the trader contract after the cooldown period
     */
-    function setTrader() external onlyOwner() {
+    function setTrader() external onlyOwner {
         require(address(pending_trader) != address(0), "ElasticVault: invalid trader");
         require(block.timestamp > trader_change_request_time + CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
         trader = pending_trader;
+        emit TraderChanged(address(pending_trader));
         pending_trader = ITrader(address(0));
-        emit TraderChanged(address(trader));
     }
 
     /**
         Contract owner can enable or disable emergency withdrawal allowing users to withdraw their deposits before the end of lock time
         @param _emergencyWithdrawalEnabled Boolean to enable or disable emergency withdrawal
     */
-    function setEmergencyWithdrawal(bool _emergencyWithdrawalEnabled) external onlyOwner() {
+    function setEmergencyWithdrawal(bool _emergencyWithdrawalEnabled) external onlyOwner {
         emergencyWithdrawalEnabled = _emergencyWithdrawalEnabled;
-        emit EmergencyWithdrawal(emergencyWithdrawalEnabled);
+        emit EmergencyWithdrawal(_emergencyWithdrawalEnabled);
+    }
+
+    /**
+        Contract owner can enable or disable vault deposits
+        @param _depositsDisabled Boolean to enable or disable deposits
+    */
+    function setDepositStatus(bool _depositsDisabled) external onlyOwner {
+        depositsDisabled = _depositsDisabled;
+        emit DepositsDisabled(_depositsDisabled);
     }
 
     /**
@@ -229,36 +241,49 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         The change request is subject to a 1 day cooldown
         @param _authorized_trader Address of the authorized trader
     */
-    function setAuthorizedTraderRequest(address _authorized_trader) external onlyOwner() {
+    function setAuthorizedTraderRequest(address _authorized_trader) external onlyOwner {
         require(address(_authorized_trader) != address(0), "ElasticVault: invalid authorized trader");
         pending_authorized_trader = _authorized_trader;
         authorized_trader_change_request_time = block.timestamp;
-        emit AuthorizedTraderChangeRequest(authorized_trader, pending_authorized_trader);
+        emit AuthorizedTraderChangeRequest(authorized_trader, _authorized_trader);
     }
 
     /**
         @dev Contract owner can set the authorized trader after the cooldown period
     */
-    function setAuthorizedTrader() external onlyOwner() {
+    function setAuthorizedTrader() external onlyOwner {
         require(address(pending_authorized_trader) != address(0), "ElasticVault: invalid trader");
         require(block.timestamp > authorized_trader_change_request_time + CHANGE_COOLDOWN, "ElasticVault: Trader change cooldown");
         authorized_trader = pending_authorized_trader;
+        emit AuthorizedTraderChanged(pending_authorized_trader);
         pending_authorized_trader = address(0);
-        emit AuthorizedTraderChanged(authorized_trader);
     }
 
     /**
         @dev Deposits AMPL into the contract
         @param amount Amount of AMPL to take from the user
     */
-    function makeDeposit(uint256 amount) _rebaseSynced() nonReentrant() external {
-        ampl_token.safeTransferFrom(msg.sender, address(this), amount);
-        uint208 waampl = _ampleTowaample(amount);
-        // first deposit needs to initialize the linked list
-        if(_deposits[msg.sender].nodeIdCounter == 0) {
-            _deposits[msg.sender].initialize();
+    function makeDeposit(uint256 amount) rebaseSynced nonReentrant external {
+        if (msg.sender != treasury) {
+            require(!depositsDisabled, "ElasticVault: Vault deposits disabled");
         }
-        _deposits[msg.sender].insertEnd(DepositsLinkedList.Deposit({amount: waampl, timestamp:uint48(block.timestamp)}));
+        uint256 current_balance = ampl_token.balanceOf(address(this));
+        ampl_token.safeTransferFrom(msg.sender, address(this), amount);
+
+        uint208 shares;
+        
+        if(totalStaked() == 0) {
+            shares = uint208(amount);
+        } else {
+            shares = uint208(amount.mul(totalStaked()).divDown(current_balance));
+        }
+
+        DepositsLinkedList.List storage deposits = _deposits[msg.sender];
+        // first deposit needs to initialize the linked list
+        if(deposits.nodeIdCounter == 0) {
+            deposits.initialize();
+        }
+        deposits.insertEnd(DepositsLinkedList.Deposit({amount: shares, timestamp:uint48(block.timestamp)}));
 
         uint256 to_mint = amount.mul(10**9).divDown(EEFI_DEPOSIT_RATE);
         uint256 deposit_fee = to_mint.mul(DEPOSIT_FEE_10000).divDown(10000);
@@ -269,9 +294,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         }
         
         // stake the shares also in the rewards pool
-        rewards_eefi.stakeFor(msg.sender, waampl);
-        rewards_ohm.stakeFor(msg.sender, waampl);
-        emit Deposit(msg.sender, amount, _deposits[msg.sender].length);
+        rewards_eefi.stakeFor(msg.sender, shares);
+        rewards_ohm.stakeFor(msg.sender, shares);
+        emit Deposit(msg.sender, amount, deposits.length);
         emit StakeChanged(rewards_ohm.totalStaked(), block.timestamp);
     }
 
@@ -280,26 +305,27 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         @param amount Amount of shares to withdraw
         !!! This isn't the amount of AMPL the user will get as we are using wrapped ampl to represent shares
     */
-    function withdraw(uint256 amount) _rebaseSynced() nonReentrant() public returns (uint256 ampl_to_withdraw) {
+    function withdraw(uint256 amount) rebaseSynced nonReentrant public returns (uint256 ampl_to_withdraw) {
         uint256 total_staked_user = rewards_eefi.totalStakedFor(msg.sender);
         require(amount <= total_staked_user, "ElasticVault: Not enough balance");
         uint256 to_withdraw = amount;
         // make sure the assets aren't time locked - all AMPL deposits into are locked for 90 days and withdrawal request will fail if timestamp of deposit < 90 days
         while(to_withdraw > 0) {
+            DepositsLinkedList.List storage deposits = _deposits[msg.sender];
             // either liquidate the deposit, or reduce it
-            if(_deposits[msg.sender].length > 0) {
-                DepositsLinkedList.Deposit memory deposit = _deposits[msg.sender].getDepositById(_deposits[msg.sender].head);
+            if(deposits.length > 0) {
+                DepositsLinkedList.Deposit memory deposit = deposits.getDepositById(deposits.head);
                 // if emergency withdrawal is enabled, allow the user to withdraw all of their deposits
                 if(!emergencyWithdrawalEnabled) {
                     // if the first deposit is not unlocked return an error
                     require(deposit.timestamp < block.timestamp.sub(LOCK_TIME), "ElasticVault: No unlocked deposits found");
                 }
                 if(deposit.amount > to_withdraw) {
-                    _deposits[msg.sender].modifyDepositAmount(_deposits[msg.sender].head, uint256(deposit.amount).sub(to_withdraw));
+                    deposits.modifyDepositAmount(deposits.head, uint256(deposit.amount).sub(to_withdraw));
                     to_withdraw = 0;
                 } else {
                     to_withdraw = to_withdraw.sub(deposit.amount);
-                    _deposits[msg.sender].popHead();
+                    deposits.popHead();
                 }
             }
             
@@ -329,14 +355,14 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
     * @param new_rebase_reward New rebase reward
     !!!!!!!! This function is only callable by the owner
     */
-    function setRebaseReward(uint256 new_rebase_reward) external onlyOwner() {
+    function setRebaseReward(uint256 new_rebase_reward) external onlyOwner {
         require(new_rebase_reward <= MAX_REBASE_REWARD, "ElasticVault: invalid rebase reward"); //Max Rebase reward can't go above maximum 
         rebase_caller_reward = new_rebase_reward;
         emit RebaseRewardChanged(new_rebase_reward);
     }
 
     //Functions called depending on AMPL rebase status
-    function _rebase(uint256 new_supply) internal override nonReentrant() {
+    function _rebase(uint256 new_supply) internal override nonReentrant {
         uint256 new_balance = ampl_token.balanceOf(address(this));
 
         if(new_supply > last_ampl_supply) {
@@ -346,9 +372,9 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
 
             uint256 changeRatio18Digits = last_ampl_supply.mul(10**18).divDown(new_supply);
             uint256 surplus = new_balance.sub(new_balance.mul(changeRatio18Digits).divDown(10**18));
-
-            // transfer surplus to sell pool
-            ampl_token.safeTransfer(address(token_storage), surplus);
+            // send 70% of the surplus to the token_storage
+            uint256 to_sell = surplus.mul(TRADE_POSITIVE_EEFI_100 + TRADE_POSITIVE_OHM_100 + TRADE_POSITIVE_TREASURY_100).divDown(PERCENT_DIVIDER);
+            ampl_token.safeTransfer(address(token_storage), to_sell);
         } else {
             // If AMPL supply is negative (lower) or equal (at eqilibrium/neutral), distribute EEFI rewards as follows; only if the minting_decay condition is not triggered
             if(last_positive + MINTING_DECAY > block.timestamp) { //if 45 days without positive rebase do not mint
@@ -362,8 +388,8 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
                 */
 
 
-                uint256 to_rewards = to_mint.mul(TRADE_NEUTRAL_NEG_EEFI_REWARDS_100).divDown(100);
-                uint256 to_lp_staking = to_mint.mul(TRADE_NEUTRAL_NEG_LPSTAKING_100).divDown(100);
+                uint256 to_rewards = to_mint.mul(TRADE_NEUTRAL_NEG_EEFI_REWARDS_100).divDown(PERCENT_DIVIDER);
+                uint256 to_lp_staking = to_mint.mul(TRADE_NEUTRAL_NEG_LPSTAKING_100).divDown(PERCENT_DIVIDER);
 
                 eefi_token.approve(address(rewards_eefi), to_rewards);
                 eefi_token.safeTransfer(address(staking_pool), to_lp_staking); 
@@ -383,12 +409,13 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
      * @param minimalExpectedOHM Minimal amount of OHM to be received from the trade
      !!!!!!!! This function is only callable by the authorized trader
     */
-    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader() returns (uint256 eefi_purchased, uint256 ohm_purchased) {
+    function sell(uint256 minimalExpectedEEFI, uint256 minimalExpectedOHM) external nonReentrant() _onlyTrader returns (uint256 eefi_purchased, uint256 ohm_purchased) {
         uint256 balance = ampl_token.balanceOf(address(token_storage));
-        uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(100);
-        uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(100);
-        uint256 for_treasury = balance.mul(TRADE_POSITIVE_TREASURY_100).divDown(100);
+        uint256 for_eefi = balance.mul(TRADE_POSITIVE_EEFI_100).divDown(PERCENT_DIVIDER);
+        uint256 for_ohm = balance.mul(TRADE_POSITIVE_OHM_100).divDown(PERCENT_DIVIDER);
+        uint256 for_treasury = balance.mul(TRADE_POSITIVE_TREASURY_100).divDown(PERCENT_DIVIDER);
 
+        uint256 ampl_balance = ampl_token.balanceOf(address(this));
         token_storage.claim(address(ampl_token));
 
         ampl_token.approve(address(trader), for_eefi.add(for_ohm));
@@ -398,15 +425,15 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         ohm_purchased = trader.sellAMPLForOHM(for_ohm, minimalExpectedOHM);
 
         // 10% of purchased EEFI is sent to the DAO Treasury.
-        IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(100));
+        IERC20(address(eefi_token)).safeTransfer(treasury, eefi_purchased.mul(TREASURY_EEFI_100).divDown(PERCENT_DIVIDER));
         // burn the rest
         uint256 to_burn = eefi_token.balanceOf(address(this));
         emit Burn(to_burn);
         IEEFIToken(address(eefi_token)).burn(to_burn);
         
         // distribute ohm to vaults
-        uint256 to_rewards = ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).divDown(100);
-        uint256 to_lp_staking = ohm_purchased.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(100);
+        uint256 to_rewards = ohm_purchased.mul(TRADE_POSITIVE_OHM_REWARDS_100).divDown(PERCENT_DIVIDER);
+        uint256 to_lp_staking = ohm_purchased.mul(TRADE_POSITIVE_LPSTAKING_100).divDown(PERCENT_DIVIDER);
         ohm_token.approve(address(rewards_ohm), to_rewards);
         rewards_ohm.distribute(to_rewards, address(this));
         ohm_token.safeTransfer(address(staking_pool), to_lp_staking);
@@ -416,12 +443,18 @@ contract ElasticVault is AMPLRebaser, Wrapper, Ownable, ReentrancyGuard {
         ohm_token.safeTransfer(treasury, ohm_token.balanceOf(address(this)));
         // distribute the remainder of AMPL to the DAO treasury
         ampl_token.safeTransfer(treasury, for_treasury);
+
+        // send AMPL dust back to the token_storage so shares accounting remains correct to the dot
+        uint256 ampl_dust = ampl_token.balanceOf(address(this)).sub(ampl_balance);
+        if(ampl_dust > 0) {
+            ampl_token.safeTransfer(address(token_storage), ampl_dust);
+        }
     }
 
     /**
      * Claims OHM and EEFI rewards for the user
     */
-    function claim() external nonReentrant() { 
+    function claim() external nonReentrant { 
         (uint256 ohm, uint256 eefi) = getReward(msg.sender);
         rewards_ohm.withdrawFrom(msg.sender, rewards_ohm.totalStakedFor(msg.sender));
         rewards_eefi.withdrawFrom(msg.sender, rewards_eefi.totalStakedFor(msg.sender));
